@@ -1,6 +1,6 @@
 {
   "name": "@forge-workspace/forge",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "A local workspace for continuous work across agent harnesses.",
   "private": true,
   "type": "module",
@@ -24,11 +24,13 @@
     "test:native:claude": "tsx tests/native/claude-conformance.ts",
     "test:native:handoff": "tsx tests/native/handoff-conformance.ts",
     "test:native:inventory": "tsx tests/native/inventory-conformance.ts --existing",
-    "test:native": "npm run test:native:codex && npm run test:native:claude && npm run test:native:handoff"
+    "test:native": "npm run test:native:codex && npm run test:native:claude && npm run test:native:opencode && npm run test:native:handoff",
+    "test:native:opencode": "tsx tests/native/opencode-conformance.ts"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.301",
     "@fastify/static": "^10.1.6",
+    "@opencode/client": "2.0.6",
     "fastify": "^5.6.0",
     "lucide-react": "^0.577.0",
     "markdown-it": "15.0.3",

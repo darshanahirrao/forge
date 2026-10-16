@@ -1,3 +1,4 @@
+import { version } from '../shared/version';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   type WorkspaceMode,
@@ -243,7 +244,7 @@ export function App() {
           <div className="local-indicator">
             <span className="status-dot" />
             <span>Local workspace</span>
-            <span className="mono">v{snapshot?.version ?? '0.5.0'}</span>
+            <span className="mono">v{snapshot?.version ?? version}</span>
           </div>
         </div>
       </aside>

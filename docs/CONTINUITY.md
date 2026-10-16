@@ -42,3 +42,7 @@ Private state version 2 prevents an older app from bypassing the new continuity 
 To inspect a rollback copy, stop Forge, preserve the current state separately, and copy the chosen snapshot into a separate data directory as `workspace.sqlite`. Use an appropriate older code checkpoint against that separate copy. Do not combine old snapshots with current SQLite sidecars or overwrite newer work without retaining it.
 
 HTTP clients must send `expectedRevision` when launching. New endpoints are `POST /api/work/:id/capsules`, `GET /api/work/:id/capsules/:capsuleId`, and `POST /api/work/:id/handoff`. Source contracts are in `shared/types.ts`; coordination and fingerprinting are in `server/continuity.ts` and `server/execution.ts`.
+
+## Three native harnesses at forge-v0.6.0
+
+The supported target list now includes eligible OpenCode v2 native/API profile roots. Subscription-required or missing-root OpenCode slots are excluded. The actual native chain is Codex, Claude API one, Claude API two, then OpenCode: four runs, five exact approvals, four verified files and four retained usage scopes around one work/profile and selected native memory. OpenCode reads the final Claude artifact through its native tool. A separate two-OpenCode-profile check proves selected synthetic credential routing and artifact continuity. This extends the existing capsule contract; full native histories, hidden state and provider eligibility are not made universally portable. See [OpenCode](OPENCODE.md).

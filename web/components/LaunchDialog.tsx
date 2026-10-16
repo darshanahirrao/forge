@@ -45,7 +45,11 @@ export function LaunchDialog({
   }, [work.id, work.revision]);
   const needsReview = ['failed', 'interrupted'].includes(work.status);
   const claude = work.harness === 'claude';
-  const compatible = !claude || account?.billingMode === 'api';
+  const opencode = work.harness === 'opencode';
+  const requiresMetered = claude || opencode;
+  const compatible =
+    (!claude || account?.billingMode === 'api') &&
+    (!opencode || (Boolean(account?.nativeHome) && account?.billingMode !== 'subscription'));
   async function start(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -75,7 +79,12 @@ export function LaunchDialog({
           <HarnessMark harness={work.harness} />
           <div>
             <strong>{account?.label}</strong>
-            <p>{account?.identity ?? 'Native identity will be checked before the turn starts.'}</p>
+            <p>
+              {account?.identity ??
+                (opencode
+                  ? 'Native profile and model are checked before input. Provider identity and quotas remain unknown.'
+                  : 'Native identity will be checked before the turn starts.')}
+            </p>
           </div>
         </div>
         <p>
@@ -149,7 +158,7 @@ export function LaunchDialog({
             type="checkbox"
             checked={metered}
             onChange={(e) => setMetered(e.target.checked)}
-            required={claude}
+            required={requiresMetered}
           />
           <span>
             Allow metered API, external-provider billing, or additional credits for this launch.
@@ -173,11 +182,15 @@ export function LaunchDialog({
         <div className="notice">
           <ShieldCheck size={18} />
           <p>
-            {claude
+            {opencode
               ? compatible
-                ? 'This route uses API authentication and native manual permission mode. Existing native rules can allow tools without a prompt. API credentials stay in the referenced environment variable.'
-                : 'Managed Claude turns require an API slot. Native claude.ai subscription sessions continue through their native client under Anthropic’s integration rules.'
-              : 'Forge requests the native untrusted approval policy and workspace-write sandbox. Launch stops if the server does not confirm these settings.'}
+                ? 'OpenCode v2 owns tools and native permissions. Session allow rules request review while native denials stay in order. These permissions use your host authority. Provider billing and saved native grants remain native.'
+                : 'Choose an explicit OpenCode profile root and native or API billing. Forge cannot verify or require subscription allowance for this route.'
+              : claude
+                ? compatible
+                  ? 'This route uses API authentication and native manual permission mode. Existing native rules can allow tools without a prompt. API credentials stay in the referenced environment variable.'
+                  : 'Managed Claude turns require an API slot. Native claude.ai subscription sessions continue through their native client under Anthropic’s integration rules.'
+                : 'Forge requests the native untrusted approval policy and workspace-write sandbox. Launch stops if the server does not confirm these settings.'}
           </p>
         </div>
         <FormError error={error} />
@@ -193,7 +206,7 @@ export function LaunchDialog({
               !review ||
               reading ||
               (review.requiresReview && !confirmed) ||
-              (claude && !metered) ||
+              (requiresMetered && !metered) ||
               (needsReview && !reconciled)
             }
           >

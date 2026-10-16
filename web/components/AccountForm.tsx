@@ -33,7 +33,9 @@ export function AccountForm({
         billingMode,
         ...(harness === 'claude' && billingMode === 'api'
           ? { credentialEnv: String(form.get('credentialEnv') || 'ANTHROPIC_API_KEY').trim() }
-          : {}),
+          : harness === 'opencode' && String(form.get('credentialEnv') || '').trim()
+            ? { credentialEnv: String(form.get('credentialEnv')).trim() }
+            : {}),
       });
       onSaved();
     } catch (error) {
@@ -84,34 +86,47 @@ export function AccountForm({
             Metered or external-provider access requires an explicit choice before launch.
           </small>
         </label>
-        {harness === 'claude' && billingMode === 'api' && (
+        {((harness === 'claude' && billingMode === 'api') || harness === 'opencode') && (
           <label>
-            API credential environment variable
+            {harness === 'opencode'
+              ? 'Native credential environment variable'
+              : 'API credential environment variable'}
             <input
               name="credentialEnv"
-              placeholder="ANTHROPIC_API_KEY"
+              placeholder={
+                harness === 'opencode' ? 'Optional native credential variable' : 'ANTHROPIC_API_KEY'
+              }
               pattern="[A-Za-z_][A-Za-z0-9_]*"
               maxLength={128}
             />
             <small>
-              Enter a variable name, such as CLAUDE_STUDIO_KEY. Set its value outside Forge before
-              starting the service. Never paste a key here.
+              {harness === 'opencode'
+                ? 'Optional when the native profile stores its own credentials. Set a selected provider variable outside Forge; other ambient provider keys are excluded. Enter only its name.'
+                : 'Enter a variable name, such as CLAUDE_STUDIO_KEY. Set its value outside Forge before starting the service. Never paste a key here.'}
             </small>
           </label>
         )}
         <label>
-          Native configuration directory <span className="optional">Optional</span>
+          {harness === 'opencode' ? 'Native profile root' : 'Native configuration directory'}{' '}
+          {harness !== 'opencode' && <span className="optional">Optional</span>}
           <input
             name="nativeHome"
-            placeholder="Leave empty for the native default"
+            placeholder={
+              harness === 'opencode'
+                ? '/path/to/your/opencode-profile'
+                : 'Leave empty for the native default'
+            }
             disabled={mode === 'demo'}
+            required={harness === 'opencode' && mode !== 'demo'}
           />
           <small>
             {harness === 'codex'
               ? 'References CODEX_HOME. The chosen credential backend must support separate native identities.'
               : harness === 'claude'
                 ? 'References CLAUDE_CONFIG_DIR. Keyless Console sign-ins have different isolation rules.'
-                : 'Managed authentication for this adapter is planned. This slot can be used in work records.'}
+                : harness === 'opencode'
+                  ? 'A native profile root containing config, data, state and cache directories. Configure OpenCode with these XDG homes and select a default model first. Forge never copies another profile’s credentials.'
+                  : 'Managed authentication for this adapter is planned. This slot can be used in work records.'}
           </small>
         </label>
         <div className="notice">

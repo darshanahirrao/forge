@@ -58,9 +58,15 @@ const definitions: Omit<Connection, 'installed'>[] = [
     id: 'opencode',
     name: 'OpenCode',
     kind: 'harness',
-    capabilities: ['Account slots', 'Portable work records'],
-    description: 'Track native account bindings and work. Server control is a planned adapter.',
-    documentation: 'https://opencode.ai/docs/server/',
+    capabilities: [
+      'Native v2 profile',
+      'Managed turns',
+      'Native permission queue',
+      'Token and cost estimates',
+    ],
+    description:
+      'Owned native v2 server and official client. Explicit profile roots keep native state separate. Provider allowance is not verified.',
+    documentation: 'https://opencode.ai/v2/docs/build/client/',
   },
   {
     id: 'openclaw',

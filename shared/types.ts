@@ -199,11 +199,13 @@ export interface Usage {
   workId: string | null;
   accountId: string | null;
   harness: Harness;
-  source: 'codex/app-server' | 'claude/agent-sdk' | 'ccusage' | 'example';
+  source: 'codex/app-server' | 'claude/agent-sdk' | 'opencode/v2' | 'ccusage' | 'example';
   scope: string;
   inputTokens: number;
   outputTokens: number;
   cachedTokens: number;
+  reasoningTokens?: number;
+  cacheWriteTokens?: number;
   totalTokens: number;
   estimatedUsd: number | null;
   observedAt: string;

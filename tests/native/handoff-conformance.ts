@@ -1,11 +1,13 @@
 // Actual native tools across one work identity and two credential contexts; inference remains synthetic.
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { createApp } from '../../server/app.js';
 import { CodexDriver } from '../../server/adapters/codex-driver.js';
+import { OpenCodeDriver } from '../../server/adapters/opencode-driver.js';
+import { openCodeWorker } from '../../server/adapters/opencode-worker.js';
 import { ClaudeDriver } from '../../server/adapters/claude-driver.js';
 import { NativeRpc } from '../../server/adapters/rpc.js';
 import type {
@@ -23,13 +25,15 @@ import type {
 import { fixtureProvider } from './provider.js';
 
 const directory = await mkdtemp(join(tmpdir(), 'forge-native-handoff-'));
-const project = join(directory, 'project');
+let project = join(directory, 'project');
 const homes = [
   join(directory, 'codex'),
   join(directory, 'claude-one'),
   join(directory, 'claude-two'),
+  join(directory, 'opencode'),
 ];
 await mkdir(project);
+project = await realpath(project);
 for (const home of homes) await mkdir(home);
 const sourceProof = 'Forge native handoff source.\n';
 const continuation = 'Verified native Claude continuation.\n';
@@ -61,10 +65,10 @@ const sourceProvider = await fixtureProvider('responses', (body) => {
   }
   return { text: 'The native source artifact was produced.' };
 });
-const expectedFragments: string[][] = [[], []];
-const observedContext = [false, false];
-const observedRead = [false, false];
-const stages = [0, 0];
+const expectedFragments: string[][] = [[], [], []];
+const observedContext = [false, false, false];
+const observedRead = [false, false, false];
+const stages = [0, 0, 0];
 function nextProgram(index: number) {
   const sourceName = index === 0 ? 'proof.txt' : 'continuation.txt';
   const destinationName = index === 0 ? 'continuation.txt' : 'final.txt';
@@ -117,14 +121,73 @@ const destinations = [
   await fixtureProvider('messages', nextProgram(0), 'synthetic-profile-one'),
   await fixtureProvider('messages', nextProgram(1), 'synthetic-profile-two'),
 ];
+const openCodeProof = 'Verified native OpenCode continuation.\n';
+const openCodeProvider = await fixtureProvider(
+  'chat',
+  (body) => {
+    const history = JSON.stringify(body.messages);
+    if (stages[2] === 0) {
+      assert(body.model === 'proof');
+      assert(history.includes(memoryFact) && !history.includes(excludedMemory));
+      assert(expectedFragments[2].every((fragment) => history.includes(fragment)));
+      observedContext[2] = true;
+      stages[2]++;
+      return {
+        tool: 'read',
+        id: 'handoff-opencode-read',
+        input: { path: join(project, 'final.txt') },
+      };
+    }
+    if (stages[2] === 1) {
+      assert(history.includes('handoff-opencode-read') && history.includes(finalProof.trim()));
+      observedRead[2] = true;
+      stages[2]++;
+      return {
+        tool: 'write',
+        id: 'handoff-opencode-write',
+        input: { path: join(project, 'opencode.txt'), content: openCodeProof },
+      };
+    }
+    return { text: 'The native OpenCode continuation was verified.' };
+  },
+  'synthetic-profile-three',
+);
+await mkdir(join(homes[3], 'config', 'opencode'), { recursive: true });
+await writeFile(
+  join(homes[3], 'config', 'opencode', 'opencode.json'),
+  JSON.stringify({
+    model: 'forge/proof',
+    share: 'disabled',
+    update: 'disable',
+    snapshots: false,
+    providers: {
+      forge: {
+        env: ['FORGE_HANDOFF_OPENCODE_KEY'],
+        package: '@opencode/ai/providers/openai-compatible',
+        settings: { baseURL: `${openCodeProvider.endpoint}/v1`, timeout: 10000 },
+        models: {
+          proof: {
+            limit: { context: 32768, output: 2048 },
+            capabilities: { tools: true, input: ['text'], output: ['text'] },
+          },
+        },
+      },
+    },
+  }),
+);
 await writeFile(
   join(homes[0], 'config.toml'),
   `model = "forge-conformance"\nmodel_provider = "fixture"\ncli_auth_credentials_store = "file"\n[model_providers.fixture]\nname = "Local fixture"\nbase_url = "${sourceProvider.endpoint}/v1"\nwire_api = "responses"\nrequires_openai_auth = false\n`,
 );
-const refs = ['FORGE_HANDOFF_PROFILE_ONE', 'FORGE_HANDOFF_PROFILE_TWO'];
+const refs = [
+  'FORGE_HANDOFF_PROFILE_ONE',
+  'FORGE_HANDOFF_PROFILE_TWO',
+  'FORGE_HANDOFF_OPENCODE_KEY',
+];
 const saved = refs.map((ref) => process.env[ref]);
 process.env[refs[0]] = 'synthetic-profile-one';
 process.env[refs[1]] = 'synthetic-profile-two';
+process.env[refs[2]] = 'synthetic-profile-three';
 const profileIds: string[] = [];
 const state = await createApp({
   filename: ':memory:',
@@ -144,6 +207,10 @@ const state = await createApp({
               LANG: 'en_US.UTF-8',
             },
           }),
+      );
+    if (context.work.harness === 'opencode')
+      return new OpenCodeDriver((account, cwd) =>
+        openCodeWorker(account, cwd, process.env.FORGE_OPENCODE_CONFORMANCE_BINARY),
       );
     const index = profileIds.indexOf(context.account.id);
     assert(index >= 0);
@@ -205,6 +272,8 @@ async function runNative(workId: string) {
           'item/commandExecution/requestApproval',
           'claude/canUseTool/Read',
           'claude/canUseTool/Write',
+          'opencode/permission/read',
+          'opencode/permission/edit',
         ].includes(approval.method),
       );
       await post(`/approvals/${approval.id}/decision`, {
@@ -259,6 +328,17 @@ try {
         })
       ).id,
     );
+  profileIds.push(
+    (
+      await post<Account>('/accounts', {
+        label: 'Native OpenCode target',
+        harness: 'opencode',
+        nativeHome: homes[3],
+        billingMode: 'api',
+        credentialEnv: refs[2],
+      })
+    ).id,
+  );
   const work = await post<Work>('/work', {
     title: 'One native work identity',
     project: 'Synthetic',
@@ -275,10 +355,15 @@ try {
   const originalSession = state.local.work(work.id).nativeSessionId;
   await post(`/work/${work.id}/checkpoint`, { note: checkpointNote });
   let parent: string | null = null;
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 3; i++) {
     const prepared = await post<{ capsule: WorkCapsule; work: Work }>(`/work/${work.id}/capsules`, {
       expectedRevision: state.local.work(work.id).revision,
-      paths: i === 0 ? ['proof.txt'] : ['proof.txt', 'continuation.txt'],
+      paths:
+        i === 0
+          ? ['proof.txt']
+          : i === 1
+            ? ['proof.txt', 'continuation.txt']
+            : ['proof.txt', 'continuation.txt', 'final.txt'],
     });
     assert.equal(prepared.capsule.parentCapsuleId, parent);
     assert.equal(prepared.capsule.contextReceipt?.profileId, persistentProfile.id);
@@ -307,12 +392,14 @@ try {
   assert.equal(await readFile(join(project, 'proof.txt'), 'utf8'), sourceProof);
   assert.equal(await readFile(join(project, 'continuation.txt'), 'utf8'), continuation);
   assert.equal(await readFile(join(project, 'final.txt'), 'utf8'), finalProof);
+  assert.equal(await readFile(join(project, 'opencode.txt'), 'utf8'), openCodeProof);
+  assert.equal(openCodeProvider.failure(), null);
   const usage = state.local.all<Usage>('usage').filter((u) => u.workId === work.id);
-  assert.equal(usage.length, 3);
-  assert.equal(new Set(usage.map((u) => u.accountId)).size, 3);
+  assert.equal(usage.length, 4);
+  assert.equal(new Set(usage.map((u) => u.accountId)).size, 4);
   assert.equal(
     state.local.all<Run>('runs').filter((r) => r.workId === work.id && r.exitConfirmed).length,
-    3,
+    4,
   );
   assert.equal(state.local.checkpoints(work.id)[0].detail, checkpointNote);
   assert.equal(sourceProvider.failure(), null);
@@ -321,21 +408,22 @@ try {
     JSON.stringify({
       status: 'passed',
       workIdentityRetained: true,
-      nativeRuns: 3,
+      nativeRuns: 4,
       nativeApprovals: approvals,
-      harnesses: ['codex', 'claude'],
+      harnesses: ['codex', 'claude', 'opencode'],
       isolatedClaudeProfiles: 2,
-      artifactCount: 3,
+      artifactCount: 4,
       contextAndCheckpointObserved: true,
       persistentProfileAndSelectedMemoryObserved: true,
       unselectedMemoryExcluded: true,
-      usageScopesRetained: 3,
+      usageScopesRetained: 4,
       paidModelCalls: 0,
     }),
   );
 } finally {
   await state.app.close();
   await sourceProvider.close();
+  await openCodeProvider.close();
   for (const provider of destinations) await provider.close();
   refs.forEach((ref, index) => {
     if (saved[index] === undefined) delete process.env[ref];

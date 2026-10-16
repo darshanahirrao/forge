@@ -6,6 +6,7 @@ import { findBinary } from './discovery.js';
 import { NativeRpc } from './rpc.js';
 import { assert, safeMessage } from '../errors.js';
 import { now } from '../store.js';
+import { openCodeWorker } from './opencode-worker.js';
 const exec = promisify(execFile);
 
 export function nativeEnvironment(account: Account): NodeJS.ProcessEnv {
@@ -173,6 +174,24 @@ export async function probeAccount(account: Account): Promise<Account> {
       error: null,
       quotas: [],
     };
+  }
+  if (account.harness === 'opencode') {
+    const worker = await openCodeWorker(account, account.nativeHome);
+    try {
+      await worker.client.location.get({ location: { directory: account.nativeHome } });
+      return {
+        ...account,
+        state: 'configured',
+        checkedAt: now(),
+        identity: null,
+        identityKey: null,
+        plan: 'Native v2 profile; provider identity and allowance unknown',
+        quotas: [],
+        error: null,
+      };
+    } finally {
+      await worker.stop();
+    }
   }
   throw new Error(
     'Native identity checks for this adapter are not connected yet. The account slot can still be used in work records.',

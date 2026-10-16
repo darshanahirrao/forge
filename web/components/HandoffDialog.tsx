@@ -23,7 +23,8 @@ export function HandoffDialog({
     (a) =>
       a.id !== work.accountId &&
       managedHarnesses.includes(a.harness) &&
-      (a.harness !== 'claude' || a.billingMode === 'api'),
+      (a.harness !== 'claude' || a.billingMode === 'api') &&
+      (a.harness !== 'opencode' || (Boolean(a.nativeHome) && a.billingMode !== 'subscription')),
   );
   const [target, setTarget] = useState(eligible[0]?.id ?? '');
   const [paths, setPaths] = useState('');

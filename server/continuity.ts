@@ -305,9 +305,11 @@ export class Continuity {
       assert(account.id !== work.accountId, 400, 'Choose a different native account or harness.');
       assert(
         managedHarnesses.includes(account.harness) &&
-          (account.harness !== 'claude' || account.billingMode === 'api'),
+          (account.harness !== 'claude' || account.billingMode === 'api') &&
+          (account.harness !== 'opencode' ||
+            (Boolean(account.nativeHome) && account.billingMode !== 'subscription')),
         409,
-        'This account has no compatible managed execution route. Choose a Codex slot or Claude API slot.',
+        'This account has no compatible managed execution route. Choose a Codex slot, Claude API slot, or explicit OpenCode native/API profile.',
       );
       const snapshot = await artifactSnapshot(
         work.cwd,

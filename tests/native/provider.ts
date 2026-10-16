@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 export type FixtureReply =
   { tool: string; id: string; input: Record<string, unknown> } | { text: string };
 export async function fixtureProvider(
-  protocol: 'responses' | 'messages',
+  protocol: 'responses' | 'messages' | 'chat',
   program: (body: any) => FixtureReply,
   expectedKey?: string,
 ) {
@@ -26,15 +26,15 @@ export async function fixtureProvider(
         reply.end('{"input_tokens":10}');
         return;
       }
-      if (!request.url?.startsWith(`/v1/${protocol}`)) {
+      if (!request.url?.startsWith(`/v1/${protocol === 'chat' ? 'chat/completions' : protocol}`)) {
         reply.setHeader('content-type', 'application/json');
         reply.end('{}');
         return;
       }
       if (expectedKey)
         assert.equal(
-          request.headers['x-api-key'],
-          expectedKey,
+          protocol === 'chat' ? request.headers.authorization : request.headers['x-api-key'],
+          protocol === 'chat' ? `Bearer ${expectedKey}` : expectedKey,
           'The selected synthetic native credential did not reach its provider.',
         );
       requests++;
@@ -42,7 +42,55 @@ export async function fixtureProvider(
       const tool = 'tool' in action;
       const emit = (value: { type: string; [key: string]: unknown }) =>
         reply.write(`event: ${value.type}\ndata: ${JSON.stringify(value)}\n\n`);
-      if (protocol === 'messages') {
+      if (protocol === 'chat') {
+        const base = {
+          id: `chatcmpl-fixture-${requests}`,
+          object: 'chat.completion',
+          created: Math.floor(Date.now() / 1000),
+          model: body.model,
+        };
+        const call = tool
+          ? {
+              id: action.id,
+              type: 'function',
+              function: { name: action.tool, arguments: JSON.stringify(action.input) },
+            }
+          : null;
+        const usage = { prompt_tokens: 100, completion_tokens: 20, total_tokens: 120 };
+        const finish_reason = tool ? 'tool_calls' : 'stop';
+        if (!body.stream) {
+          reply.setHeader('content-type', 'application/json');
+          reply.end(
+            JSON.stringify({
+              ...base,
+              choices: [
+                {
+                  index: 0,
+                  message: {
+                    role: 'assistant',
+                    content: tool ? null : action.text,
+                    ...(call ? { tool_calls: [call] } : {}),
+                  },
+                  finish_reason,
+                },
+              ],
+              usage,
+            }),
+          );
+          return;
+        }
+        reply.setHeader('content-type', 'text/event-stream');
+        const delta = tool
+          ? { role: 'assistant', tool_calls: [{ index: 0, ...call }] }
+          : { role: 'assistant', content: action.text };
+        reply.write(
+          `data: ${JSON.stringify({ ...base, object: 'chat.completion.chunk', choices: [{ index: 0, delta, finish_reason: null }] })}\n\n`,
+        );
+        reply.write(
+          `data: ${JSON.stringify({ ...base, object: 'chat.completion.chunk', choices: [{ index: 0, delta: {}, finish_reason }], usage })}\n\n`,
+        );
+        reply.write('data: [DONE]\n\n');
+      } else if (protocol === 'messages') {
         const content = tool
           ? { type: 'tool_use', id: action.id, name: action.tool, input: action.input }
           : { type: 'text', text: action.text };

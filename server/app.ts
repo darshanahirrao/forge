@@ -1,3 +1,4 @@
+import { version } from '../shared/version.js';
 import Fastify from 'fastify';
 import fastifyStatic from '@fastify/static';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
@@ -32,6 +33,7 @@ import {
 } from './adapters/sources.js';
 import { CodexDriver, type RpcFactory } from './adapters/codex-driver.js';
 import { ClaudeDriver } from './adapters/claude-driver.js';
+import { OpenCodeDriver } from './adapters/opencode-driver.js';
 import { ExecutionController } from './execution.js';
 import { Continuity } from './continuity.js';
 import { NativeSources, type NativeSourcesOptions } from './native-sources.js';
@@ -97,6 +99,7 @@ export async function createApp(options: AppOptions) {
             options.codexBinary ? async () => options.codexBinary! : undefined,
           );
         if (context.work.harness === 'claude') return new ClaudeDriver();
+        if (context.work.harness === 'opencode') return new OpenCodeDriver();
         assert(
           false,
           409,
@@ -198,7 +201,7 @@ export async function createApp(options: AppOptions) {
   });
   app.get('/api/health', async () => ({
     status: 'ok',
-    version: '0.5.0',
+    version,
     stateVersion: (local.db.prepare('PRAGMA user_version').get() as { user_version: number })
       .user_version,
   }));
@@ -206,7 +209,7 @@ export async function createApp(options: AppOptions) {
     const db = store(request);
     const result: Snapshot = {
       mode: mode(request),
-      version: '0.5.0',
+      version,
       csrf,
       work: db.all<WorkSummary>('work_summaries').sort((a, b) => {
         const rank = { waiting: 0, running: 1, failed: 2, interrupted: 2, ready: 3, completed: 4 };

@@ -1,3 +1,4 @@
+import { version } from '../shared/version.js';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { createApp } from './app.js';
@@ -24,7 +25,7 @@ try {
   await app.close();
   process.exit(1);
 }
-console.log(`Forge 0.5.0 is ready at http://127.0.0.1:${port}`);
+console.log(`Forge ${version} is ready at http://127.0.0.1:${port}`);
 let closing = false;
 for (const signal of ['SIGINT', 'SIGTERM'] as const)
   process.on(signal, () => {
