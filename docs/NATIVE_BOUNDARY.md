@@ -21,6 +21,8 @@ The operator interface can aggregate native work and embed or open an existing s
 
 Before adding a component, identify the missing cross-runtime capability and check the selected runtimes' existing APIs, SDKs, protocols, plugins, and tools. Build the smallest adapter or coordination mechanism that closes that gap. If a native capability is missing or incompatible, select another existing provider or show the limitation. Do not quietly introduce a replacement implementation as a fallback.
 
+This reuse rule also applies to existing libraries and open-source projects, including Forge's proposed core features. Before implementation, map each need to existing solutions, their supported versions and licenses, integration fit, and the remaining gap. Adopt or extend a suitable implementation. If an existing product already solves the complete need, use it rather than rebuild it under the Forge name. Proposed architecture boxes are not evidence that those capabilities are missing elsewhere.
+
 The local journal stores Forge's coordination records and references. Search over those records is different from rebuilding a runtime's memory system. Native memory payloads remain at their sources by default; storing or moving selected content needs an explicit supported data policy.
 
 Forge can validate its own dispatch scope and resource ownership. Native tool execution still follows native permissions and host restrictions. A connected MCP server, approval viewer, or telemetry agent does not become a new universal sandbox.

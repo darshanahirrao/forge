@@ -23,10 +23,11 @@ No application dependencies or server setup are required to read this checkpoint
 - Accounting distinguishes native usage, estimates, confirmed charges, subscription allocation, and unknown coverage. Avoid cumulative and nested double counting.
 - Native schedules keep one owner. Harness switching occurs at verified checkpoints with source stop or enforcement evidence.
 - Prefer existing native implementations for every capability, including memory and scheduling. Minimal new mechanisms require a demonstrated cross-runtime coordination gap.
+- Apply the same reuse rule to existing libraries and open-source products, including proposed Forge core features. Use or extend a suitable existing solution; do not assume the architecture proves an unfilled gap.
 
 ## Concrete next steps
 
-1. Agree the first implementation slice from docs/PRODUCT.md without expanding the architecture into supporting infrastructure.
+1. Before implementation, build a reuse map across existing harness capabilities, libraries, and open-source products: need, source/version/license, integration fit, remaining gap, and adopt/extend/build decision. Use an existing solution if it already meets the need.
 2. Define adapter capability and event schemas, then build usage fixtures for two native harnesses with sanitized data.
 3. Implement read-only inventory and measure whole-stack idle overhead before adding managed execution.
 4. Build native approval correlation, source ownership, reconciliation, and adapter conformance before claiming cross-harness continuation.
