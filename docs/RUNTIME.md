@@ -1,4 +1,4 @@
-# Forge v0.4.0
+# Forge v0.4.1
 
 Implementation checkpoint, 17 October 2026. Native activity now adds existing chat catalogs and schedule observations to the verified Work Capsules and shared native coordinator. The full Persistent Agency architecture remains a delivery plan rather than a claim of completed interoperability.
 
@@ -25,6 +25,8 @@ For development, `npm run dev` starts a watched TypeScript service on port 4710 
 | Hermes/OpenClaw observation | Hermes health/capabilities/session resources and OpenClaw's fixed native `sessions_list` gateway tool | Gateway/API capabilities and native policy apply. Synthetic HTTP conformance is verified. These are read adapters; managed runtime replacement, memory and exact approval integration remain open. |
 | Existing foundations | Optional `agent-deck list --json` and `ccusage daily --json` | Installed CLIs are reused without vendoring session management or transcript parsers. Neither CLI was installed or connected to private data during this checkpoint. |
 | Customization | Account/runtime references, themes, explicit native choices, safe setup-blueprint export | Blueprint activation/import and a third-party extension loader are not implemented. The MIT source remains editable. |
+
+The launch/read admission guard runs after asynchronous directory validation and immediately before synchronous controller reservation. Checking it only before a filesystem await would leave a race in which both could start.
 
 ## Native execution flow
 
@@ -64,7 +66,7 @@ The earlier 75 MB / 1% core target is a design target, not a passed performance 
 
 The repository includes type checks, functional/API tests, Playwright user flows, and axe accessibility checks. Synthetic native protocol fixtures never run shell commands, call a model, or write project files. They cover request correlation, one-time decisions, stale generations, expiry, withdrawal, policy mismatch, cancellation/recovery, billing admission, usage deduplication, demo isolation, revision conflicts, atomic persistence, and lightweight projections. A synthetic Hermes server checks discovery against read-only endpoints.
 
-The installed Claude SDK passed a real stream-json transport check against a synthetic executable worker, including permission delivery, cumulative usage and native child exit. This is SDK conformance evidence, not a real upstream model run. There are 45 functional/API/continuity/driver/inventory tests and seven browser flows at this checkpoint. Type checks also cover the test and native-fixture sources.
+The installed Claude SDK passed a real stream-json transport check against a synthetic executable worker, including permission delivery, cumulative usage and native child exit. This is SDK conformance evidence, not a real upstream model run. There are 46 functional/API/continuity/driver/inventory tests and seven browser flows at this checkpoint. Type checks also cover the test and native-fixture sources.
 
 The installed Codex CLI also passed a real initialization handshake. No account lookup, paid model turn, real command approval, account migration, or private native usage import was requested for that smoke check. Separate opt-in tests now exercise actual Codex 0.159.3 and the SDK native Claude Code 2.1.301 against local deterministic providers. Both passed native approval delivery, real tool execution, exact artifact verification, usage and process exit. The Claude test verifies that conflicting project credentials/routing cannot replace the selected host configuration. [Native conformance instructions](../tests/native/README.md) explain the isolated fixtures. The additional native handoff check now chains Codex to Claude API profile one and then a second isolated Claude API profile. Each target receives the portable context, reads the preceding artifact and writes the next artifact with its native tools. One work ID, goal, user checkpoint and all three usage scopes remain. These are synthetic model responses and selected fixture credentials; live subscription/account isolation and model quality remain unverified.
 

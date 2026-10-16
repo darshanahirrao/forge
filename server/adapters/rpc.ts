@@ -125,7 +125,7 @@ export class NativeRpc extends EventEmitter {
   }
   async initialize() {
     await this.request('initialize', {
-      clientInfo: { name: 'forge_workspace', title: 'Forge', version: '0.4.0' },
+      clientInfo: { name: 'forge_workspace', title: 'Forge', version: '0.4.1' },
     });
     this.notify('initialized');
   }

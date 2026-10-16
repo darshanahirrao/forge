@@ -1,5 +1,11 @@
 # Build log
 
+## 2026-10-17 · forge-v0.4.1
+
+Closed a native inventory/launch admission race found during final review: the launch route previously checked inventory ownership before asynchronous directory validation. A read could begin during that await. The guard now runs immediately before the execution controller, which reserves managed capacity synchronously before yielding. Preserved native source references and cached observations. This is an admission-ordering correction; no native job or account configuration is changed.
+
+Validation: all 46 functional/API/continuity/driver/inventory checks, TypeScript, formatting and production build pass. API tests verify both arrival orders: a read already in flight and a read admitted while launch awaits real filesystem validation. Neither reaches an execution driver or leaves an active run. The latter uses a delayed filesystem resolver for deterministic concurrency conformance. The preceding v0.4 source checkpoint passed all seven browser flows locally; no interface behavior changed in this patch. Checkpoint reference: the commit containing this entry; durable tag `forge-v0.4.1`. The full goal remains active.
+
 ## 2026-10-17 · forge-v0.4.0
 
 Added Activity with native chat/session catalogs, native schedule observations, source discovery, separate per-profile registration, metadata review, search, source filtering and freshness/error coverage. Reused Codex's state-only app-server thread list, Claude SDK session catalog, Hermes's advertised session resources and OpenClaw's fixed native sessions-list tool. Codex and Hermes schedule readers project existing definitions without invoking repair loaders, native job ticks or another scheduler. Reused BSD-3-Clause `smol-toml` 1.9.1 for TOML. Source references and observations persist privately; forgetting a source does not change native data. Inventory reads are serialized and mutually excluded with managed HTTP launches. Failed reads retain the previous timestamp/data, and raw parser/child diagnostics are not persisted.

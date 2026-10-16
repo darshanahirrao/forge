@@ -242,7 +242,7 @@ export function App() {
           <div className="local-indicator">
             <span className="status-dot" />
             <span>Local workspace</span>
-            <span className="mono">v{snapshot?.version ?? '0.4.0'}</span>
+            <span className="mono">v{snapshot?.version ?? '0.4.1'}</span>
           </div>
         </div>
       </aside>

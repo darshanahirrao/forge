@@ -71,6 +71,7 @@ export interface AppOptions {
   rpcFactory?: RpcFactory;
   driverFactory?: DriverFactory;
   nativeSourcesOptions?: NativeSourcesOptions;
+  resolveDirectory?: (value: string) => Promise<string>;
   codexBinary?: string;
   staticRoot?: string;
   test?: boolean;
@@ -189,12 +190,12 @@ export async function createApp(options: AppOptions) {
         : 'Forge could not complete this operation. Refresh and inspect the current state before retrying.',
     });
   });
-  app.get('/api/health', async () => ({ status: 'ok', version: '0.4.0' }));
+  app.get('/api/health', async () => ({ status: 'ok', version: '0.4.1' }));
   app.get('/api/snapshot', async (request) => {
     const db = store(request);
     const result: Snapshot = {
       mode: mode(request),
-      version: '0.4.0',
+      version: '0.4.1',
       csrf,
       work: db.all<WorkSummary>('work_summaries').sort((a, b) => {
         const rank = { waiting: 0, running: 1, failed: 2, interrupted: 2, ready: 3, completed: 4 };
@@ -239,7 +240,7 @@ export async function createApp(options: AppOptions) {
   async function directory(value: string, required = false) {
     if (!value && !required) return '';
     assert(isAbsolute(value), 400, 'Use an absolute path to an existing local directory.');
-    const canonical = await realpath(value).catch(() => null);
+    const canonical = await (options.resolveDirectory ?? realpath)(value).catch(() => null);
     assert(
       canonical && (await stat(canonical)).isDirectory(),
       400,
@@ -385,11 +386,6 @@ export async function createApp(options: AppOptions) {
   });
   app.post('/api/work/:id/launch', async (request, reply) => {
     assert(
-      !nativeSources.isReading,
-      409,
-      'Wait for the native inventory read to finish before starting a managed worker.',
-    );
-    assert(
       mode(request) === 'local',
       409,
       'Demo work never starts native execution. Switch to your local workspace to run a real task.',
@@ -406,6 +402,12 @@ export async function createApp(options: AppOptions) {
     const work = local.work(workId);
     assert(work.cwd, 400, 'Add a project directory before starting a native task.');
     await directory(work.cwd, true);
+    // Check after filesystem awaits. The controller reserves capacity synchronously before yielding.
+    assert(
+      !nativeSources.isReading,
+      409,
+      'Wait for the native inventory read to finish before starting a managed worker.',
+    );
     return reply
       .code(202)
       .send(

@@ -6,7 +6,7 @@ Forge is an open-source local workspace for people who work across AI runtimes a
 
 We call the product concept **Persistent Agency**: your agent profile, memory, workspace, work history, shared connections, schedules, and policies remain in Forge while you change a compatible execution harness at a verified checkpoint.
 
-**Status: early local application, v0.4.0.** Persistent work, account slots, native chat/schedule inventory, live machine telemetry, an isolated demo, and experimental native Codex and Claude API execution/approval adapters are implemented, including verified handoff around the same work record. The broader architecture remains a roadmap. Automatic quota fallback, additional managed harnesses, phone approvals, native schedule controls, runtime/memory replacement, and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md).
+**Status: early local application, v0.4.1.** Persistent work, account slots, native chat/schedule inventory, live machine telemetry, an isolated demo, and experimental native Codex and Claude API execution/approval adapters are implemented, including verified handoff around the same work record. The broader architecture remains a roadmap. Automatic quota fallback, additional managed harnesses, phone approvals, native schedule controls, runtime/memory replacement, and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md).
 
 ## Run Forge
 

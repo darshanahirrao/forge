@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Store } from '../server/store.js';
@@ -471,6 +471,108 @@ test('an in-flight native inventory read excludes HTTP launch before any executi
     assert.equal((await reading).statusCode, 200);
   } finally {
     release();
+    await state.app.close();
+  }
+});
+
+test('native read admission wins while a launch is waiting for filesystem validation', async () => {
+  let blockDirectory = false;
+  let releaseDirectory: () => void = () => {};
+  let directoryStarted: () => void = () => {};
+  const resolving = new Promise<void>((resolve) => {
+    directoryStarted = resolve;
+  });
+  let releaseRead: () => void = () => {};
+  let readStarted: () => void = () => {};
+  const reading = new Promise<void>((resolve) => {
+    readStarted = resolve;
+  });
+  let driverCreated = false;
+  const state = await createApp({
+    filename: ':memory:',
+    csrf: 'race-test',
+    test: true,
+    resolveDirectory: async (value) => {
+      if (blockDirectory) {
+        directoryStarted();
+        await new Promise<void>((resolve) => {
+          releaseDirectory = resolve;
+        });
+      }
+      return realpath(value);
+    },
+    driverFactory: () => {
+      driverCreated = true;
+      throw new Error('No execution driver may start during the native read.');
+    },
+    nativeSourcesOptions: {
+      reader: async () => {
+        readStarted();
+        await new Promise<void>((resolve) => {
+          releaseRead = resolve;
+        });
+        return {
+          inventory: {
+            sessions: [],
+            schedules: [],
+            moreAvailable: false,
+            checkedAt: new Date().toISOString(),
+          },
+          capabilities: [],
+        };
+      },
+    },
+  });
+  const post = (url: string, payload: object = {}) =>
+    state.app.inject({
+      method: 'POST',
+      url,
+      headers: {
+        host: '127.0.0.1:4710',
+        'x-forge-csrf': 'race-test',
+        'content-type': 'application/json',
+      },
+      payload,
+    });
+  try {
+    const account = (
+      await post('/api/accounts', { label: 'Race fixture', harness: 'codex' })
+    ).json<Account>();
+    const work = (
+      await post('/api/work', {
+        title: 'Filesystem admission race',
+        project: 'Fixture',
+        cwd: process.cwd(),
+        goal: 'Admit exactly one native operation after path validation.',
+        harness: 'codex',
+        accountId: account.id,
+      })
+    ).json<Work>();
+    const native = (
+      await post('/api/native/sources', {
+        kind: 'codex',
+        label: 'Race metadata',
+        home: process.cwd(),
+      })
+    ).json<NativeSource>();
+    blockDirectory = true;
+    const launching = post(`/api/work/${work.id}/launch`, { expectedRevision: work.revision }).then(
+      (response) => response,
+    );
+    await resolving;
+    const refresh = post(`/api/native/sources/${native.id}/refresh`).then((response) => response);
+    await reading;
+    releaseDirectory();
+    const result = await launching;
+    assert.equal(result.statusCode, 409);
+    assert.match(result.json().error, /inventory read/);
+    assert.equal(driverCreated, false);
+    assert.equal(state.local.work(work.id).activeRunId, null);
+    releaseRead();
+    assert.equal((await refresh).statusCode, 200);
+  } finally {
+    releaseDirectory();
+    releaseRead();
     await state.app.close();
   }
 });
