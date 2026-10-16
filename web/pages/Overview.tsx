@@ -1,4 +1,5 @@
 import { type Snapshot, type Approval } from '../../shared/types';
+import { usageSummary } from '../../shared/usage';
 import {
   Layers3,
   ShieldCheck,
@@ -43,9 +44,7 @@ export function Overview({
 }) {
   const pending = data.approvals.filter((a) => a.status === 'pending');
   const ongoing = data.work.filter((w) => !['completed'].includes(w.status));
-  const estimated = data.usage.filter((u) => u.estimatedUsd !== null);
-  const estimate = estimated.reduce((sum, u) => sum + u.estimatedUsd!, 0);
-  const totalTokens = data.usage.reduce((sum, u) => sum + u.totalTokens, 0);
+  const usage = usageSummary(data.usage);
   return (
     <>
       <div className="metrics-row">
@@ -76,19 +75,28 @@ export function Overview({
             Reported cost estimate <Gauge size={16} />
           </span>
           <strong>
-            {estimated.length ? (
-              currency(estimate)
+            {usage.estimatedUsd !== null ? (
+              currency(usage.estimatedUsd)
             ) : (
               <span className="metric-unknown">Not reported</span>
             )}
           </strong>
           <small>
             {data.usage.length
-              ? `${compact(totalTokens)} reported tokens${data.usage.some((u) => u.estimatedUsd === null) ? ' · Cost coverage incomplete' : ' · Estimates, not invoices'}`
+              ? `${compact(usage.totalTokens)} reported tokens${usage.incomplete ? ' · Cost coverage incomplete' : ' · Estimates, not invoices'}`
               : 'Usage appears after native reporting'}
           </small>
         </div>
       </div>
+      {usage.excludedAggregates.length > 0 && (
+        <div className="notice">
+          <Gauge size={18} />
+          <p>
+            Imported daily reports can overlap native session reports. This total uses session
+            reports for that harness; daily imports are retained separately.
+          </p>
+        </div>
+      )}
       <div className="overview-grid">
         <div className="overview-main">
           {pending.length > 0 && (

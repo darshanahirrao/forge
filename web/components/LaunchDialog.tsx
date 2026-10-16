@@ -3,6 +3,7 @@ import { type Mutate } from '../api';
 import { useState, type FormEvent } from 'react';
 import { Dialog, HarnessMark, FormError } from './primitives';
 import { Folder, ShieldCheck, LoaderCircle, Play } from 'lucide-react';
+import { executionName } from '../../shared/harnesses';
 
 export function LaunchDialog({
   work,
@@ -22,6 +23,8 @@ export function LaunchDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const needsReview = ['failed', 'interrupted'].includes(work.status);
+  const claude = work.harness === 'claude';
+  const compatible = !claude || account?.billingMode === 'api';
   async function start(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -38,12 +41,12 @@ export function LaunchDialog({
   return (
     <Dialog
       title="Ready to use the native harness?"
-      subtitle="START A CODEX ATTEMPT"
+      subtitle={`START A ${executionName(work.harness).toUpperCase()} ATTEMPT`}
       onClose={onClose}
     >
       <form className="dialog-body form-stack" onSubmit={start}>
         <div className="binding-box">
-          <HarnessMark harness="codex" />
+          <HarnessMark harness={work.harness} />
           <div>
             <strong>{account?.label}</strong>
             <p>{account?.identity ?? 'Native identity will be checked before the turn starts.'}</p>
@@ -53,16 +56,21 @@ export function LaunchDialog({
           <strong>{work.title}</strong>
         </p>
         <p>
-          Codex will receive this task's goal, acceptance criteria, and context, with access to the
-          selected project. It can edit project files under the native sandbox. Supported permission
-          requests arrive in Forge.
+          {executionName(work.harness)} receives this task's goal, acceptance criteria, context and
+          checkpoints, with access to the selected project. Native tools and permission rules apply.
+          Supported permission requests arrive in Forge.
         </p>
         <div className="path-line">
           <Folder size={16} />
           <code>{work.cwd}</code>
         </div>
         <label className="checkbox-label">
-          <input type="checkbox" checked={metered} onChange={(e) => setMetered(e.target.checked)} />
+          <input
+            type="checkbox"
+            checked={metered}
+            onChange={(e) => setMetered(e.target.checked)}
+            required={claude}
+          />
           <span>
             Allow metered API, external-provider billing, or additional credits for this launch.
             <small>Provider charges are separate from any reported cost estimate.</small>
@@ -85,8 +93,11 @@ export function LaunchDialog({
         <div className="notice">
           <ShieldCheck size={18} />
           <p>
-            Forge requests the native untrusted approval policy and workspace-write sandbox. Launch
-            stops if the server does not confirm these settings.
+            {claude
+              ? compatible
+                ? 'This route uses API authentication and native manual permission mode. Existing native rules can allow tools without a prompt. API credentials stay in the referenced environment variable.'
+                : 'Managed Claude turns require an API slot. Native claude.ai subscription sessions continue through their native client under Anthropic’s integration rules.'
+              : 'Forge requests the native untrusted approval policy and workspace-write sandbox. Launch stops if the server does not confirm these settings.'}
           </p>
         </div>
         <FormError error={error} />
@@ -94,7 +105,10 @@ export function LaunchDialog({
           <button className="button secondary" type="button" onClick={onClose}>
             Keep as ready
           </button>
-          <button className="button primary" disabled={busy || (needsReview && !reconciled)}>
+          <button
+            className="button primary"
+            disabled={busy || !compatible || (claude && !metered) || (needsReview && !reconciled)}
+          >
             {busy ? <LoaderCircle size={16} className="spin" /> : <Play size={16} />}Start native
             attempt
           </button>

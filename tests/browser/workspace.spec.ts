@@ -109,3 +109,45 @@ test('all views remain usable on a narrow screen without page overflow', async (
     .analyze();
   expect(result.violations.map((v) => v.id)).toEqual([]);
 });
+
+test('Claude API slots expose the credential reference and native launch choice without starting execution', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Accounts', exact: true }).click();
+  await page.getByRole('button', { name: 'Add account', exact: true }).click();
+  await page.getByLabel('Account label').fill('Claude browser API fixture');
+  await page.getByRole('combobox', { name: /^Harness/ }).selectOption('claude');
+  await page.getByLabel('Billing preference').selectOption('api');
+  await page.getByLabel('API credential environment variable').fill('FORGE_BROWSER_CLAUDE_KEY');
+  await page.getByRole('button', { name: 'Save account slot' }).click();
+  await page.getByRole('button', { name: 'Work', exact: true }).click();
+  await page.getByRole('button', { name: 'New work', exact: true }).click();
+  await page.getByLabel('Work title').fill('Claude native launch review');
+  await page
+    .getByLabel('Goal', { exact: true })
+    .fill('Review the supported native route without launching.');
+  await page.getByRole('combobox', { name: /^Harness/ }).selectOption('claude');
+  await page
+    .getByRole('combobox', { name: 'Account', exact: true })
+    .selectOption({ label: 'Claude browser API fixture' });
+  await page.getByLabel('Project directory').fill(process.cwd());
+  await page.getByRole('dialog').getByRole('button', { name: 'Create work', exact: true }).click();
+  await page.getByRole('button', { name: 'Run with Claude', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Ready to use the native harness?' });
+  const launch = dialog.getByRole('button', { name: 'Start native attempt' });
+  await expect(launch).toBeDisabled();
+  await expect(dialog.getByText(/This route uses API authentication/)).toBeVisible();
+  await dialog.getByRole('checkbox', { name: /Allow metered/ }).check();
+  await expect(launch).toBeEnabled();
+  const result = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+    .analyze();
+  expect(result.violations.map((v) => v.id)).toEqual([]);
+  await dialog.getByRole('button', { name: 'Keep as ready' }).click();
+  const snapshot = await (await page.request.get('/api/snapshot')).json();
+  expect(
+    snapshot.work.find((work: { title: string }) => work.title === 'Claude native launch review')
+      .status,
+  ).toBe('ready');
+});

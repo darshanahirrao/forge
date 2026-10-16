@@ -47,3 +47,9 @@ Reviewed Agent Deck's `list --json` golden output and `session_approve_cmd.go` d
 Keep Agent Deck session management intact and read its inventory through the existing CLI when installed. Reuse ccusage's JSON reports for Claude daily accounting rather than parsing conversations. Use the existing Codex app-server for native execution, permissions, sessions, and tools; Forge adds only the local work binding, request correlation, projections, and interface. Hermes discovery reads the installed API's advertised contract. Other managed adapters remain gated on reuse and conformance evidence.
 
 The first implementation uses Fastify, native SQLite, React, Vite, Lucide, Zod, Playwright, and axe. It installs no replacement browser, terminal, memory engine, native scheduler, or model execution loop. There is no extra always-running orchestration product required to open the workspace. Candidate CLIs were not installed or connected to private data. Whole-product fit and measured overhead comparisons remain open.
+
+## Native SDK reuse, 17 October 2026
+
+The second implementation checkpoint reuses `@anthropic-ai/claude-agent-sdk` 0.3.301, including its native CLI transport, tools, settings, hooks and permission callback contract. Its package metadata declares `SEE LICENSE IN README.md`; native executables and SDK use retain the upstream terms. This dependency is not relabeled MIT. The SDK is imported lazily on launch and its worker exits before Forge releases managed capacity.
+
+The SDK's own documented restriction on third-party claude.ai login/limits means this route uses explicit API authentication. Native subscription inventory remains separate. Native request IDs and abort signals were checked through the actual SDK with a synthetic executable worker; no model or tool stack was recreated. Real native tool behavior and whole-product/runtime reuse evaluations remain open. See [driver setup and evidence](NATIVE_DRIVERS.md).

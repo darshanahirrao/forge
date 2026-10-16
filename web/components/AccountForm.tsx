@@ -17,6 +17,7 @@ export function AccountForm({
   onSaved: () => void;
 }) {
   const [harness, setHarness] = useState<Harness>('codex');
+  const [billingMode, setBillingMode] = useState('native');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   async function save(e: FormEvent<HTMLFormElement>) {
@@ -29,7 +30,10 @@ export function AccountForm({
         label: form.get('label'),
         harness,
         nativeHome: form.get('nativeHome'),
-        billingMode: form.get('billingMode'),
+        billingMode,
+        ...(harness === 'claude' && billingMode === 'api'
+          ? { credentialEnv: String(form.get('credentialEnv') || 'ANTHROPIC_API_KEY').trim() }
+          : {}),
       });
       onSaved();
     } catch (error) {
@@ -67,7 +71,11 @@ export function AccountForm({
         </label>
         <label>
           Billing preference
-          <select name="billingMode">
+          <select
+            name="billingMode"
+            value={billingMode}
+            onChange={(e) => setBillingMode(e.target.value)}
+          >
             <option value="native">Use native configuration</option>
             <option value="subscription">Require subscription access</option>
             <option value="api">API account</option>
@@ -76,6 +84,21 @@ export function AccountForm({
             Metered or external-provider access requires an explicit choice before launch.
           </small>
         </label>
+        {harness === 'claude' && billingMode === 'api' && (
+          <label>
+            API credential environment variable
+            <input
+              name="credentialEnv"
+              placeholder="ANTHROPIC_API_KEY"
+              pattern="[A-Za-z_][A-Za-z0-9_]*"
+              maxLength={128}
+            />
+            <small>
+              Enter a variable name, such as CLAUDE_STUDIO_KEY. Set its value outside Forge before
+              starting the service. Never paste a key here.
+            </small>
+          </label>
+        )}
         <label>
           Native configuration directory <span className="optional">Optional</span>
           <input

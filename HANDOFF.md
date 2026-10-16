@@ -2,13 +2,13 @@
 
 ## Current state
 
-Forge now has a runnable early local application, version 0.1.0. The MIT repository is https://github.com/darshanahirrao/forge on `main`. Current continuation checkpoint: `forge-v0.1.0`, the commit containing that BUILD_LOG entry and its durable tag. GitHub publication is source publication, not a hosted deployment or a claim that the full architecture is complete.
+Forge now has a runnable early local application, version 0.2.0. The MIT repository is https://github.com/darshanahirrao/forge on `main`. Current continuation checkpoint: `forge-v0.2.0`, the commit containing that BUILD_LOG entry and its durable tag. GitHub publication is source publication, not a hosted deployment or a claim that the full architecture is complete. The full goal remains active; read docs/COMPLETION_AUDIT.md for outstanding requirements.
 
 The user's broader goal is Persistent Agency: one workspace with durable identity, work, memory references, accounts, native schedules, progress, approvals, and resource/cost visibility. Both harnesses and companion runtimes must be replaceable, including Hermes with OpenClaw. Multiple accounts per harness should serve the same work through supported safe continuation. Automatic account fallback and cross-harness transfer are not implemented in this first application.
 
 Read docs/RUNTIME.md first for what actually exists. The interface has Overview, Work, Approvals, Accounts, Resources, and Connections views, light/dark themes, keyboard search, and an isolated fictional demo. Local work, context, checkpoints, account references, usage evidence, and receipts persist in native SQLite. Summary projections avoid loading full contexts on every poll.
 
-An experimental Codex app-server controller supports one managed attempt at a time, requested native permission settings, one-time correlated command/reviewable file-change decisions, cancellation, resumed sessions on the same fixed binding, usage snapshots, and interrupted-run recovery. Native Codex/Claude status probes are implemented. Hermes is currently read-only health/capability discovery. Agent Deck and ccusage remain optional native CLI sources and were not installed during this work.
+A shared execution coordinator now supports experimental Codex app-server and Claude Agent SDK API drivers. One admission owner retains both its durable work lease and capacity until the owned native worker exits. It owns exact one-time controls, cancellation, native session binding, excerpt capture and usage evidence. Codex retains its permission handshake. Claude requires an API slot and explicit metered choice; subscription OAuth is not offered through the SDK under Anthropic's integration rules. Read docs/NATIVE_DRIVERS.md. Native Codex/Claude status probes are implemented. Hermes remains read-only health/capability discovery. Agent Deck and ccusage remain optional native CLI sources and were not installed during this work.
 
 ## Setup and checks
 
@@ -18,13 +18,14 @@ macOS private state defaults to `~/Library/Application Support/Forge/workspace.s
 
 Validation commands: `npm run format:check`, `npm run check`, `npm test`, `npm run build`, `npm run test:e2e`. Browser tests use installed Chrome locally and Playwright Chromium in CI. They own a temporary state directory. Native fixtures run no model calls or shell tools. The committed GitHub workflow uses pinned action commits and Node 24.
 
-At this checkpoint, 20 functional/API tests and four browser flows pass, including axe checks. A real installed Codex initialization handshake passed without an account lookup or model turn. Actual model-backed execution, real approval callbacks, native account isolation, and multi-account transfer have not been exercised. Dependency audit returned zero known vulnerabilities. Preliminary service RSS was about 80 MB; the earlier 75 MB / 1% target remains unproven.
+At this checkpoint, 28 functional/API/driver tests and five browser flows pass, including axe checks. The installed Claude SDK passes a real native stream-json transport check against a synthetic executable worker, including native permission request identity and process exit. A real installed Codex initialization handshake passed without an account lookup or model turn. Actual model-backed execution, real upstream tool approvals/artifacts, native account isolation, and multi-account transfer have not been exercised. Dependency audit returned zero known vulnerabilities. Preliminary service RSS was about 80 MB before the new adapter; the earlier 75 MB / 1% target remains unproven.
 
 ## Source map
 
 - `server/app.ts`: loopback HTTP API, origin/host/CSRF controls, local/demo routing, and explicit native connections.
 - `server/store.ts`: transactional canonical records, summary projections, revisioned work, receipts, exclusive ownership, and recovery.
-- `server/codex.ts`: managed native lifecycle, permission correlation, one-time decisions, accounting snapshots, and admission.
+- `server/execution.ts`: shared admission, work leases, permission receipts, one-time decisions and lifecycle.
+- `server/adapters/driver.ts`, `codex-driver.ts`, `claude-driver.ts`: native contract and native transports/tool delegation.
 - `server/adapters/`: stdio RPC transport, native authentication, executable discovery, Hermes and existing CLI source readers.
 - `shared/types.ts`: current application contracts; broader future contracts remain in the architecture documents.
 - `web/`: root state, focused view components, forms/dialogs, shared primitives, tokens, and formatting.
@@ -45,7 +46,7 @@ At this checkpoint, 20 functional/API tests and four browser flows pass, includi
 ## Concrete next steps
 
 1. Run a controlled real Codex task in a synthetic project with an explicitly selected native account. Verify effective permissions, native approval callback types, completion, cancellation, and actual usage semantics against the installed version. Keep paid runs and real identity data out of fixtures and Git.
-2. Extend reuse evaluation around existing Agent Deck/native SDK interfaces before adding other managed harnesses. Hermes needs run/session/memory/approval integration only where its advertised installed API permits it; OpenClaw remains a replaceable runtime target.
+2. Validate Claude native tool execution with a synthetic local provider before any real model-backed conformance. Extend reuse evaluation before other managed harnesses. Hermes needs run/session/memory/approval integration only where its advertised installed API permits it; the installed legacy approval endpoint lacks request/generation identity and must not be forwarded blindly. OpenClaw remains a replaceable runtime target. Remote drivers must preserve native run ownership through disconnect/restart before being admitted.
 3. Measure whole-stack idle CPU and RSS with defined traces, including native workers and the UI. Evaluate real memory pressure and ownership evidence before making resource-enforcement claims.
 4. Add native schedule inventory while preserving a single existing owner. Build an authenticated phone path before advertising remote approvals.
 5. Prove two-account artifact continuation and then cross-harness continuation with explicit context coverage, native permission revalidation, external-effect reconciliation, and failure injection. Do not turn the current context export into a lossless-migration claim.

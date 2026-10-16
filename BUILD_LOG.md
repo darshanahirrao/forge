@@ -1,5 +1,15 @@
 # Build log
 
+## 2026-10-17 · forge-v0.2.0
+
+Extracted Codex's native transport into a driver and introduced one execution coordinator across native adapters. Added a Claude Agent SDK API driver using native tools, settings, project instructions, manual permission mode, native request/tool-use identity, abort signals, session continuation and native pipeline usage estimates. API slots store an environment-variable name, never its value. Native claude.ai subscription execution stays in the native client under Anthropic's third-party SDK integration rules.
+
+The coordinator retains its durable task lease through native worker exit, checks the action digest again before decision delivery, records decisions before sending, and does not replay uncertain decisions. The overview avoids adding overlapping ccusage daily imports to native session reports. Updated account and launch flows, native compatibility documentation and the full-scope completion audit. The full user goal remains open.
+
+Validation: formatting, TypeScript checks, production build, 28 functional/API/driver tests and five Playwright flows with accessibility checks pass. The actual installed SDK carries a native control request through a synthetic executable worker and confirms child exit; this is distinct from the callback-level fixture. The new UI flow creates an API credential reference and reviews launch without starting a model. Dependency audit reports zero known vulnerabilities. No native account, private transcript, paid model, existing scheduler or runtime configuration was changed.
+
+Limitations: native real-model tools/artifacts, cross-account isolation and transfer, Hermes/OpenClaw execution and memory replacement, authenticated phone approvals, native scheduling, budget enforcement and whole-stack performance remain open. SDK cost fields cover the native stated pipeline and are estimates; counter-reset epochs and complete account attribution remain delivery gates. Checkpoint reference: the commit containing this entry; durable tag `forge-v0.2.0`.
+
 ## 2026-10-17 · forge-v0.1.0
 
 Built the first local application: a responsive light/dark workspace, keyboard search, native installation discovery, SQLite work records and checkpoints, account slots, native account/allowance probes, real OS telemetry, quiet-mode admission, selected context exports, and sanitized setup-blueprint export. Added an experimental Codex app-server bridge for managed turns, native one-time approvals, cancellation, usage snapshots, and interrupted-run receipts. Hermes has explicit read-only health/capability discovery. Existing Agent Deck and ccusage CLIs remain optional inventory/accounting sources.

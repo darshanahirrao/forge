@@ -35,9 +35,14 @@ const definitions: Omit<Connection, 'installed'>[] = [
     id: 'claude',
     name: 'Claude Code',
     kind: 'harness',
-    capabilities: ['Native account check', 'Account slots', 'Portable work records'],
+    capabilities: [
+      'Native account check',
+      'API-managed turns',
+      'Native permission requests',
+      'Token and cost estimates',
+    ],
     description:
-      'Native authentication status and separate configuration directories. Managed execution is not connected yet.',
+      'Native account slots plus Claude Agent SDK execution with explicit API authentication. Subscription sessions remain in the native client.',
     documentation: 'https://code.claude.com/docs/en/authentication',
   },
   {

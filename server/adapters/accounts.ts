@@ -13,6 +13,24 @@ export function nativeEnvironment(account: Account): NodeJS.ProcessEnv {
   if (account.nativeHome && account.harness === 'codex') env.CODEX_HOME = account.nativeHome;
   if (account.nativeHome && account.harness === 'claude')
     env.CLAUDE_CONFIG_DIR = account.nativeHome;
+  if (account.harness === 'claude' && account.billingMode === 'api') {
+    const reference = account.credentialEnv || 'ANTHROPIC_API_KEY';
+    assert(
+      Boolean(process.env[reference]),
+      409,
+      `Set the ${reference} environment variable for this API slot before launching.`,
+    );
+    env.ANTHROPIC_API_KEY = process.env[reference];
+    // This route supports explicit API-key authentication only, never subscription OAuth fallback.
+    for (const key of [
+      'CLAUDE_CODE_OAUTH_TOKEN',
+      'ANTHROPIC_AUTH_TOKEN',
+      'CLAUDE_CODE_USE_BEDROCK',
+      'CLAUDE_CODE_USE_VERTEX',
+      'CLAUDE_CODE_USE_FOUNDRY',
+    ])
+      delete env[key];
+  }
   return env;
 }
 export function normalizeQuotas(result: any, identity: string, observedAt = now()): QuotaWindow[] {

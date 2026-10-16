@@ -53,6 +53,12 @@ export function AccountsPage({
                 />
               </div>
               <dl className="account-facts">
+                {a.harness === 'claude' && a.billingMode === 'api' && (
+                  <div>
+                    <dt>Credential reference</dt>
+                    <dd>{a.credentialEnv || 'ANTHROPIC_API_KEY'}</dd>
+                  </div>
+                )}
                 <div>
                   <dt>Identity</dt>
                   <dd>{a.identity ?? 'Not checked'}</dd>

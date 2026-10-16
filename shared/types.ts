@@ -6,6 +6,8 @@ export interface Account {
   label: string;
   harness: Harness;
   nativeHome: string;
+  /** Environment variable name only. Forge never stores its secret value. */
+  credentialEnv?: string;
   billingMode: 'native' | 'subscription' | 'api';
   state: 'configured' | 'verified' | 'unavailable';
   identity: string | null;
@@ -87,7 +89,7 @@ export interface Usage {
   workId: string | null;
   accountId: string | null;
   harness: Harness;
-  source: 'codex/app-server' | 'ccusage' | 'example';
+  source: 'codex/app-server' | 'claude/agent-sdk' | 'ccusage' | 'example';
   scope: string;
   inputTokens: number;
   outputTokens: number;

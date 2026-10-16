@@ -29,7 +29,10 @@ import {
   readCcusage,
   readDeckSessions,
 } from './adapters/sources.js';
-import { CodexController, type RpcFactory } from './codex.js';
+import { CodexDriver, type RpcFactory } from './adapters/codex-driver.js';
+import { ClaudeDriver } from './adapters/claude-driver.js';
+import { ExecutionController } from './execution.js';
+import type { DriverFactory } from './adapters/driver.js';
 import { seedDemo } from './demo.js';
 
 const harness = z.enum(['codex', 'claude', 'opencode', 'hermes', 'openclaw']);
@@ -52,6 +55,10 @@ const accountSchema = z
     label: text(80).min(1),
     harness,
     nativeHome: text(2000).default(''),
+    credentialEnv: z
+      .string()
+      .regex(/^[A-Za-z_][A-Za-z0-9_]{0,127}$/)
+      .optional(),
     billingMode: z.enum(['native', 'subscription', 'api']).default('native'),
   })
   .strict();
@@ -60,6 +67,7 @@ export interface AppOptions {
   port?: number;
   csrf?: string;
   rpcFactory?: RpcFactory;
+  driverFactory?: DriverFactory;
   codexBinary?: string;
   staticRoot?: string;
   test?: boolean;
@@ -72,10 +80,22 @@ export async function createApp(options: AppOptions) {
   local.recoverInterruptedRuns();
   const demo = new Store(':memory:');
   seedDemo(demo);
-  const controller = new CodexController(
+  const controller = new ExecutionController(
     local,
-    options.rpcFactory,
-    options.codexBinary ? async () => options.codexBinary! : undefined,
+    options.driverFactory ??
+      ((context) => {
+        if (context.work.harness === 'codex')
+          return new CodexDriver(
+            options.rpcFactory,
+            options.codexBinary ? async () => options.codexBinary! : undefined,
+          );
+        if (context.work.harness === 'claude') return new ClaudeDriver();
+        assert(
+          false,
+          409,
+          'Managed execution for this adapter is not connected yet. Continue through its native client.',
+        );
+      }),
   );
   const machine = new MachineMonitor();
   const csrf = options.csrf ?? randomBytes(32).toString('hex');
@@ -159,12 +179,12 @@ export async function createApp(options: AppOptions) {
         : 'Forge could not complete this operation. Refresh and inspect the current state before retrying.',
     });
   });
-  app.get('/api/health', async () => ({ status: 'ok', version: '0.1.0' }));
+  app.get('/api/health', async () => ({ status: 'ok', version: '0.2.0' }));
   app.get('/api/snapshot', async (request) => {
     const db = store(request);
     const result: Snapshot = {
       mode: mode(request),
-      version: '0.1.0',
+      version: '0.2.0',
       csrf,
       work: db.all<WorkSummary>('work_summaries').sort((a, b) => {
         const rank = { waiting: 0, running: 1, failed: 2, interrupted: 2, ready: 3, completed: 4 };
@@ -432,7 +452,7 @@ export async function createApp(options: AppOptions) {
           'Only the isolated demo state changed. No native command was run.',
         );
       });
-    } else controller.decide(approvalId, body.digest, body.decision);
+    } else await controller.decide(approvalId, body.digest, body.decision);
     return { ok: true };
   });
   app.patch('/api/settings', async (request) => {

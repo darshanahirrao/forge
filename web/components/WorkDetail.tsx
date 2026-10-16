@@ -6,6 +6,7 @@ import {
   type WorkEvent,
 } from '../../shared/types';
 import { type Mutate } from '../api';
+import { executionName, managedHarnesses } from '../../shared/harnesses';
 import { useState, type FormEvent } from 'react';
 import { Dialog, Status, HarnessMark, FormError } from './primitives';
 import { names, age } from '../lib/format';
@@ -182,7 +183,7 @@ export function WorkDetail({
             <Pause size={16} />
             Stop managed attempt
           </button>
-        ) : work.harness === 'codex' && mode !== 'demo' ? (
+        ) : managedHarnesses.includes(work.harness) && mode !== 'demo' ? (
           <button
             className="button primary"
             onClick={onLaunch}
@@ -194,7 +195,8 @@ export function WorkDetail({
             }
           >
             <Play size={16} />
-            {work.nativeSessionId ? 'Continue with Codex' : 'Run with Codex'}
+            {work.nativeSessionId ? 'Continue with ' : 'Run with '}
+            {executionName(work.harness)}
           </button>
         ) : (
           <span className="source-note">

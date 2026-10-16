@@ -6,7 +6,7 @@ Forge is an open-source local workspace for people who work across AI runtimes a
 
 We call the product concept **Persistent Agency**: your agent profile, memory, workspace, work history, shared connections, schedules, and policies remain in Forge while you change a compatible execution harness at a verified checkpoint.
 
-**Status: early local application, v0.1.0.** Work tracking, account slots, live machine telemetry, a separate demo workspace, and an experimental Codex execution/approval adapter are implemented. The broader architecture remains a roadmap. Automatic account switching, cross-harness transfer, phone approvals, scheduling adapters, and hard resource enforcement are not implemented. See [the implementation and evidence](docs/RUNTIME.md).
+**Status: early local application, v0.2.0.** Work tracking, account slots, live machine telemetry, a separate demo workspace, and experimental native Codex and Claude API execution/approval adapters are implemented. The broader architecture remains a roadmap. Automatic account switching, cross-harness transfer, phone approvals, scheduling adapters, and hard resource enforcement are not implemented. See [the implementation and evidence](docs/RUNTIME.md).
 
 ## Run Forge
 
@@ -20,7 +20,7 @@ npm start
 
 Open [the local workspace](http://127.0.0.1:4710). The real workspace starts empty. Use the workspace selector to explore clearly labeled fictional examples in a separate in-memory demo. Demo actions never start native execution. Machine telemetry is live in both views.
 
-Create a work record, add a native account slot, and check a supported account from the Accounts view. For experimental managed Codex work, select the account and an existing project directory, then review the launch dialog. Native sign-in stays in the harness; Forge does not collect credentials or purchase credits. Each launch checks effective native account configuration and permissions.
+Create a work record, add a native account slot, and check a supported account from the Accounts view. For experimental managed Codex work, select the account and an existing project directory, then review the launch dialog. Native sign-in stays in the harness; Forge does not collect credentials or purchase credits. Each launch checks effective native account configuration and permissions. Claude managed turns use the official Agent SDK with API authentication and an explicit metered-usage choice; native claude.ai subscription sessions remain in their native client. [Claude setup and integration limits](docs/NATIVE_DRIVERS.md) explain this distinction.
 
 Private state is stored outside this repository. On macOS, the default is `~/Library/Application Support/Forge/workspace.sqlite`. Use `FORGE_DATA_DIR` or `node bin/forge.mjs --data-dir DIRECTORY` to select another location. `FORGE_PORT` or `--port` changes the loopback port. Stop a foreground service with Ctrl+C. No startup agent, background schedule, or hosted service is installed.
 
@@ -28,13 +28,13 @@ Private state is stored outside this repository. On macOS, the default is `~/Lib
 
 - Persistent work, goals, context, checkpoints, revision conflict checks, and user-selected context exports.
 - Multiple account slots per supported harness choice, native Codex/Claude authentication status checks, and native Codex quota evidence when exposed.
-- Experimental Codex app-server start/resume, one managed attempt at a time, supported command/file-change approvals, cancellation, native usage snapshots, and crash-recovery receipts.
+- A shared execution coordinator for experimental Codex app-server and Claude Agent SDK API turns, with one managed worker, supported exact approvals, cancellation, native session continuation, usage snapshots, and recovery receipts.
 - Real CPU, OS memory, process RSS, and service-memory visibility. Quiet mode gates new managed work.
 - Hermes API health and capability discovery through an existing local server.
 - Optional Agent Deck session inventory and ccusage daily Claude reports through their installed native CLIs.
 - Responsive light/dark views, keyboard search, and sanitized setup-blueprint export.
 
-The native execution adapter has protocol-fixture tests and an installed Codex initialization smoke check. A real model-backed task and real account-transfer scenarios have not been exercised. Native limits, permissions, and compatibility still apply.
+Native adapters have protocol/callback fixtures, an installed Claude SDK transport check with a synthetic native worker, and an installed Codex initialization smoke check. A real model-backed task and real account-transfer scenarios have not been exercised. Native limits, permissions, and compatibility still apply.
 
 The figure below describes the broader architecture roadmap.
 

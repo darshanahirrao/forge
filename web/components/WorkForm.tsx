@@ -157,7 +157,7 @@ export function WorkForm({
           <small>
             {mode === 'demo'
               ? 'Demo work never accesses this path.'
-              : 'Managed execution is available for Codex. Other harnesses can keep a tracked work record.'}
+              : 'Managed turns support Codex and Claude API accounts. Other harnesses can keep a tracked work record.'}
           </small>
         </label>
         <label>
