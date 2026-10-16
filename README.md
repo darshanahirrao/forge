@@ -34,7 +34,7 @@ Private state is stored outside this repository. On macOS, the default is `~/Lib
 - Optional Agent Deck session inventory and ccusage daily Claude reports through their installed native CLIs.
 - Responsive light/dark views, keyboard search, and sanitized setup-blueprint export.
 
-Native adapters have protocol/callback fixtures, an installed Claude SDK transport check with a synthetic native worker, and an installed Codex initialization smoke check. A real model-backed task and real account-transfer scenarios have not been exercised. Native limits, permissions, and compatibility still apply.
+Native adapters have protocol/callback fixtures plus [repeatable native tool conformance checks](tests/native/README.md). Actual Codex and Claude native workers each passed an approval, tool execution, exact artifact verification and usage reporting against local deterministic providers, with zero paid model calls. Real model-backed work and real account-transfer scenarios remain unverified. Native limits, permissions, and compatibility still apply.
 
 The figure below describes the broader architecture roadmap.
 

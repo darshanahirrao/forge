@@ -5,6 +5,7 @@ import type {
   Query,
   SDKMessage,
   ModelUsage,
+  SDKUserMessage,
 } from '@anthropic-ai/claude-agent-sdk';
 import type { Usage } from '../../shared/types.js';
 import { assert } from '../errors.js';
@@ -12,7 +13,10 @@ import { now } from '../store.js';
 import { nativeEnvironment } from './accounts.js';
 import type { DriverContext, DriverSink, NativeDriver } from './driver.js';
 
-export type ClaudeQuery = (params: { prompt: string; options: Options }) => Query;
+export type ClaudeQuery = (params: {
+  prompt: string | AsyncIterable<SDKUserMessage>;
+  options: Options;
+}) => Query;
 type Pending = { resolve(result: PermissionResult): void; abort(): void };
 
 /** Native Claude Agent SDK transport. Subscription OAuth is deliberately not offered through this SDK. */
@@ -30,6 +34,7 @@ export class ClaudeDriver implements NativeDriver {
   private initialized = false;
   private seen = new Set<string>();
   private resultSeen = false;
+  private releasePrompt: ((allowed: boolean) => void) | null = null;
   get closed() {
     return this.closing;
   }
@@ -179,7 +184,32 @@ export class ClaudeDriver implements NativeDriver {
         return child;
       },
     };
-    this.query = queryFactory({ prompt: context.prompt, options });
+    // Initialize the same native worker before giving it any model input.
+    const admission = new Promise<boolean>((resolve) => {
+      this.releasePrompt = resolve;
+    });
+    const prompt = (async function* (): AsyncGenerator<SDKUserMessage> {
+      if (await admission)
+        yield {
+          type: 'user',
+          session_id: context.work.nativeSessionId ?? '',
+          parent_tool_use_id: null,
+          message: { role: 'user', content: context.prompt },
+        };
+    })();
+    this.query = queryFactory({ prompt, options });
+    try {
+      const account = await this.query.accountInfo();
+      assert(
+        account.apiKeySource === 'ANTHROPIC_API_KEY' && account.apiProvider === 'firstParty',
+        409,
+        'The native worker did not confirm the selected API authentication route. No task input was sent.',
+      );
+      this.releasePrompt?.(!this.closing);
+    } catch (error) {
+      this.releasePrompt?.(false);
+      throw error;
+    }
     for await (const message of this.query) {
       if (this.closing) break;
       this.message(context, sink, message);
@@ -254,11 +284,12 @@ export class ClaudeDriver implements NativeDriver {
     }
   }
   async interrupt() {
-    await this.query?.interrupt();
+    if (this.initialized) await this.query?.interrupt();
   }
   close(): Promise<void> {
     if (this.stop) return this.stop;
     this.closing = true;
+    this.releasePrompt?.(false);
     for (const pending of this.pending.values()) pending.abort();
     this.query?.close();
     this.abortController.abort();

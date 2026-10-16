@@ -1,5 +1,13 @@
 # Build log
 
+## 2026-10-17 · native-tool-conformance-20261017
+
+Added repeatable opt-in conformance for actual Codex and Claude native workers against deterministic loopback providers. Both request a one-time decision through Forge's HTTP approval endpoint, execute their native tool, produce an exact temporary artifact, report usage and exit. Model responses are synthetic; no paid model call or private credential is used. The command runs workers sequentially and removes its temporary projects/configuration.
+
+Hardened the Claude API route with native host-managed provider settings and a same-worker account preflight before releasing task input. A failing native auth preflight sends zero task inputs. The real Claude check includes conflicting project credentials, endpoint and cloud-provider settings and confirms that the selected host route and synthetic key prevail. Existing native instructions and tool permissions remain delegated to the harness.
+
+Validation: 29 functional/API/driver tests and TypeScript checks pass. Native tool checks pass with Codex 0.159.3 and SDK 0.3.301/native Claude Code 2.1.301, one approval and two fixture-provider requests each. The five browser flows and accessibility checks passed at the preceding v0.2 source checkpoint, whose remote main/tag and GitHub CI were verified. No browser UI changed here. Limitations: these are native tool integration checks with simulated inference, not proof of real-model quality, account isolation/transfer, artifact handoff, remote approval delivery or full runtime replacement. Checkpoint reference: the commit containing this entry; durable tag `native-tool-conformance-20261017`.
+
 ## 2026-10-17 · forge-v0.2.0
 
 Extracted Codex's native transport into a driver and introduced one execution coordinator across native adapters. Added a Claude Agent SDK API driver using native tools, settings, project instructions, manual permission mode, native request/tool-use identity, abort signals, session continuation and native pipeline usage estimates. API slots store an environment-variable name, never its value. Native claude.ai subscription execution stays in the native client under Anthropic's third-party SDK integration rules.

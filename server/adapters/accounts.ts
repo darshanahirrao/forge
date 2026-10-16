@@ -21,6 +21,7 @@ export function nativeEnvironment(account: Account): NodeJS.ProcessEnv {
       `Set the ${reference} environment variable for this API slot before launching.`,
     );
     env.ANTHROPIC_API_KEY = process.env[reference];
+    env.CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST = '1';
     // This route supports explicit API-key authentication only, never subscription OAuth fallback.
     for (const key of [
       'CLAUDE_CODE_OAUTH_TOKEN',

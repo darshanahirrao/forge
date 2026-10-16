@@ -59,13 +59,13 @@ The earlier 75 MB / 1% core target is a design target, not a passed performance 
 
 The repository includes type checks, functional/API tests, Playwright user flows, and axe accessibility checks. Synthetic native protocol fixtures never run shell commands, call a model, or write project files. They cover request correlation, one-time decisions, stale generations, expiry, withdrawal, policy mismatch, cancellation/recovery, billing admission, usage deduplication, demo isolation, revision conflicts, atomic persistence, and lightweight projections. A synthetic Hermes server checks discovery against read-only endpoints.
 
-The installed Claude SDK passed a real stream-json transport check against a synthetic executable worker, including permission delivery, cumulative usage and native child exit. This is SDK conformance evidence, not a real upstream model run. There are 28 functional/API/driver tests and five browser flows at this checkpoint.
+The installed Claude SDK passed a real stream-json transport check against a synthetic executable worker, including permission delivery, cumulative usage and native child exit. This is SDK conformance evidence, not a real upstream model run. There are 29 functional/API/driver tests and five browser flows at this checkpoint.
 
-The installed Codex CLI also passed a real initialization handshake. No account lookup, paid model turn, real command approval, account migration, or private native usage import was requested for that smoke check. Real upstream execution and two-account continuity still need controlled conformance work before this adapter is considered production-ready.
+The installed Codex CLI also passed a real initialization handshake. No account lookup, paid model turn, real command approval, account migration, or private native usage import was requested for that smoke check. Separate opt-in tests now exercise actual Codex 0.159.3 and the SDK native Claude Code 2.1.301 against local deterministic providers. Both passed native approval delivery, real tool execution, exact artifact verification, usage and process exit. The Claude test verifies that conflicting project credentials/routing cannot replace the selected host configuration. [Native conformance instructions](../tests/native/README.md) explain the isolated fixtures. These are native execution checks with synthetic model responses, not paid-model or two-account continuity proof.
 
 ## Next delivery gates
 
-1. Validate the experimental Codex adapter against a controlled real task and record exact supported native versions.
-2. Validate the Claude adapter with a controlled artifact-producing native task; extend the existing-foundation evaluation before adding Hermes, OpenClaw, or OpenCode managed execution. Preserve native tools, memory, and schedule owners.
+1. Extend native conformance to cancellation, native account isolation, source release and artifact continuity, then real model-backed tasks.
+2. Extend the existing-foundation evaluation before adding Hermes, OpenClaw, or OpenCode managed execution. Preserve native tools, memory, and schedule owners.
 3. Add supported authenticated approval delivery, native scheduling inventory, and resource-ownership evidence.
 4. Prove two-account continuation and then cross-harness continuation around an artifact-producing task, with external-effect reconciliation and complete context-coverage evidence.

@@ -11,7 +11,11 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
       response: {
         subtype: 'success',
         request_id: message.request_id,
-        response: { commands: [], models: [], account: {} },
+        response: {
+          commands: [],
+          models: [],
+          account: { apiProvider: 'firstParty', apiKeySource: 'ANTHROPIC_API_KEY' },
+        },
       },
     });
   } else if (message.type === 'user') {

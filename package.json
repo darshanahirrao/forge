@@ -19,7 +19,10 @@
     "format": "prettier --write --ignore-unknown web server shared tests bin *.json *.ts",
     "format:check": "prettier --check --ignore-unknown web server shared tests bin *.json *.ts",
     "test": "tsx --test tests/*.test.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:native:codex": "tsx tests/native/codex-conformance.ts",
+    "test:native:claude": "tsx tests/native/claude-conformance.ts",
+    "test:native": "npm run test:native:codex && npm run test:native:claude"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.301",

@@ -12,7 +12,7 @@ npm run build
 npm run test:e2e
 ```
 
-Browser tests use installed Google Chrome locally. In CI they use Playwright Chromium, installed with `npx playwright install --with-deps chromium`. Browser-test data lives in a temporary directory and is removed when the test service exits. Native protocol tests use synthetic fixtures and make no model calls.
+Browser tests use installed Google Chrome locally. In CI they use Playwright Chromium, installed with `npx playwright install --with-deps chromium`. Browser-test data lives in a temporary directory and is removed when the test service exits. Native protocol tests use synthetic fixtures and make no model calls. Optional `npm run test:native` runs installed native tools against deterministic loopback providers in temporary projects, sequentially. It needs Codex on PATH and the SDK native platform dependency. No paid endpoint or private credential is used; see [native conformance](tests/native/README.md).
 
 Read [the current runtime boundary](docs/RUNTIME.md) and [the reuse rule](docs/NATIVE_BOUNDARY.md) before extending an adapter. Prefer an existing native interface or component over implementing another execution, memory, terminal, browser, or scheduling stack. Retain native extensions and unsupported capability states.
 

@@ -244,7 +244,11 @@ test('Claude native permission callback resolves exactly once without creating p
       yield result;
       await stopped;
     })();
-    return Object.assign(stream, { close: stop, interrupt: async () => {} }) as unknown as Query;
+    return Object.assign(stream, {
+      close: stop,
+      interrupt: async () => {},
+      accountInfo: async () => ({ apiProvider: 'firstParty', apiKeySource: 'ANTHROPIC_API_KEY' }),
+    }) as unknown as Query;
   });
   const controller = new ExecutionController(store, () => driver);
   try {
@@ -256,6 +260,7 @@ test('Claude native permission callback resolves exactly once without creating p
     assert.equal(received?.permissionMode, 'default');
     assert.equal(received?.env?.ANTHROPIC_API_KEY, 'synthetic-test-value');
     assert.equal(received?.env?.CLAUDE_CODE_OAUTH_TOKEN, undefined);
+    assert.equal(received?.env?.CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST, '1');
     assert.deepEqual(received?.settingSources, ['user', 'project', 'local']);
     await controller.decide(approval.id, approval.digest, 'accept');
     await waitFor(() => store.work(work.id).status === 'completed', 'Claude terminal result');
@@ -422,4 +427,41 @@ test('overview accounting does not add overlapping daily imports to native sessi
   assert.equal(overlapping.incomplete, true);
   assert.equal(usageSummary([daily, codex]).totalTokens, 60);
   assert.equal(usageSummary([daily, codex]).estimatedUsd, 0.05);
+});
+
+test('an unexpected native auth route receives no task input before failure', async () => {
+  const store = new Store(':memory:');
+  const { work } = prepared(store, 'claude');
+  const original = process.env.FORGE_FIXTURE_CLAUDE_KEY;
+  process.env.FORGE_FIXTURE_CLAUDE_KEY = 'synthetic-preflight-value';
+  let sent = 0;
+  let consumed = Promise.resolve();
+  const driver = new ClaudeDriver((params) => {
+    consumed = (async () => {
+      for await (const _input of params.prompt as AsyncIterable<unknown>) sent++;
+    })();
+    const stream = (async function* () {
+      await consumed;
+    })();
+    return Object.assign(stream, {
+      close() {},
+      interrupt: async () => {},
+      accountInfo: async () => ({ apiProvider: 'vertex', apiKeySource: 'none' }),
+    }) as unknown as Query;
+  });
+  const controller = new ExecutionController(store, () => driver);
+  try {
+    await controller.launch(work.id, true, false);
+    await waitFor(() => store.work(work.id).status === 'failed', 'native auth preflight rejection');
+    await consumed;
+    assert.equal(sent, 0);
+    assert.equal(store.work(work.id).nativeSessionId, null);
+    assert.equal(store.all('approvals').length, 0);
+    assert.equal(store.all('usage').length, 0);
+  } finally {
+    await controller.close();
+    store.close();
+    if (original === undefined) delete process.env.FORGE_FIXTURE_CLAUDE_KEY;
+    else process.env.FORGE_FIXTURE_CLAUDE_KEY = original;
+  }
 });
