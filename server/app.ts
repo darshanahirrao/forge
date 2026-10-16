@@ -40,6 +40,8 @@ import { Continuity } from './continuity.js';
 import { NativeSources, type NativeSourcesOptions } from './native-sources.js';
 import { Profiles, inspectMemory } from './memory.js';
 import type { DriverFactory } from './adapters/driver.js';
+import { workspaceHeaders } from './http-security.js';
+import { bridgeActor, type PhoneBridge } from './phone.js';
 import { seedDemo } from './demo.js';
 
 const harness = z.enum(['codex', 'claude', 'opencode', 'hermes', 'openclaw']);
@@ -74,6 +76,7 @@ export interface AppOptions {
   filename: string;
   port?: number;
   csrf?: string;
+  phoneBridge?: PhoneBridge;
   rpcFactory?: RpcFactory;
   driverFactory?: DriverFactory;
   nativeSourcesOptions?: NativeSourcesOptions;
@@ -146,7 +149,15 @@ export async function createApp(options: AppOptions) {
     mode(request) === 'demo' ? demo : local;
 
   app.addHook('onRequest', async (request, reply) => {
-    if (!allowedHosts.has(request.headers.host ?? ''))
+    const actor = bridgeActor(request.headers, options.phoneBridge);
+    const dynamicHost =
+      options.port === 0 && request.raw.socket.localPort
+        ? [`127.0.0.1:${request.raw.socket.localPort}`, `localhost:${request.raw.socket.localPort}`]
+        : [];
+    if (
+      !allowedHosts.has(request.headers.host ?? '') &&
+      !dynamicHost.includes(request.headers.host ?? '')
+    )
       return reply.code(403).send({ error: 'Use the printed local Forge address.' });
     if (
       request.headers['x-forge-workspace'] &&
@@ -154,7 +165,12 @@ export async function createApp(options: AppOptions) {
     )
       return reply.code(400).send({ error: 'Choose the local or demo workspace explicitly.' });
     const origin = request.headers.origin;
-    if (origin && !allowedOrigins.has(origin))
+    if (
+      origin &&
+      !allowedOrigins.has(origin) &&
+      !dynamicHost.some((host) => origin === `http://${host}`) &&
+      !(actor.kind === 'tailscale' && origin === options.phoneBridge?.origin)
+    )
       return reply
         .code(403)
         .send({ error: 'This origin is not allowed to access the local workspace.' });
@@ -173,13 +189,7 @@ export async function createApp(options: AppOptions) {
     }
   });
   app.addHook('onSend', async (_request, reply) => {
-    reply.header('X-Content-Type-Options', 'nosniff');
-    reply.header('Referrer-Policy', 'no-referrer');
-    reply.header('Cache-Control', 'no-store');
-    reply.header(
-      'Content-Security-Policy',
-      "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
-    );
+    workspaceHeaders(reply);
   });
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof ZodError)
@@ -210,6 +220,7 @@ export async function createApp(options: AppOptions) {
   app.get('/api/snapshot', async (request) => {
     const db = store(request);
     const result: Snapshot = {
+      access: bridgeActor(request.headers, options.phoneBridge),
       mode: mode(request),
       version,
       csrf,
@@ -558,7 +569,13 @@ export async function createApp(options: AppOptions) {
           'Only the isolated demo state changed. No native command was run.',
         );
       });
-    } else await controller.decide(approvalId, body.digest, body.decision);
+    } else
+      await controller.decide(
+        approvalId,
+        body.digest,
+        body.decision,
+        bridgeActor(request.headers, options.phoneBridge),
+      );
     return { ok: true };
   });
   app.patch('/api/settings', async (request) => {

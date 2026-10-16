@@ -1,6 +1,6 @@
 import { type Approval, type WorkSummary, type WorkspaceMode } from '../../shared/types';
 import { type Mutate } from '../api';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, FormError } from './primitives';
 import { Terminal, ShieldCheck, LoaderCircle, Check } from 'lucide-react';
 
@@ -19,7 +19,19 @@ export function ApprovalDialog({
 }) {
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  const pending = approval.status === 'pending' && Date.parse(approval.expiresAt) > Date.now();
+  const [clock, setClock] = useState(Date.now);
+  useEffect(() => {
+    if (approval.status !== 'pending') return;
+    const update = () => setClock(Date.now());
+    const timer = setInterval(update, 1000);
+    document.addEventListener('visibilitychange', update);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', update);
+    };
+  }, [approval.id, approval.status]);
+  const remaining = Math.max(0, Math.ceil((Date.parse(approval.expiresAt) - clock) / 1000));
+  const pending = approval.status === 'pending' && remaining > 0;
   async function decide(decision: 'accept' | 'decline') {
     setBusy(decision);
     setError('');
@@ -66,7 +78,10 @@ export function ApprovalDialog({
           </div>
           <div>
             <dt>Expires</dt>
-            <dd>{new Date(approval.expiresAt).toLocaleTimeString()}</dd>
+            <dd>
+              {new Date(approval.expiresAt).toLocaleTimeString()}
+              {pending ? ` · ${remaining} s left` : ''}
+            </dd>
           </div>
           <div>
             <dt>Request fingerprint</dt>
@@ -74,6 +89,16 @@ export function ApprovalDialog({
               <code title={approval.digest}>{approval.digest.slice(0, 24)}</code>
             </dd>
           </div>
+          {approval.decidedBy && (
+            <div>
+              <dt>Reviewed by</dt>
+              <dd>
+                {approval.decidedBy.kind === 'tailscale'
+                  ? approval.decidedBy.identity
+                  : 'Local workspace'}
+              </dd>
+            </div>
+          )}
         </dl>
         <div className="notice">
           <ShieldCheck size={18} />

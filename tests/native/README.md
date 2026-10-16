@@ -35,3 +35,7 @@ The 17 October 2026 local run observed 89 Codex chats, 25 Claude chats, nine Cod
 ## Hermes ACP and native memory
 
 `npm run test:native:hermes` runs native Hermes 0.17.0 with two isolated homes, exact native one-time reviews, native file/memory tools, same-session history resume, selected learned-memory handoff, a fresh-session native memory check and explicit provider-failure reporting. Five native workers run; the continuity work retains three artifacts, three approvals and three run usage scopes. The isolated project is created under the ignored repository `artifacts/` directory because native Hermes denies the macOS `/private` temporary path. No native policy is disabled to bypass that guard. Homes/projects are removed after the check. See [the versioned native contract](../../docs/HERMES.md).
+
+## Private-gateway native decision
+
+The Codex native check now routes its exact one-time decision through the maintained private gateway using a controlled native-Serve-header fixture. Anonymous review is denied before the artifact exists; the selected identity is recorded and the native tool then produces the verified file. This proves the actual local gateway/native-decision path with zero paid inference. It does not establish actual Tailscale/phone compatibility; see [phone evidence](../../docs/PHONE_ACCESS.md).

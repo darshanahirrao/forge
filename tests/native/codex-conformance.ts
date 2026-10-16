@@ -4,6 +4,8 @@ import { createServer } from 'node:http';
 import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { randomBytes } from 'node:crypto';
+import { createPhoneGateway } from '../../server/phone.js';
 import { createApp } from '../../server/app.js';
 import { NativeRpc } from '../../server/adapters/rpc.js';
 import type { Account, Approval, Usage, Work } from '../../shared/types.js';
@@ -86,7 +88,12 @@ await writeFile(
   join(nativeHome, 'config.toml'),
   `model = "forge-conformance"\nmodel_provider = "fixture"\ncli_auth_credentials_store = "file"\n[model_providers.fixture]\nname = "Local conformance fixture"\nbase_url = "http://127.0.0.1:${address.port}/v1"\nwire_api = "responses"\nrequires_openai_auth = false\n`,
 );
+const phoneOrigin = 'https://forge.conformance.ts.net';
+const phoneIdentity = 'reviewer@example.com';
+const bridge = { origin: phoneOrigin, proof: randomBytes(32).toString('hex') };
 const state = await createApp({
+  port: 0,
+  phoneBridge: bridge,
   filename: ':memory:',
   csrf: 'native-conformance',
   test: true,
@@ -102,12 +109,19 @@ const state = await createApp({
       },
     }),
 });
+const upstream = await state.app.listen({ host: '127.0.0.1', port: 0 });
+const gateway = await createPhoneGateway(
+  { origin: phoneOrigin, users: [phoneIdentity], port: 0 },
+  upstream,
+  bridge,
+);
+const phoneAddress = await gateway.listen({ host: '127.0.0.1', port: 0 });
 const call = (url: string, payload: Record<string, unknown>) =>
   state.app.inject({
     method: 'POST',
     url,
     headers: {
-      host: '127.0.0.1:4710',
+      host: '127.0.0.1:0',
       'x-forge-csrf': 'native-conformance',
       'content-type': 'application/json',
     },
@@ -146,11 +160,37 @@ try {
       .filter((a) => a.status === 'pending')) {
       assert.equal(approval.method, 'item/commandExecution/requestApproval');
       assert.ok(approval.command.includes('proof.txt'));
-      const result = await call(`/api/approvals/${approval.id}/decision`, {
-        digest: approval.digest,
-        decision: 'accept',
+      const path = `/api/approvals/${approval.id}/decision`;
+      assert.equal(
+        (
+          await fetch(phoneAddress + path, {
+            method: 'POST',
+            headers: {
+              origin: phoneOrigin,
+              'content-type': 'application/json',
+              'x-forge-csrf': 'native-conformance',
+            },
+            body: JSON.stringify({ digest: approval.digest, decision: 'accept' }),
+          })
+        ).status,
+        401,
+      );
+      await assert.rejects(readFile(artifact), { code: 'ENOENT' });
+      const result = await fetch(phoneAddress + path, {
+        method: 'POST',
+        headers: {
+          origin: phoneOrigin,
+          'tailscale-user-login': phoneIdentity,
+          'content-type': 'application/json',
+          'x-forge-csrf': 'native-conformance',
+        },
+        body: JSON.stringify({ digest: approval.digest, decision: 'accept' }),
       });
-      assert.equal(result.statusCode, 200, result.body);
+      assert.equal(result.status, 200, await result.text());
+      assert.deepEqual(state.local.get<Approval>('approvals', approval.id)?.decidedBy, {
+        kind: 'tailscale',
+        identity: phoneIdentity,
+      });
       decisions++;
     }
     if (['completed', 'failed', 'interrupted'].includes(state.local.work(work.id).status)) break;
@@ -176,9 +216,13 @@ try {
       requestCount: requests,
       nativeUsageObserved: true,
       paidModelCalls: 0,
+      phoneGatewayNativeDecision: true,
+      authenticatedIdentityRecorded: true,
+      phoneTransport: 'loopback native-Serve-header fixture; actual tailnet not configured',
     }),
   );
 } finally {
+  await gateway.close();
   await state.app.close();
   await new Promise<void>((resolve) => provider.close(() => resolve()));
   await rm(directory, { recursive: true, force: true });

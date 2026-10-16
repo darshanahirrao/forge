@@ -1,6 +1,6 @@
-# Forge v0.7.0
+# Forge v0.8.0
 
-Implementation checkpoint, 17 October 2026. Hermes ACP now joins Codex, Claude API and OpenCode v2 in the shared execution coordinator, with real native tools, selected-memory continuity and profile handoff. The full Persistent Agency architecture remains a delivery plan rather than a claim of completed interoperability.
+Implementation checkpoint, 17 October 2026. Private phone access now reuses native Tailscale Serve and the same workspace/inbox, with exact decisions and recorded reviewer identity. Hermes ACP, Codex, Claude API and OpenCode v2 retain native execution and verified selected-context handoff. The full Persistent Agency architecture remains a delivery plan rather than a claim of completed interoperability.
 
 ## Start and develop
 
@@ -51,7 +51,7 @@ Profile/memory preparation owns the admission slot before asynchronous source re
 
 Defaults are `~/Library/Application Support/Forge` on macOS, the user data directory on Linux, and LocalAppData on Windows. The directory is created privately where supported and the SQLite file uses mode 0600. Work context, profile instructions, native memory/source references, aliases, native identity metadata, quota observations, usage, and receipts belong to this private database. Memory text is not copied into the source registry or prepared receipt; native harness input/history can retain delivered excerpts under native controls. Native credentials are not imported. The database is not encrypted by Forge.
 
-The service binds only to `127.0.0.1`. Host/origin checks, a per-start CSRF token, JSON mutations, and a restrictive content-security policy protect browser access. This is a trusted local-machine application, not a remotely authenticated multi-user server. LAN hosting and phone access require a separate authenticated transport and are not enabled.
+The service binds only to `127.0.0.1`. Host/origin checks, a per-start CSRF token, JSON mutations, and a restrictive content-security policy protect browser access. The default is a trusted local-machine application. Optional private phone access adds a separate loopback gateway behind Tailscale Serve with explicit owner authorization, strict origin checks, process-only bridge proof and the same CSRF protection. It is not a team permissions server or public hosting mode. See [phone setup and evidence](PHONE_ACCESS.md).
 
 The demo uses a different in-memory database. Its accounts, work, costs, and approvals are fictional. All native execution, identity probes, usage reads, and runtime connections are blocked in demo mode. OS telemetry remains live and is labeled accordingly.
 
@@ -73,7 +73,7 @@ The earlier 75 MB / 1% core target is a design target, not a passed performance 
 
 The repository includes type checks, functional/API tests, Playwright user flows, and axe accessibility checks. Synthetic native protocol fixtures never run shell commands, call a model, or write project files. They cover request correlation, one-time decisions, stale generations, expiry, withdrawal, policy mismatch, cancellation/recovery, billing admission, usage deduplication, demo isolation, revision conflicts, atomic persistence, and lightweight projections. A synthetic Hermes server checks discovery against read-only endpoints.
 
-The installed Claude SDK passed a real stream-json transport check against a synthetic executable worker, including permission delivery, cumulative usage and native child exit. This is SDK conformance evidence, not a real upstream model run. There are 73 functional/API/continuity/driver/inventory/memory tests and ten browser flows at this checkpoint. Type checks also cover the test and native-fixture sources.
+The installed Claude SDK passed a real stream-json transport check against a synthetic executable worker, including permission delivery, cumulative usage and native child exit. This is SDK conformance evidence, not a real upstream model run. There are 77 functional/API/continuity/driver/inventory/memory/gateway tests, two compiled-package checks and eleven browser flows at this checkpoint. Type checks also cover the test and native-fixture sources.
 
 The installed Codex CLI also passed a real initialization handshake. No account lookup, paid model turn, real command approval, account migration, or private native usage import was requested for that smoke check. Separate opt-in tests now exercise actual Codex 0.159.3 and the SDK native Claude Code 2.1.301 against local deterministic providers. Both passed native approval delivery, real tool execution, exact artifact verification, usage and process exit. The Claude test verifies that conflicting project credentials/routing cannot replace the selected host configuration. [Native conformance instructions](../tests/native/README.md) explain the isolated fixtures. The additional native handoff check now chains Codex to Claude API profile one, a second isolated Claude API profile, then OpenCode v2 and Hermes ACP. Each target receives the portable context, reads the preceding artifact and writes the next artifact with its native tools. One work/profile ID, selected memory, goal, user checkpoint and five usage scopes remain. A separate two-OpenCode-profile check verifies native artifact reads/writes and distinct selected synthetic credentials. These are synthetic model responses and selected fixture credentials; live subscription/account isolation and model quality remain unverified.
 
@@ -83,7 +83,7 @@ The separate opt-in existing-inventory check observed 89 Codex and 25 Claude cha
 
 1. Extend conformance to missed events, cancellation near external effects, restart/process ownership, live account isolation and real model-backed tasks.
 2. Extend the existing-foundation evaluation before adding managed OpenClaw and companion planning/control. Preserve native tools, memory, and schedule owners.
-3. Add supported authenticated approval delivery, native schedule operations/ticker evidence, and resource-ownership evidence. Inventory alone does not prove execution health.
+3. Verify the phone gateway through a real tailnet/device, add background notification delivery, native schedule operations/ticker evidence, and resource-ownership evidence. Inventory alone does not prove execution health.
 4. Extend the tested selected-context handoff to additional native adapters and workspace/memory bindings. Preserve explicit coverage and native authority.
 
 ## State version and rollback

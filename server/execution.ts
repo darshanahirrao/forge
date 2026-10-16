@@ -1,4 +1,11 @@
-import type { Approval, ContextReview, Run, Work, WorkCapsule } from '../shared/types.js';
+import type {
+  ApprovalActor,
+  Approval,
+  ContextReview,
+  Run,
+  Work,
+  WorkCapsule,
+} from '../shared/types.js';
 import { assert, safeMessage } from './errors.js';
 import { Store, id, now } from './store.js';
 import { requestDigest } from './adapters/sources.js';
@@ -463,7 +470,12 @@ export class ExecutionController {
     }
     this.resumeStatus(active);
   }
-  async decide(approvalId: string, digest: string, decision: 'accept' | 'decline') {
+  async decide(
+    approvalId: string,
+    digest: string,
+    decision: 'accept' | 'decline',
+    actor: ApprovalActor = { kind: 'local' },
+  ) {
     const approval = this.store.get<Approval>('approvals', approvalId);
     assert(
       approval?.status === 'pending',
@@ -495,6 +507,7 @@ export class ExecutionController {
         ...approval,
         status: decision === 'accept' ? 'accepted' : 'declined',
         resolvedAt: now(),
+        decidedBy: actor,
       });
       this.store.event(
         approval.workId,
@@ -511,6 +524,7 @@ export class ExecutionController {
         ...approval,
         status: 'uncertain',
         resolvedAt: now(),
+        decidedBy: actor,
       });
       this.resumeStatus(active);
       throw error;

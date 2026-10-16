@@ -180,10 +180,24 @@ test('a decision is recorded before delivery and an uncertain delivery is never 
     request.respond = () => {
       deliveries++;
       assert.equal(store.get<Approval>('approvals', approval.id)?.status, 'accepted');
+      assert.deepEqual(store.get<Approval>('approvals', approval.id)?.decidedBy, {
+        kind: 'tailscale',
+        identity: 'reviewer@example.com',
+      });
       throw new Error('fixture disconnected after send');
     };
-    await assert.rejects(controller.decide(approval.id, approval.digest, 'accept'), /disconnected/);
+    await assert.rejects(
+      controller.decide(approval.id, approval.digest, 'accept', {
+        kind: 'tailscale',
+        identity: 'reviewer@example.com',
+      }),
+      /disconnected/,
+    );
     assert.equal(store.get<Approval>('approvals', approval.id)?.status, 'uncertain');
+    assert.deepEqual(store.get<Approval>('approvals', approval.id)?.decidedBy, {
+      kind: 'tailscale',
+      identity: 'reviewer@example.com',
+    });
     await assert.rejects(
       controller.decide(approval.id, approval.digest, 'accept'),
       /no longer pending/,

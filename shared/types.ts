@@ -177,6 +177,7 @@ export interface ContextReview {
   skipped: { sourceId: string; label: string; reason: string }[];
   requiresReview: boolean;
 }
+export type ApprovalActor = { kind: 'local' } | { kind: 'tailscale'; identity: string };
 export interface Approval {
   id: string;
   workId: string;
@@ -193,6 +194,7 @@ export interface Approval {
   createdAt: string;
   expiresAt: string;
   resolvedAt: string | null;
+  decidedBy?: ApprovalActor;
 }
 export interface Usage {
   key: string;
@@ -294,6 +296,7 @@ export interface MachineSnapshot {
   processes: { pid: number; parentPid: number; name: string; rss: number; cpuPercent: number }[];
 }
 export interface Snapshot {
+  access?: ApprovalActor;
   mode: WorkspaceMode;
   version: string;
   csrf: string;

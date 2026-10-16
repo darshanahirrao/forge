@@ -9,10 +9,11 @@ npm run format:check
 npm run check
 npm test
 npm run build
+npm run test:package
 npm run test:e2e
 ```
 
-Browser tests use installed Google Chrome locally. In CI they use Playwright Chromium, installed with `npx playwright install --with-deps chromium`. Browser-test data lives in a temporary directory and is removed when the test service exits. Native protocol tests use synthetic fixtures and make no model calls. Optional `npm run test:native` runs installed native tools against deterministic loopback providers in temporary projects, sequentially. It needs Codex on PATH and the SDK native platform dependency. No paid endpoint or private credential is used; see [native conformance](tests/native/README.md).
+Browser tests use installed Google Chrome locally. In CI they use Playwright Chromium, installed with `npx playwright install --with-deps chromium`. Browser-test data lives in a temporary directory and is removed when the test service exits. Native protocol tests use synthetic fixtures and make no model calls. Optional `npm run test:native` runs installed native tools against deterministic loopback providers in temporary projects, sequentially. It needs Codex, OpenCode v2 and Hermes 0.17.0 with ACP on PATH, plus the SDK native platform dependency. No paid endpoint or private credential is used; see [native conformance](tests/native/README.md).
 
 Read [the current runtime boundary](docs/RUNTIME.md) and [the reuse rule](docs/NATIVE_BOUNDARY.md) before extending an adapter. Prefer an existing native interface or component over implementing another execution, memory, terminal, browser, or scheduling stack. Retain native extensions and unsupported capability states.
 
@@ -22,4 +23,6 @@ Use fictional tasks and account identities in fixtures. Never commit credentials
 
 Update BUILD_LOG.md and HANDOFF.md with changes, validation, limitations, and a named continuation checkpoint. Keep changes focused and preserve the MIT license and applicable dependency licenses.
 
-Native/continuity changes should preserve the three-worker handoff conformance, source-exit receipts, revision-bound launch and selected-artifact verification. Run `npm run test:native` when the necessary local executables are available. Never replace those checks with invented success counters or treat synthetic inference as real provider-account evidence.
+Native/continuity changes should preserve the five-worker four-harness handoff conformance, source-exit receipts, revision-bound launch and selected-artifact verification. Run `npm run test:native` when the necessary local executables are available. Never replace those checks with invented success counters or treat synthetic inference as real provider-account evidence.
+
+Phone tests use loopback identity fixtures; the browser fixture generates a temporary certificate with the installed OpenSSL executable and simulates native Serve over HTTPS. They do not prove live tailnet authentication. Keep physical-device verification and native identity stripping distinct from the local gateway tests. `test:package` requires the production build and verifies CLI metadata, private listener ownership and shutdown.

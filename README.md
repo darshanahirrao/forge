@@ -6,7 +6,7 @@ Forge is an open-source local workspace for people who work across AI runtimes a
 
 We call the product concept **Persistent Agency**: your agent profile, memory, workspace, work history, shared connections, schedules, and policies remain in Forge while you change a compatible execution harness at a verified checkpoint.
 
-**Status: early local application, v0.7.0.** Persistent work/profiles, scoped native memory, account slots, native activity, machine telemetry and experimental Codex/Claude API/OpenCode/Hermes ACP execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic quota fallback, companion planning/control, managed OpenClaw, phone approvals, native schedule controls, full memory-provider migration and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md).
+**Status: early local application, v0.8.0.** Persistent work/profiles, scoped native memory, account slots, native activity, machine telemetry and experimental Codex/Claude API/OpenCode/Hermes ACP execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic quota fallback, companion planning/control, managed OpenClaw, background approval notifications, native schedule controls, full memory-provider migration and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md).
 
 ## Run Forge
 
@@ -26,6 +26,8 @@ OpenCode v2 reuses its official client and an owned native server. Configure a d
 
 Hermes reuses its installed ACP runtime, native tools, memory and skills with an explicit native home. [Hermes setup, exact reviews and native outcome evidence](docs/HERMES.md) describe the tested 0.17.0 route.
 
+For phone review, the opt-in private gateway reuses Tailscale Serve and an explicit owner allowlist. [Phone setup and evidence](docs/PHONE_ACCESS.md) describe the authenticated route and the remaining live-device verification. The default service remains local.
+
 To see existing work, open **Activity**, discover profile references, then read the sources you want. Codex and Claude session catalogs, Codex and Hermes schedule definitions, and existing Hermes/OpenClaw session APIs retain their native owners. [Native activity coverage and setup](docs/NATIVE_ACTIVITY.md) explain the limits and private metadata handling.
 
 Open **Memory** to create a persistent profile and pin scoped native Markdown files or sections. The launch dialog shows the current selection. Corrections invalidate stale reviews and start a fresh native conversation while retaining the work and earlier history. [Profile and memory setup](docs/MEMORY.md) explains scope, provenance and native ownership.
@@ -41,7 +43,7 @@ Private state is stored outside this repository. On macOS, the default is `~/Lib
 - Real CPU, OS memory, process RSS, and service-memory visibility. Quiet mode gates new managed work.
 - Native activity across profile/account homes: Codex and Claude chats, byte-preserving Codex/Hermes schedule inventory, and capability-aware Hermes/OpenClaw session API observations.
 - Optional Agent Deck session inventory and ccusage daily Claude reports through their installed native CLIs.
-- Responsive light/dark views, keyboard search, and sanitized setup-blueprint export.
+- Responsive light/dark views, keyboard search, sanitized setup-blueprint export, and opt-in private phone access to the same workspace/inbox with recorded reviewer identity.
 
 Native adapters have protocol/callback fixtures plus [repeatable native tool conformance checks](tests/native/README.md). Actual Codex, Claude, OpenCode and Hermes native workers passed an approval, tool execution, exact artifact verification and usage reporting against local deterministic providers, with zero paid model calls. A native Codex-to-Claude-to-second-Claude-profile-to-OpenCode-to-Hermes chain retains one work/profile identity, selected memory, its goal/checkpoint, five verified artifacts and five account usage scopes. A separate native check switches between two OpenCode profiles with distinct synthetic credentials and a verified artifact read. Inference is deterministic and local; live subscription/account isolation and real model quality remain unverified. Native limits, permissions, and compatibility still apply.
 
@@ -66,6 +68,7 @@ The defining demonstration is a real task checkpointed in one harness, continued
 ## Read the design
 
 - [Current implementation, setup, and limits](docs/RUNTIME.md)
+- [Private phone access and native approval review](docs/PHONE_ACCESS.md)
 - [Native Hermes execution, memory and conformance](docs/HERMES.md)
 - [Native OpenCode profile setup and conformance](docs/OPENCODE.md)
 - [Native capability boundary](docs/NATIVE_BOUNDARY.md)

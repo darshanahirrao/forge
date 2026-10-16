@@ -1,6 +1,6 @@
 {
   "name": "@forge-workspace/forge",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "A local workspace for continuous work across agent harnesses.",
   "private": true,
   "type": "module",
@@ -20,6 +20,7 @@
     "format:check": "prettier --check --ignore-unknown web server shared tests bin *.json *.ts",
     "test": "tsx --test tests/*.test.ts",
     "test:e2e": "playwright test",
+    "test:package": "node --test tests/package.test.mjs",
     "test:native:codex": "tsx tests/native/codex-conformance.ts",
     "test:native:claude": "tsx tests/native/claude-conformance.ts",
     "test:native:handoff": "tsx tests/native/handoff-conformance.ts",
@@ -31,6 +32,7 @@
   "dependencies": {
     "@agentclientprotocol/sdk": "1.9.0",
     "@anthropic-ai/claude-agent-sdk": "0.3.301",
+    "@fastify/http-proxy": "11.6.4",
     "@fastify/static": "^10.1.6",
     "@opencode/client": "2.0.6",
     "fastify": "^5.6.0",

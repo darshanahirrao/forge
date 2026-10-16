@@ -530,3 +530,95 @@ test('Hermes profile slots and launch review explain native authority on desktop
     snapshot.work.find((work: { title: string }) => work.title === 'Hermes native review').status,
   ).toBe('ready');
 });
+
+test('private HTTPS mobile approval uses the same native request and records its authenticated reviewer', async ({
+  page,
+  browser,
+}) => {
+  await page.goto('/');
+  const snapshot = await (await page.request.get('/api/snapshot')).json();
+  const post = async (path: string, data: unknown) => {
+    const response = await page.request.post(`/api${path}`, {
+      data,
+      headers: { 'x-forge-csrf': snapshot.csrf, 'x-forge-workspace': 'local' },
+    });
+    expect(response.ok(), await response.text()).toBe(true);
+    return response.json();
+  };
+  const account = await post('/accounts', { label: 'Phone native source', harness: 'codex' });
+  const work = await post('/work', {
+    title: 'Review from a private phone',
+    project: 'Browser fixture',
+    cwd: process.cwd(),
+    goal: 'Answer the same native request from a private HTTPS surface.',
+    harness: 'codex',
+    accountId: account.id,
+  });
+  await post(`/work/${work.id}/launch`, { expectedRevision: work.revision });
+  const context = await browser.newContext({
+    ignoreHTTPSErrors: true,
+    viewport: { width: 1280, height: 900 },
+  });
+  const phone = await context.newPage();
+  try {
+    await phone.goto('http://127.0.0.1:4711/');
+    await phone.evaluate(() => {
+      const link = document.createElement('a');
+      link.href = 'https://127.0.0.1:4713/';
+      link.textContent = 'Open private Forge';
+      document.querySelector('main')!.append(link);
+    });
+    await phone.getByRole('link', { name: 'Open private Forge', exact: true }).click();
+    await expect(phone).toHaveURL('https://127.0.0.1:4713/');
+    await expect(phone.getByText('Private access · alice@example.com')).toBeVisible();
+    await phone.getByRole('button', { name: /^Approvals/ }).click();
+    await phone.getByRole('button', { name: 'Review request', exact: true }).click();
+    const dialog = phone.getByRole('dialog', { name: 'Review a native command' });
+    await expect(dialog.getByText(/s left/)).toBeVisible();
+    await phone.screenshot({ path: 'artifacts/forge-phone-approval-light.png', fullPage: true });
+    await dialog.getByRole('button', { name: 'Close dialog' }).click();
+    await phone.getByRole('button', { name: 'Use dark theme' }).click();
+    await phone.setViewportSize({ width: 390, height: 844 });
+    await phone.getByRole('button', { name: 'Review request', exact: true }).click();
+    const axe = await new AxeBuilder({ page: phone })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(axe.violations.map((v) => v.id)).toEqual([]);
+    await phone.screenshot({
+      path: 'artifacts/forge-phone-approval-mobile-dark.png',
+      fullPage: true,
+    });
+    await dialog.getByRole('button', { name: 'Allow once' }).click();
+    await expect(dialog).not.toBeVisible();
+    await expect
+      .poll(async () => {
+        const next = await (await page.request.get('/api/snapshot')).json();
+        const approval = next.approvals.find((a: { workId: string }) => a.workId === work.id);
+        return { status: approval?.status, decidedBy: approval?.decidedBy };
+      })
+      .toEqual({
+        status: 'accepted',
+        decidedBy: { kind: 'tailscale', identity: 'alice@example.com' },
+      });
+    await phone
+      .getByRole('button', { name: /Review a native command/ })
+      .filter({ hasText: work.title })
+      .click();
+    await expect(dialog.getByText('alice@example.com', { exact: true })).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Allow once' })).toHaveCount(0);
+    const phoneSnapshot = await (
+      await phone.request.get('https://127.0.0.1:4713/api/snapshot')
+    ).json();
+    const accepted = phoneSnapshot.approvals.find((a: { workId: string }) => a.workId === work.id);
+    const replay = await phone.request.post(
+      `https://127.0.0.1:4713/api/approvals/${accepted.id}/decision`,
+      {
+        data: { digest: accepted.digest, decision: 'accept' },
+        headers: { origin: 'https://127.0.0.1:4713', 'x-forge-csrf': phoneSnapshot.csrf },
+      },
+    );
+    expect(replay.status()).toBe(409);
+  } finally {
+    await context.close();
+  }
+});

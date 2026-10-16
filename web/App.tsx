@@ -408,7 +408,9 @@ export function App() {
               <footer className="workspace-footer">
                 <span>
                   <span className="status-dot" />
-                  Saved locally. Your native tools stay in charge.
+                  {snapshot.access?.kind === 'tailscale'
+                    ? `Private access · ${snapshot.access.identity}`
+                    : 'Saved locally. Your native tools stay in charge.'}
                 </span>
                 <button onClick={() => setHelp(true)}>
                   Early access <ArrowRight size={12} />
