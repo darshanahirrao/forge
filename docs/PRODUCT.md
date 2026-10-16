@@ -13,6 +13,7 @@ Anyone should be able to reshape that arrangement through presets, configuration
 | One control surface | Work, native activity, approvals, resources, memory references, and usage. | Existing runtime capabilities and surfaces connected through adapters. |
 | Work Capsules | Continue the same goal through a compatible harness. | Verified artifacts, explicit missing capabilities, safe handoff. |
 | Dynamic components | Replace Hermes or OpenClaw, as well as the coding harness and other service backends. | Independent profile and work state, versioned contracts, verified replacement. |
+| Multiple accounts | Continue the same work through compatible accounts of one harness or several harnesses. | Native account isolation, verified identity, scoped routing, safe continuation, and honest limit visibility. |
 | Workspace blueprints | Shape and share a setup for different work and preferences. | Existing component bindings, sanitized configuration, compatibility preview, and supported extension contracts. |
 | Resource view and Quiet mode | See ownership and preserve capacity for foreground work. | Real telemetry and admission control over managed work. |
 | Token and dollar ledger | Understand spend by project, task, harness, and model. | Source-labeled usage, deduplication, estimated versus confirmed charges. |

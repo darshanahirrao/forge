@@ -3,7 +3,7 @@ flowchart TB
   subgraph plane["Persistent control plane"]
     direction LR
     runtime["Selected agent runtime<br/>Hermes / OpenClaw / others<br/>Conversation, planning, skills, tools"]
-    core["Forge core<br/>Persistent identity and work checkpoints<br/>Cross-runtime coordination<br/>Native approval routing and receipts<br/>Token and dollar ledger"]
+    core["Forge core<br/>Persistent identity and work checkpoints<br/>Cross-runtime coordination<br/>Native approval routing and receipts<br/>Account, quota, token and dollar records"]
     memory["Connected memory providers<br/>Existing storage and retrieval<br/>Scoped decisions, evidence, source references"]
     journal[("Forge coordination journal<br/>Profiles, native bindings, schedule references, receipts")]
     runtime <-->|"Scoped interface + native API"| core
@@ -11,7 +11,7 @@ flowchart TB
     core <--> journal
   end
   surfaces -->|"Authenticated intent and decisions"| core
-  contract["Versioned component registry<br/>Runtimes, harnesses, models, memory, tools, skills, channels, hosts<br/>Capability discovery + native extensions"]
+  contract["Versioned component registry<br/>Runtimes, harnesses, account slots, models, memory, tools, skills, channels, hosts<br/>Capability discovery + native extensions + scoped account routes"]
   core -->|"Coordinated work + supported native controls"| contract
   contract --> h["Hermes / OpenClaw<br/>Native runtime adapters"]
   contract --> c["Codex app-server"]

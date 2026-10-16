@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1480" height="1760" viewBox="0 0 1480 1760" role="img" aria-labelledby="title description">
   <title id="title">Forge: Persistent Agency architecture</title>
-  <desc id="description">Proposed architecture. Forge supplies a control surface and durable cross-runtime coordination. Replaceable runtimes such as Hermes and OpenClaw supply their existing capabilities, alongside native Codex, Claude Code, OpenCode and other harnesses. Existing memory providers retain storage and retrieval. Browser and computer use, terminals, file tools, skills, native scheduling, execution permissions and configured hosts remain implemented by connected runtimes and providers. Forge retains identity, work checkpoints, references, approval receipts, resource ownership and usage accounting. It builds adapters and continuity without rebuilding native capability stacks. All Forge functionality shown remains a design proposal.</desc>
+  <desc id="description">Proposed architecture. Forge supplies a control surface and durable cross-runtime coordination. Replaceable runtimes such as Hermes and OpenClaw supply their existing capabilities, alongside native Codex, Claude Code, OpenCode and other harnesses. Multiple native account slots bind to the same durable work through verified continuation, with scoped routes, identity checks and native quota evidence. Existing memory providers retain storage and retrieval. Browser and computer use, terminals, file tools, skills, native scheduling, execution permissions and configured hosts remain implemented by connected runtimes and providers. Forge retains identity, work checkpoints, references, approval receipts, resource ownership and usage accounting. It builds adapters and continuity without rebuilding native capability stacks. All Forge functionality shown remains a design proposal.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M 1 1 L 8 5 L 1 9" fill="none" stroke="#4E666E" stroke-width="1.6" stroke-linejoin="round"/>
@@ -48,7 +48,7 @@
 
   <rect class="panel" x="100" y="556" width="350" height="344" rx="6"/>
   <text class="heading teal" x="124" y="602">Agent runtime</text>
-  <text x="124" y="650">Hermes / OpenClaw / others</text>
+  <text x="124" y="650">Hermes / OpenClaw / more</text>
   <text x="124" y="692">Conversation + planning</text>
   <text x="124" y="734">Skills, tools, and channels</text>
   <text x="124" y="776">Scoped memory recall</text>
@@ -60,7 +60,7 @@
   <text class="white-muted" x="514" y="646">Identity + work checkpoints</text>
   <text class="white-muted" x="514" y="688">Cross-runtime coordination</text>
   <text class="white-muted" x="514" y="730">Native approval routing + receipts</text>
-  <text class="white-muted" x="514" y="772">Token + dollar ledger</text>
+  <text class="white-muted" x="514" y="772">Accounts, quotas, tokens, dollars</text>
   <text class="small white" x="514" y="838">Deterministic. Recoverable.</text>
   <text class="small white" x="514" y="870">Operates without an LLM.</text>
 
@@ -84,7 +84,7 @@
   <text class="small" x="768" y="1090">Coordinated work + native controls</text>
   <rect class="panel" x="72" y="1122" width="1336" height="120" rx="6"/>
   <text class="heading" x="100" y="1164">Versioned component registry</text>
-  <text class="small" x="100" y="1206">Bind existing capabilities. Preserve native execution, permissions, sessions, tools, and billing evidence.</text>
+  <text class="small" x="100" y="1206">Native capabilities + account slots. Scoped routes, identity checks, sessions, permissions, and billing evidence.</text>
 
   <path d="M740 1242 V1278 M207 1278 H1273" fill="none" stroke="#4E666E" stroke-width="2"/>
   <path class="edge" d="M207 1278 V1312"/>

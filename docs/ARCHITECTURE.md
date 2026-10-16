@@ -6,6 +6,8 @@ Proposal dated 16 October 2026. Components and contracts below are design decisi
 
 Forge owns a stable `agent_id` and versioned profile: authored identity and instructions, memory references, project memberships, goals, schedule references, shared tool and skill bindings, and policy. A harness binding identifies an execution engine, reasoner, host, native session, and generation. Changing that binding must not reset the durable profile or workspace.
 
+Native account selection is another independent binding. Multiple accounts for one harness can serve the same work through verified continuation, while identity, data scope, quota evidence, and spend attribution remain explicit. Reuse existing account management and native sign-in; see [ACCOUNTS.md](ACCOUNTS.md).
+
 The workspace shell aggregates work, native activity, approval requests, schedule references, memory references, resource ownership, and usage. Attach, embed, or open an existing runtime surface when supported. Browser/computer use, code editing, terminals, Git/file tools, and other execution capabilities remain native. Forge does not build replacement implementations. See [NATIVE_BOUNDARY.md](NATIVE_BOUNDARY.md).
 
 Adapters expose versioned references to existing tools and skills, including MCP where appropriate. Keep project instructions under their existing ownership; adapters reference compatible native mechanisms without overwriting user files or creating another skills runtime. Credentials remain in the host credential store. Native tools retain explicit portability limits.
@@ -91,7 +93,7 @@ Record per-request input and output tokens, cache categories, retries, latency, 
 
 Maintain separate columns for reported usage, estimated API-equivalent cost, provider-confirmed charges, subscription allocation, and unknown cost. Store currency and dated rate-card references. A subscription's unreported marginal cost is unknown, not automatically zero. Do not show an SDK estimate as an invoice. Record tool, browser, media, remote compute, and Hermes coordination costs when evidence supports them; parent rollups must not duplicate child spend.
 
-Expose daily and monthly views by project, task, harness, provider, and model. Useful measures include cost per accepted outcome, failed-attempt spend, approval wait time, context reload overhead, and cache utilization. Mark incomplete coverage. Routing recommendations must account for task acceptance quality and capability, not just token price.
+Expose daily and monthly views by project, task, harness, verified account, provider, and model. Useful measures include cost per accepted outcome, failed-attempt spend, approval wait time, context reload overhead, and cache utilization. Mark incomplete coverage. Routing recommendations must account for task acceptance quality and capability, not just token price. Quota windows retain their native scope and reset semantics; duplicate account slots and shared organization limits cannot be counted as additional capacity.
 
 Reserve projected spend before controlled dispatch and settle it against observed usage. Budget estimates, provider-enforced ceilings, and notification thresholds are distinct. A native or already in-flight request may incur charges beyond an observed threshold; a hard financial guarantee requires provider-side bounds and sufficiently complete metering. Billing adjustments are appended as reconciliations rather than silently overwriting history.
 

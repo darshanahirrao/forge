@@ -8,7 +8,7 @@ Several functions previously proposed for Forge are already available in existin
 
 | Candidate | Existing capability documented upstream | License at review | Evaluation direction |
 | --- | --- | --- | --- |
-| [Agent Deck](https://github.com/asheshgoplani/agent-deck) | Multi-agent session status, worktrees, configuration, cost views, phone-connected conductor, and MCP pooling | MIT | Evaluate as a session/control foundation, including overhead, ownership, and protocol coverage. Do not rebuild those features before testing fit. |
+| [Agent Deck](https://github.com/asheshgoplani/agent-deck) | Multi-agent session status, worktrees, configuration, cost views, phone-connected conductor, MCP pooling, and Claude account slots with transcript migration/resume | MIT | Evaluate as a session/control and account-management foundation, including overhead, ownership, and protocol coverage. Do not rebuild those features before testing fit. |
 | [CC Switch](https://github.com/farion1231/cc-switch) | Provider configuration across multiple tools, MCP/skill/prompt management, and usage/quota views | MIT | Evaluate configuration and usage reuse. Switching an API provider does not establish full runtime/task migration. |
 | [ccusage](https://ccusage.com/guide/) | Local token and estimated-cost reports across Claude Code, Codex, OpenCode, Hermes, OpenClaw and other sources, with [JSON output](https://ccusage.com/guide/json-output) | MIT, read from repository LICENSE | Evaluate as a usage-data source before writing parsers. Preserve estimated-cost semantics and missing-pricing indicators. |
 | [HAPI](https://github.com/tiann/hapi) | Native-agent sessions controlled through mobile/web surfaces, including remote approval workflows | AGPL-3.0 | Evaluate an existing mobile/control surface and documented client contract. Native-session remote handoff is not evidence of cross-harness migration. |
@@ -33,6 +33,8 @@ Documentation and repository snapshots can differ. These references record the r
 This review does not establish that any one candidate supplies all of Forge's intended continuity, existing desktop-session discovery, resource ownership, native schedule aggregation, memory-source portability, or dynamic runtime replacement. Absence from a README is not evidence of absence from the product.
 
 Before choosing a base, check the exact interfaces and run a small isolated evaluation with synthetic data. Measure whole-stack idle overhead and compatibility with existing installations. Verify approval correlation, schedule ownership, native feature preservation, and usage provenance. Do not relabel an existing capability as a novel Forge contribution.
+
+The [account design](ACCOUNTS.md) adds effective-identity checks, authentication-mode isolation, shared limit scopes, and continuation accounting to this evaluation. Agent Deck's documented Claude account transfer is direct reuse evidence, not a demonstrated Forge integration or a universal cross-harness transfer contract.
 
 ## Current direction
 

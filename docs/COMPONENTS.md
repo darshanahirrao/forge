@@ -10,6 +10,7 @@ Bindings point to existing implementations. Forge does not rebuild the browser/c
 | --- | --- | --- |
 | Agent runtime / companion | Hermes, OpenClaw, another compatible implementation | Agent ID, authored profile, memory references, goals, work history |
 | Coding or task harness | Codex, Claude Code, OpenCode, general runtime | Work IDs, artifact evidence, checkpoints, attempt lineage |
+| Account binding | Multiple supported native account slots per harness or runtime | Nonsecret references, effective identity, project eligibility, quota provenance, attempt attribution |
 | Model route | Native default, supported provider/model selection | Requested and served model records, usage, route policy |
 | Memory provider | Local index, user-owned files, optional external backend | Source and schema references, scope, provenance, correction and export policy |
 | Tools and skills | Existing runtime tools, MCP services, native skills and plugins | Versioned references, required capabilities, granted scope |
@@ -21,6 +22,8 @@ These are roles rather than a mandatory chain of frameworks. One runtime may ser
 ## Replacement transaction
 
 Each binding records component identity, version, capabilities, account reference, host, control level, data contract, and lifecycle. A replacement goes through compatibility discovery, a prepared checkpoint where needed, validation, authority transfer, and activation. Keep the old binding recoverable for explicit rollback without reactivating stale execution authority.
+
+Account selection is independent of harness selection. Several compatible accounts can serve the same work record, subject to native authentication, project data scope, budget, and safe continuation. Connected slots do not require running a worker each. Native quota buckets may be shared across accounts; their limits are not a fungible pool. See [ACCOUNTS.md](ACCOUNTS.md).
 
 Some stateless changes, such as choosing an available display surface, can apply immediately. A runtime or harness change waits for a safe boundary. A memory backend change needs a verified data export/import with provenance and scope. A host change requires accessible artifacts and credentials provisioned for that host. Unknown external effects block automatic continuation.
 

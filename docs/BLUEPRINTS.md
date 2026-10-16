@@ -24,6 +24,8 @@ Export a sanitized blueprint with dependency versions, required capabilities, so
 
 Preview required access and missing dependencies before activation. Validate compatibility, retain a rollback reference, and transfer active bindings at a supported boundary. Layout changes can be immediate; changing an executing runtime or memory backend has different state requirements.
 
+Blueprints can define account roles and ordered routing preferences, such as a preferred coding account followed by eligible alternatives. Each importer connects their own native accounts and authorizes project data scopes and billing modes. Export role labels and requirements rather than private account identifiers, quota records, or credentials. See [ACCOUNTS.md](ACCOUNTS.md).
+
 Community packages should be inspectable, pinned, and optional. Installing a package does not grant access to private memory, credentials, or native execution. Existing provider permissions remain authoritative.
 
 ## Experience ideas to prioritize

@@ -16,6 +16,7 @@ We call the product concept **Persistent Agency**: your agent profile, memory, w
 - Keep a durable record of project decisions, verified progress, artifacts, and relevant memory.
 - Connect native browser/computer use, terminals, file tools, skills, and other capabilities through existing runtime interfaces.
 - Choose a harness and model separately, with an explicit capability check before continuing work.
+- Connect multiple native accounts per harness and continue the same work through eligible accounts, with visible limits and account attribution.
 - Replace Hermes with OpenClaw, or another compatible runtime, while retaining Forge's agent profile and work history.
 - Answer supported approval requests from desktop or an authenticated phone surface.
 - Understand tokens, retries, cache usage, tool charges, and dollars per task and project.
@@ -32,6 +33,7 @@ The defining demonstration is a real task checkpointed in one harness, continued
 - [The intended workspace experience](docs/EXPERIENCE.md)
 - [Harness interfaces and integration limits](docs/ADAPTERS.md)
 - [Dynamic components and replacement rules](docs/COMPONENTS.md)
+- [Multiple accounts and workspace continuity](docs/ACCOUNTS.md)
 - [Research, prior art, and evidence boundaries](docs/RESEARCH.md)
 - [Product capabilities and delivery sequence](docs/PRODUCT.md)
 - [Editable architecture diagram](docs/diagrams/architecture.mmd)
