@@ -6,7 +6,7 @@ Persistent Agency should feel like one ongoing working relationship. The user's 
 
 ## Home is ongoing work
 
-Open Forge to three useful answers: what moved forward, what needs a decision, and what is consuming capacity or money. Lead with outcomes and factual state. A task opens into its conversation, plan, files, browser or terminal, evidence, and cost. These are views of the same work record.
+Open Forge to three useful answers: what moved forward, what needs a decision, and what is consuming capacity or money. Lead with outcomes and factual state. A task joins native conversation/activity, plan and artifact references, evidence, and cost. Existing browser, computer-use, terminal, or editor surfaces can be opened or attached when supported; Forge does not recreate their execution capabilities.
 
 One goal entry can capture an outcome and delegated scope. The selected runtime, initially Hermes or OpenClaw, helps clarify and plan when needed. The interface should let the user choose the companion runtime, execution harness, and model separately, or allow an explicit routing policy. Ordinary work proceeds within the granted scope. A new decision is needed when an action exceeds that scope or the native harness requires it.
 
@@ -36,6 +36,6 @@ Compare that run with a same-harness control. Independently replace Hermes with 
 
 ## Keep the product light
 
-Render the current work first. Attach editor, terminal, browser, and trace panes on demand. Reuse supported shared services, and stop unused Forge-owned resources according to their lease. Measure whole-stack overhead. Advanced metrics and native details remain available through progressive disclosure.
+Render the current work first. Open or attach existing native surfaces on demand, and stop unused owned resources through supported lifecycle controls. Implement the coordination and visibility gaps without replacing harness capabilities. Measure whole-stack overhead. Advanced metrics and native details remain available through progressive disclosure.
 
 This is the proposed experience. No part of this scenario has yet been implemented in Forge.

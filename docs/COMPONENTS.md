@@ -2,6 +2,8 @@
 
 Forge owns the durable workspace. Every execution or service backend is selected through a versioned capability contract. The user can replace Hermes itself, including with OpenClaw. The design must not place the canonical identity, policy, or task journal exclusively inside either runtime.
 
+Bindings point to existing implementations. Forge does not rebuild the browser/computer-use stack, terminal execution, file tools, skills runtime, native memory engine, or scheduler. See [NATIVE_BOUNDARY.md](NATIVE_BOUNDARY.md).
+
 ## Selectable roles
 
 | Role | Example bindings | State Forge retains |
@@ -10,9 +12,9 @@ Forge owns the durable workspace. Every execution or service backend is selected
 | Coding or task harness | Codex, Claude Code, OpenCode, general runtime | Work IDs, artifact evidence, checkpoints, attempt lineage |
 | Model route | Native default, supported provider/model selection | Requested and served model records, usage, route policy |
 | Memory provider | Local index, user-owned files, optional external backend | Source and schema references, scope, provenance, correction and export policy |
-| Tools and skills | Shared MCP services, canonical skill bundles, native extensions | Versioned bindings, required capabilities, granted scope |
+| Tools and skills | Existing runtime tools, MCP services, native skills and plugins | Versioned references, required capabilities, granted scope |
 | Channels | Workspace UI, paired phone, runtime messaging gateways | User identity bindings, delivery policy, action correlations |
-| Execution host | Local worker, configured server or VM | Environment manifest, artifact references, resource and authority leases |
+| Execution host | Runtime's local execution, existing remote node/container/VM | Native host references, artifact references, resource and authority leases |
 
 These are roles rather than a mandatory chain of frameworks. One runtime may serve conversation and execution. A coding harness can execute directly. Selecting one role should not start every installed component or copy every private source into it.
 
@@ -22,7 +24,7 @@ Each binding records component identity, version, capabilities, account referenc
 
 Some stateless changes, such as choosing an available display surface, can apply immediately. A runtime or harness change waits for a safe boundary. A memory backend change needs a verified data export/import with provenance and scope. A host change requires accessible artifacts and credentials provisioned for that host. Unknown external effects block automatic continuation.
 
-New Forge schedules belong to Forge's scheduler and select a runtime at dispatch time. Imported native schedules keep their original owner until a supported transfer exports the required definition, disables the old owner, verifies that state, and activates the replacement. A runtime cannot be removed while it still owns required schedules, memory payloads, or tools unless those dependencies are migrated or explicitly kept as connected services.
+Schedules use an existing selected native scheduler, with Forge retaining intent and owner references. Imported schedules keep their original owner until a supported transfer exports the required definition, disables the old owner, verifies that state, and activates the replacement. A runtime cannot be removed while it still owns required schedules, memory payloads, or tools unless those dependencies are migrated or explicitly kept as connected services. Forge adds admission coordination only where a cross-runtime gap requires it.
 
 Pending native approval history stays in Forge, but an old decision cannot authorize a different runtime's new request. Revalidate the action against the new binding and native rules. Retain user-authored policy and re-evaluate it; do not silently broaden a grant to compensate for a missing capability.
 

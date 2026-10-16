@@ -1,22 +1,22 @@
 flowchart TB
-  surfaces["Forge workspace<br/>Conversation, editor, files and Git, terminals, browser<br/>Paired phone + connected channels"]
+  surfaces["Forge control surface<br/>Work, native activity, approvals, resources, usage<br/>Paired phone + existing connected channels"]
   subgraph plane["Persistent control plane"]
     direction LR
     runtime["Selected agent runtime<br/>Hermes / OpenClaw / others<br/>Conversation, planning, skills, tools"]
-    core["Forge core<br/>Persistent agent identity and work checkpoints<br/>Resource admission and scheduling<br/>Approval policy and action receipts<br/>Token and dollar ledger"]
-    memory["Durable memory<br/>Scoped facts, decisions, evidence<br/>Corrections, retrieval, export"]
-    journal[("SQLite journal + local artifact store<br/>Profiles, shared tool and skill bindings, schedules, receipts")]
+    core["Forge core<br/>Persistent identity and work checkpoints<br/>Cross-runtime coordination<br/>Native approval routing and receipts<br/>Token and dollar ledger"]
+    memory["Connected memory providers<br/>Existing storage and retrieval<br/>Scoped decisions, evidence, source references"]
+    journal[("Forge coordination journal<br/>Profiles, native bindings, schedule references, receipts")]
     runtime <-->|"Scoped interface + native API"| core
     core <-->|"Relevant context + verified updates"| memory
     core <--> journal
   end
   surfaces -->|"Authenticated intent and decisions"| core
   contract["Versioned component registry<br/>Runtimes, harnesses, models, memory, tools, skills, channels, hosts<br/>Capability discovery + native extensions"]
-  core -->|"Admitted work + scoped grants"| contract
+  core -->|"Coordinated work + supported native controls"| contract
   contract --> h["Hermes / OpenClaw<br/>Native runtime adapters"]
   contract --> c["Codex app-server"]
   contract --> a["Claude Code SDK"]
   contract --> o["OpenCode server"]
   contract --> x["Other ACP / native adapters"]
-  h & c & a & o & x --> workers["Execution workers<br/>Laptop first · Optional remote host<br/>Owned processes, browsers, workspaces, API calls<br/>Enforcement only at supported boundaries"]
+  h & c & a & o & x --> workers["Existing native execution<br/>Browser and computer use, terminals, file tools, skills<br/>Native permissions, schedulers, configured local or remote hosts<br/>Supplied by connected runtimes and providers"]
   workers -.->|"Events, receipts, usage, resource measurements"| core

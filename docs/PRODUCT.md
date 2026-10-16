@@ -8,7 +8,7 @@ One place to understand and operate ongoing AI work. Hermes and OpenClaw are rep
 
 | Capability | What the person gets | What makes it credible |
 | --- | --- | --- |
-| One workspace | Conversation, editor, files and Git, terminals, browser work, tasks, and operations. | Shared workspace services, declared resource ownership, on-demand panes. |
+| One control surface | Work, native activity, approvals, resources, memory references, and usage. | Existing runtime capabilities and surfaces connected through adapters. |
 | Work Capsules | Continue the same goal through a compatible harness. | Verified artifacts, explicit missing capabilities, safe handoff. |
 | Dynamic components | Replace Hermes or OpenClaw, as well as the coding harness and other service backends. | Independent profile and work state, versioned contracts, verified replacement. |
 | Resource view and Quiet mode | See ownership and preserve capacity for foreground work. | Real telemetry and admission control over managed work. |
@@ -21,12 +21,14 @@ One place to understand and operate ongoing AI work. Hermes and OpenClaw are rep
 
 These are intended capabilities. They are not currently available in Forge.
 
+Browser/computer use, terminal and file execution, native skills, memory engines, and existing schedulers are supplied by connected runtimes and providers. Forge's contribution is their coordination, continuity, and cross-runtime visibility. See [NATIVE_BOUNDARY.md](NATIVE_BOUNDARY.md).
+
 ## Delivery sequence
 
 1. **Observe:** ship a small local resource and schedule inventory, honest source coverage, a usage ledger from two supported harnesses, and a read-only Hermes bridge. Preserve native schedule ownership.
 2. **Control:** manage newly created sessions, own their resources, route native approvals, and persist recoverable task state. Prove permission and accounting conformance.
 3. **Continue:** demonstrate artifact-based handoff between two harnesses and then add OpenCode. Integrate scoped memory retrieval and test corrections and leakage boundaries.
-4. **Extend:** add authenticated mobile access, optional remote workers, measured routing recommendations, and shareable sanitized capsule templates.
+4. **Extend:** add authenticated mobile access, connections to existing native remote execution, measured routing recommendations, and shareable sanitized capsule templates.
 
 Launch evidence should be a complete real workflow. A dashboard screenshot alone cannot demonstrate work continuity, cost accuracy, or lower resource pressure.
 

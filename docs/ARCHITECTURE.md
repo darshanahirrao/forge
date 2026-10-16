@@ -6,11 +6,11 @@ Proposal dated 16 October 2026. Components and contracts below are design decisi
 
 Forge owns a stable `agent_id` and versioned profile: authored identity and instructions, memory references, project memberships, goals, schedule references, shared tool and skill bindings, and policy. A harness binding identifies an execution engine, reasoner, host, native session, and generation. Changing that binding must not reset the durable profile or workspace.
 
-The workspace shell combines conversation, tasks, an editor and file view, Git/worktrees, terminal attachment, browser work, approval inbox, schedules, memory, resource ownership, and usage. Load expensive panes and adapters on demand. Users should handle normal agent operations from this shell, while connected services continue supplying their actual capabilities.
+The workspace shell aggregates work, native activity, approval requests, schedule references, memory references, resource ownership, and usage. Attach, embed, or open an existing runtime surface when supported. Browser/computer use, code editing, terminals, Git/file tools, and other execution capabilities remain native. Forge does not build replacement implementations. See [NATIVE_BOUNDARY.md](NATIVE_BOUNDARY.md).
 
-Shared workspace services expose versioned tool contracts, including MCP where appropriate. Keep canonical skill definitions and project instructions under version control; adapters translate or reference them through supported native mechanisms without overwriting user files. Credentials remain in the host credential store. Native tools that cannot use a shared service retain explicit portability limits.
+Adapters expose versioned references to existing tools and skills, including MCP where appropriate. Keep project instructions under their existing ownership; adapters reference compatible native mechanisms without overwriting user files or creating another skills runtime. Credentials remain in the host credential store. Native tools retain explicit portability limits.
 
-Use separate worktrees or declared writer locks for concurrent file-producing tasks. A handoff preserves workspace changes and revalidates file versions. Terminals and browser sessions stay owned by workspace services only when those services truly created and can reattach them. A native browser profile or terminal is not automatically portable. A switch preview names incompatible tools, required authentication, and unsettled actions before activation.
+Use native worktree facilities and respect native writer ownership for concurrent file-producing tasks. A handoff references workspace changes and revalidates file versions. Terminals and browser sessions remain owned by their native runtime or existing provider. Forge records ownership and uses supported lifecycle controls; it does not create its own terminal or browser execution service. A switch preview names incompatible tools, required authentication, and unsettled actions before activation.
 
 The promise is stable user-owned state and a consistent workspace. It does not assert identical reasoning, behavior, output quality, or native feature sets across different harnesses and models.
 
@@ -61,7 +61,7 @@ This is a checkpointed continuation. It does not transfer an active inference pr
 
 ## Memory with evidence
 
-Use three logical tiers: current task context; project decisions, facts, and reusable procedures; and retained source evidence. Start with SQLite full-text retrieval. Add embeddings or a graph only when measured recall failures justify their cost.
+Use three logical views over existing sources: current task context; project decisions, facts, and reusable procedures; and retained evidence. Delegate content storage and retrieval to the selected runtime or memory provider. Forge retains the portable profile, source references, scoped decisions, and continuity records. SQLite can search Forge's own records; that is not a new general memory, embedding, or knowledge-graph engine.
 
 Memory records include scope, source reference, observation time, validity interval where known, version, sensitivity, and whether the content is user-confirmed, reported, inferred, or superseded. Correcting a preference must invalidate the old retrieval result. Scope filtering happens before retrieval. Untrusted source text remains data, not a policy update.
 
@@ -73,15 +73,15 @@ Separate admission from enforcement. Reserve configurable interactive headroom, 
 
 Every managed resource has an owner, acquisition record, native identity, liveness check, and release rule. Match process identity with birth time as well as PID. Resource cleanup acts on verified Forge-owned resources. Shared user browsers and unrelated processes are not cleanup candidates just because they are large. Show unattributed consumption explicitly and label RSS aggregates that may include shared pages.
 
-On macOS, native sessions initially support monitoring, admission, priority adjustments where permitted, and cooperative interruption. General hard per-job memory ceilings are not assumed. Linux container workers can use cgroups, and a VM may supply stronger isolation at an additional resource cost. Arbitrary native harness tools cannot be fully governed by an MCP connection alone.
+On macOS, native sessions initially support monitoring, admission, priority adjustments where permitted, and cooperative interruption. General hard per-job memory ceilings are not assumed. Use existing runtime/container/VM isolation where available rather than building a new sandbox or worker execution framework. Arbitrary native harness tools cannot be fully governed by an MCP connection alone.
 
-Existing Codex or Hermes schedules are imported as references with their native scheduler as owner. Do not create a second copy. Only a supported, explicit ownership transfer enables Forge to enforce dispatch admission for that schedule. Forge-owned occurrences use persistent claim keys, time zones, missed-run rules, and overlap policies.
+Existing schedules are imported as references with their native scheduler as owner. New productive schedules also use a selected existing scheduler where possible. Do not create a second copy. Only a supported, explicit ownership transfer enables a different owner to dispatch that schedule. Any minimal cross-runtime admission queue uses persistent claim keys and coordinates native triggers; it does not reproduce a native scheduler's task loop.
 
 ## Approvals and permissions
 
 Normalize a pending native request into a record with its adapter, session, request identity, execution generation, exact proposed action, target, payload digest, expiry, and available choices. Preserve native policy restrictions. Changing the action or generation invalidates the decision. Duplicate responses settle once locally; stale or ambiguous requests fail closed.
 
-The dashboard or paired phone returns an authenticated decision to the originating native request. Connected channels, including Hermes or OpenClaw gateways, can notify or link to the decision surface. Do not let an LLM infer approval from an unrelated conversational yes. Scoped recurring grants need explicit user policy; permanent blanket approval is not the default.
+The dashboard or paired phone returns an authenticated decision to the originating native request. Native approval and sandbox enforcement remain with the originating execution boundary. Connected channels, including Hermes or OpenClaw gateways, can notify or link to the decision surface. Do not let an LLM infer approval from an unrelated conversational yes. Scoped recurring grants need explicit user policy; permanent blanket approval is not the default.
 
 Use three declared integration levels: **observe** for imported metadata, **cooperate** for supported lifecycle and approval callbacks, and **enforce** only where an actual sandbox and action boundary mediate the required effects. An adapter that lacks a control must show it as unavailable. Observed desktop approval queues are not automatically controllable by another process.
 

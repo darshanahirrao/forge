@@ -17,4 +17,4 @@ Layout: follow intent downward from user surfaces through a persistent control p
 
 Content skeleton: product and concept name; access surfaces; replaceable runtime, core services, and memory; durable journal; dynamic component registry; execution choices; workers and enforcement boundary; explicit proposal and portability limits.
 
-The subject-specific decision is to expose both resource ownership and cost accounting in the same durable work boundary. A generic agents-and-tools diagram would miss the reason Forge exists.
+The subject-specific decision is to expose both resource ownership and cost accounting in the same durable work boundary, while labeling existing harness capabilities as native execution. The diagram must not imply a new Forge browser, terminal, editor, skills runtime, or general memory engine.

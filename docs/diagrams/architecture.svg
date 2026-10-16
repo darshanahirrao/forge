@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1480" height="1760" viewBox="0 0 1480 1760" role="img" aria-labelledby="title description">
   <title id="title">Forge: Persistent Agency architecture</title>
-  <desc id="description">Proposed architecture. The Forge workspace, paired phone, and connected channels access a persistent control plane. A replaceable agent runtime, such as Hermes or OpenClaw, works beside a deterministic Forge core and durable memory. Forge retains identity, workspace, work checkpoints, resource admission, approvals, and token and dollar accounting when components change. A versioned registry supports runtime, harness, model, memory, tool, skill, channel, and host adapters. Hermes, OpenClaw, Codex, Claude Code, OpenCode, and other compatible engines connect to local or optional remote workers. Events, receipts, usage, and resource measurements return to the journal. All capabilities shown are design proposals.</desc>
+  <desc id="description">Proposed architecture. Forge supplies a control surface and durable cross-runtime coordination. Replaceable runtimes such as Hermes and OpenClaw supply their existing capabilities, alongside native Codex, Claude Code, OpenCode and other harnesses. Existing memory providers retain storage and retrieval. Browser and computer use, terminals, file tools, skills, native scheduling, execution permissions and configured hosts remain implemented by connected runtimes and providers. Forge retains identity, work checkpoints, references, approval receipts, resource ownership and usage accounting. It builds adapters and continuity without rebuilding native capability stacks. All Forge functionality shown remains a design proposal.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M 1 1 L 8 5 L 1 9" fill="none" stroke="#4E666E" stroke-width="1.6" stroke-linejoin="round"/>
@@ -34,8 +34,8 @@
 
   <rect class="panel" x="72" y="252" width="1336" height="148" rx="8"/>
   <text class="label" x="100" y="286">ONE AGENTIC WORKSPACE</text>
-  <text class="heading" x="100" y="332">Forge workspace</text>
-  <text class="small" x="100" y="364">Chat, editor, Git, terminal, browser</text>
+  <text class="heading" x="100" y="332">Forge control surface</text>
+  <text class="small" x="100" y="364">Work, native activity, resources, usage</text>
   <text class="heading" x="614" y="332">Paired phone</text>
   <text class="small" x="614" y="368">Approvals and decisions</text>
   <text class="heading" x="1032" y="332">Connected channels</text>
@@ -58,18 +58,18 @@
   <rect x="486" y="556" width="438" height="344" rx="6" fill="#18343E"/>
   <text class="heading white" x="514" y="602">Forge core</text>
   <text class="white-muted" x="514" y="646">Identity + work checkpoints</text>
-  <text class="white-muted" x="514" y="688">Scheduling + resource admission</text>
-  <text class="white-muted" x="514" y="730">Approval policy + action receipts</text>
+  <text class="white-muted" x="514" y="688">Cross-runtime coordination</text>
+  <text class="white-muted" x="514" y="730">Native approval routing + receipts</text>
   <text class="white-muted" x="514" y="772">Token + dollar ledger</text>
   <text class="small white" x="514" y="838">Deterministic. Recoverable.</text>
   <text class="small white" x="514" y="870">Operates without an LLM.</text>
 
   <rect class="panel" x="960" y="556" width="420" height="344" rx="6"/>
-  <text class="heading" x="986" y="602">Durable memory</text>
-  <text x="986" y="650">Facts, decisions, procedures</text>
-  <text x="986" y="692">Sources, versions, corrections</text>
-  <text x="986" y="734">Project-scoped retrieval</text>
-  <text x="986" y="776">Portable work evidence</text>
+  <text class="heading" x="986" y="602">Connected memory</text>
+  <text x="986" y="650">Existing storage and retrieval</text>
+  <text x="986" y="692">Scoped decisions and sources</text>
+  <text x="986" y="734">Portable context references</text>
+  <text x="986" y="776">Corrections at the source</text>
   <text class="small" x="986" y="838">Pluggable memory providers</text>
   <text class="small" x="986" y="870">User-owned data and export</text>
 
@@ -77,14 +77,14 @@
   <path class="pair" d="M924 713 H960"/>
   <path class="pair" d="M705 900 V936"/>
   <rect x="100" y="936" width="1280" height="78" rx="5" fill="#E4EEEE"/>
-  <text x="128" y="970" font-weight="500">Durable journal + local artifacts</text>
-  <text class="small" x="128" y="998">Profiles, shared tools and skills, schedules, work IDs, artifacts, approvals, usage provenance</text>
+  <text x="128" y="970" font-weight="500">Forge coordination journal</text>
+  <text class="small" x="128" y="998">Profiles, native bindings, schedule references, work IDs, artifacts, approvals, usage provenance</text>
 
   <path class="edge" d="M740 1042 V1122"/>
-  <text class="small" x="768" y="1090">Admitted work + scoped grants</text>
+  <text class="small" x="768" y="1090">Coordinated work + native controls</text>
   <rect class="panel" x="72" y="1122" width="1336" height="120" rx="6"/>
   <text class="heading" x="100" y="1164">Versioned component registry</text>
-  <text class="small" x="100" y="1206">Runtimes, harnesses, models, memory, tools, skills, channels, hosts. Capability checks + native extensions.</text>
+  <text class="small" x="100" y="1206">Bind existing capabilities. Preserve native execution, permissions, sessions, tools, and billing evidence.</text>
 
   <path d="M740 1242 V1278 M207 1278 H1273" fill="none" stroke="#4E666E" stroke-width="2"/>
   <path class="edge" d="M207 1278 V1312"/>
@@ -112,13 +112,13 @@
   <path d="M207 1420 V1454 M474 1420 V1454 M740 1420 V1454 M1006 1420 V1454 M1273 1420 V1454 M207 1454 H1273" fill="none" stroke="#4E666E" stroke-width="2"/>
   <path class="edge" d="M740 1454 V1488"/>
   <rect class="panel" x="72" y="1488" width="1336" height="156" rx="6"/>
-  <text class="label" x="100" y="1524">EXECUTION WORKERS</text>
-  <text class="heading" x="100" y="1565">Laptop first. Optional server or VM.</text>
-  <text class="small" x="100" y="1604">Owned processes, browsers, workspaces, API calls. Enforcement at supported execution boundaries.</text>
+  <text class="label" x="100" y="1524">EXISTING NATIVE EXECUTION</text>
+  <text class="heading" x="100" y="1565">Harnesses and their configured hosts.</text>
+  <text class="small" x="100" y="1604">Browser / computer use, terminals, file tools, skills, workers. Supplied by connected runtimes.</text>
 
   <path d="M1408 1568 H1440 V976 H1380" fill="none" stroke="#12665F" stroke-width="2" stroke-dasharray="7 7" marker-end="url(#return-arrow)"/>
   <text class="small teal" x="1465" y="1458" transform="rotate(-90 1465 1458)">Events, receipts, usage, resources</text>
 
-  <text class="small" x="72" y="1694">Switch at verified checkpoints. Controls depend on adapter capabilities and actual enforcement.</text>
+  <text class="small" x="72" y="1694">Reuse native capabilities. Continue at verified checkpoints. Controls depend on supported interfaces.</text>
   <text class="small" x="72" y="1730">Design proposal. Runtime, integrations, accounting, and migration remain to be implemented.</text>
 </svg>

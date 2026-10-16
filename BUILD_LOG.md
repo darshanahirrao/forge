@@ -9,3 +9,9 @@ Validation: reviewed eight primary research papers and official runtime/harness 
 Limitations: design only. No runtime, adapter, mobile approval path, real usage ledger, migration facility, or resource enforcement has been implemented or benchmarked. No existing agent, job, or schedule was changed.
 
 Checkpoint reference: the commit containing this entry; durable tag `architecture-20261016`.
+
+## 2026-10-16 · native-capabilities-20261016
+
+Corrected the product boundary following the user's explicit direction: Forge must reuse capabilities already supplied by harnesses and runtimes, including browser/computer use, terminals, file tools, skills, memory engines, and native scheduling. Added NATIVE_BOUNDARY.md and updated architecture, component contracts, product/experience descriptions, and diagram to show adapters and existing native execution. Forge's scope is continuity and cross-runtime coordination, resource/cost visibility, and routing native approvals.
+
+Validation and limitations: local Markdown links, SVG XML, credential/private-path/style audit, and Git diff checks pass. Re-rendered the full diagram to 2960 x 3520 and visually checked it; system-Chrome geometry checks find zero overflow across 56 labels. Documentation and diagram only; no native tooling, runtime configuration, process, or automation was changed. Checkpoint reference: the commit containing this entry; durable tag `native-capabilities-20261016`.
