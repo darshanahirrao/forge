@@ -1,0 +1,22 @@
+flowchart TB
+  surfaces["Forge workspace<br/>Conversation, editor, files and Git, terminals, browser<br/>Paired phone + connected channels"]
+  subgraph plane["Persistent control plane"]
+    direction LR
+    runtime["Selected agent runtime<br/>Hermes / OpenClaw / others<br/>Conversation, planning, skills, tools"]
+    core["Forge core<br/>Persistent agent identity and work checkpoints<br/>Resource admission and scheduling<br/>Approval policy and action receipts<br/>Token and dollar ledger"]
+    memory["Durable memory<br/>Scoped facts, decisions, evidence<br/>Corrections, retrieval, export"]
+    journal[("SQLite journal + local artifact store<br/>Profiles, shared tool and skill bindings, schedules, receipts")]
+    runtime <-->|"Scoped interface + native API"| core
+    core <-->|"Relevant context + verified updates"| memory
+    core <--> journal
+  end
+  surfaces -->|"Authenticated intent and decisions"| core
+  contract["Versioned component registry<br/>Runtimes, harnesses, models, memory, tools, skills, channels, hosts<br/>Capability discovery + native extensions"]
+  core -->|"Admitted work + scoped grants"| contract
+  contract --> h["Hermes / OpenClaw<br/>Native runtime adapters"]
+  contract --> c["Codex app-server"]
+  contract --> a["Claude Code SDK"]
+  contract --> o["OpenCode server"]
+  contract --> x["Other ACP / native adapters"]
+  h & c & a & o & x --> workers["Execution workers<br/>Laptop first · Optional remote host<br/>Owned processes, browsers, workspaces, API calls<br/>Enforcement only at supported boundaries"]
+  workers -.->|"Events, receipts, usage, resource measurements"| core

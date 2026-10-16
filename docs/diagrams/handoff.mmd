@@ -1,0 +1,24 @@
+sequenceDiagram
+  actor U as User
+  participant F as Forge core
+  participant S as Source harness
+  participant J as Durable journal
+  participant T as Target harness
+  U->>F: Continue work through another harness
+  F->>T: Verify capabilities and workspace access
+  T-->>F: Supported scope or unavailable
+  F->>S: Stop new dispatch and reach safe boundary
+  S-->>F: Stop evidence and artifact checkpoint
+  F->>F: Verify source stopped or effects fenced
+  F->>J: Persist hashes, uncertainties, receipts
+  alt Unsettled effect or incomplete checkpoint
+    F-->>U: Hold for reconciliation; keep target inactive
+  else Verified checkpoint and safe authority transfer
+    F->>J: Commit successor generation and binding
+    F->>F: Invalidate old native approval identities
+    F->>T: Scoped context and artifact references
+    T->>T: Revalidate acceptance criteria
+    T-->>F: Progress, artifacts, usage, receipts
+    F->>J: Record and verify progress
+    F-->>U: Same work record, new execution attempt
+  end
