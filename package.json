@@ -1,6 +1,6 @@
 {
   "name": "@forge-workspace/forge",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A local workspace for continuous work across agent harnesses.",
   "private": true,
   "type": "module",
@@ -15,14 +15,15 @@
     "dev": "concurrently -k -n server,web \"tsx watch server/index.ts\" \"vite --host 127.0.0.1\"",
     "build": "tsc -p tsconfig.server.json && vite build",
     "start": "node dist/server/index.js",
-    "check": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
+    "check": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.tests.json",
     "format": "prettier --write --ignore-unknown web server shared tests bin *.json *.ts",
     "format:check": "prettier --check --ignore-unknown web server shared tests bin *.json *.ts",
     "test": "tsx --test tests/*.test.ts",
     "test:e2e": "playwright test",
     "test:native:codex": "tsx tests/native/codex-conformance.ts",
     "test:native:claude": "tsx tests/native/claude-conformance.ts",
-    "test:native": "npm run test:native:codex && npm run test:native:claude"
+    "test:native:handoff": "tsx tests/native/handoff-conformance.ts",
+    "test:native": "npm run test:native:codex && npm run test:native:claude && npm run test:native:handoff"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "0.3.301",

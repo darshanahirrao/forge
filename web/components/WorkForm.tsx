@@ -115,7 +115,7 @@ export function WorkForm({
             Harness
             <select
               value={harness}
-              disabled={Boolean(initial?.nativeSessionId)}
+              disabled={Boolean(initial?.nativeSessionId || initial?.capsuleId)}
               onChange={(e) => {
                 setHarness(e.target.value as Harness);
                 setAccountId('');
@@ -132,7 +132,7 @@ export function WorkForm({
             Account
             <select
               value={accountId}
-              disabled={Boolean(initial?.nativeSessionId)}
+              disabled={Boolean(initial?.nativeSessionId || initial?.capsuleId)}
               onChange={(e) => setAccountId(e.target.value)}
             >
               <option value="">Choose later</option>
@@ -152,7 +152,7 @@ export function WorkForm({
             name="cwd"
             defaultValue={initial?.cwd}
             placeholder="Absolute path to an existing project"
-            readOnly={Boolean(initial?.nativeSessionId)}
+            readOnly={Boolean(initial?.nativeSessionId || initial?.capsuleId)}
           />
           <small>
             {mode === 'demo'

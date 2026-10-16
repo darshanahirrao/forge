@@ -1,6 +1,6 @@
-# Forge v0.2.0
+# Forge v0.3.0
 
-Implementation checkpoint, 17 October 2026. This extends the first local application with a shared native-execution coordinator and a Claude API adapter. The full Persistent Agency architecture remains a delivery plan rather than a claim of completed interoperability.
+Implementation checkpoint, 17 October 2026. This adds verified Work Capsules and native account/harness handoff to the shared coordinator. The full Persistent Agency architecture remains a delivery plan rather than a claim of completed interoperability.
 
 ## Start and develop
 
@@ -14,10 +14,10 @@ For development, `npm run dev` starts a watched TypeScript service on port 4710 
 
 | Area | Current behavior | Evidence and limit |
 | --- | --- | --- |
-| Work | SQLite work records, goal/context, acceptance criteria, user checkpoints, chronological receipts, revision checks, context export | Restart and transactional rollback tests. Exports contain selected user-authored context; they are not a complete native transcript or artifact checkpoint. |
+| Work | SQLite work records, goal/context, acceptance criteria, user checkpoints, chronological receipts, revision checks, context export | Restart and transactional rollback tests. Work Capsules add selected artifact fingerprints, source/session lineage, bounded native result excerpts and verified handoff. File contents and full native transcripts are not copied into the capsule. |
 | Accounts | Named account slots; optional native configuration directory; Codex and Claude native authentication checks | Native sign-in and credential precedence remain authoritative. A status check observes native configuration; it does not prove a future model request or every isolation mode works. Other harness slots are metadata references. |
 | Allowance | Codex native quota windows, source timestamps, observed identity keys, duplicate-slot indication, backend included-usage state | Shared scopes are retained. Unknown allowance stays unknown. Percentages do not establish access or restore denied usage. |
-| Managed execution | Experimental Codex app-server and Claude Agent SDK API start/resume through native workers | One managed worker across adapters. Its work lease remains held until worker exit. The same bound native account/session can continue. This does not control foreign desktop sessions, detached native tools, or every process on the machine. |
+| Managed execution | Experimental Codex app-server and Claude Agent SDK API start/resume through native workers | One managed worker across adapters. Its work lease remains held until worker exit. The same binding can continue; a verified handoff retains the work while starting a fresh native session on another supported account/harness. This does not control foreign desktop sessions, detached native tools, or every process on the machine. |
 | Approvals | Correlated command requests and reviewable file changes, digest/generation checks, allow once/decline, expiry, native withdrawal, invalidation after connection loss | Unsupported requests receive no grant. Persistent rule amendments, expanded file roots, and unreviewable request types are not silently accepted. |
 | Usage | Cumulative Codex thread and Claude SDK model-pipeline snapshots, SDK dollar estimates, optional ccusage daily reports | Repeated snapshots replace their scope rather than adding again. Daily imports are excluded from the overview total when native reports for the same harness could overlap. Native Codex dollar cost is unknown here. ccusage reports are estimates and remain unattributed to individual accounts or tasks when upstream data is aggregate. |
 | Resources | Live OS CPU/memory, process names/RSS/CPU, Forge service RSS; quiet-mode admission | Process arguments and environment variables are omitted. RSS includes shared pages; OS used memory includes reclaimable cache. This is observation, not a memory-pressure or hard-limit implementation. |
@@ -35,7 +35,7 @@ Claude managed turns require an API slot, a named environment variable containin
 
 Native requests are associated with their exact native request ID, session, turn, work generation, and a digest. The payload digest is checked again immediately before delivery. Allow once sends only the one-time native decision. Decisions are recorded before delivery; a transport failure makes the outcome uncertain and does not cause replay. Native withdrawal and completion invalidate outstanding requests. Approval timeouts decline still-pending requests after ten minutes.
 
-A process shutdown or lost connection marks unfinished work interrupted. Starting again requires an explicit review of native activity, detached tools, and external effects. Closing a connection is not proof that every external action stopped. Automatic handoff and fencing across arbitrary harnesses remain unproven and are disabled.
+A process shutdown or lost connection marks unfinished work interrupted. Starting again requires an explicit review of native activity, detached tools, and external effects. Closing a connection is not proof that every external action stopped. Explicit verified handoff is available for Codex and Claude API accounts. It requires a durable source-exit receipt and rechecks the selected artifact state. Arbitrary foreign processes and external effects are not fenced by this local controller; review them at the checkpoint. Automatic quota fallback remains disabled. See [continuity details](CONTINUITY.md).
 
 ## Private state and local access
 
@@ -59,13 +59,17 @@ The earlier 75 MB / 1% core target is a design target, not a passed performance 
 
 The repository includes type checks, functional/API tests, Playwright user flows, and axe accessibility checks. Synthetic native protocol fixtures never run shell commands, call a model, or write project files. They cover request correlation, one-time decisions, stale generations, expiry, withdrawal, policy mismatch, cancellation/recovery, billing admission, usage deduplication, demo isolation, revision conflicts, atomic persistence, and lightweight projections. A synthetic Hermes server checks discovery against read-only endpoints.
 
-The installed Claude SDK passed a real stream-json transport check against a synthetic executable worker, including permission delivery, cumulative usage and native child exit. This is SDK conformance evidence, not a real upstream model run. There are 29 functional/API/driver tests and five browser flows at this checkpoint.
+The installed Claude SDK passed a real stream-json transport check against a synthetic executable worker, including permission delivery, cumulative usage and native child exit. This is SDK conformance evidence, not a real upstream model run. There are 39 functional/API/continuity/driver tests and six browser flows at this checkpoint. Type checks also cover the test and native-fixture sources.
 
-The installed Codex CLI also passed a real initialization handshake. No account lookup, paid model turn, real command approval, account migration, or private native usage import was requested for that smoke check. Separate opt-in tests now exercise actual Codex 0.159.3 and the SDK native Claude Code 2.1.301 against local deterministic providers. Both passed native approval delivery, real tool execution, exact artifact verification, usage and process exit. The Claude test verifies that conflicting project credentials/routing cannot replace the selected host configuration. [Native conformance instructions](../tests/native/README.md) explain the isolated fixtures. These are native execution checks with synthetic model responses, not paid-model or two-account continuity proof.
+The installed Codex CLI also passed a real initialization handshake. No account lookup, paid model turn, real command approval, account migration, or private native usage import was requested for that smoke check. Separate opt-in tests now exercise actual Codex 0.159.3 and the SDK native Claude Code 2.1.301 against local deterministic providers. Both passed native approval delivery, real tool execution, exact artifact verification, usage and process exit. The Claude test verifies that conflicting project credentials/routing cannot replace the selected host configuration. [Native conformance instructions](../tests/native/README.md) explain the isolated fixtures. The additional native handoff check now chains Codex to Claude API profile one and then a second isolated Claude API profile. Each target receives the portable context, reads the preceding artifact and writes the next artifact with its native tools. One work ID, goal, user checkpoint and all three usage scopes remain. These are synthetic model responses and selected fixture credentials; live subscription/account isolation and model quality remain unverified.
 
 ## Next delivery gates
 
-1. Extend native conformance to cancellation, native account isolation, source release and artifact continuity, then real model-backed tasks.
+1. Extend conformance to missed events, cancellation near external effects, restart/process ownership, live account isolation and real model-backed tasks.
 2. Extend the existing-foundation evaluation before adding Hermes, OpenClaw, or OpenCode managed execution. Preserve native tools, memory, and schedule owners.
 3. Add supported authenticated approval delivery, native scheduling inventory, and resource-ownership evidence.
-4. Prove two-account continuation and then cross-harness continuation around an artifact-producing task, with external-effect reconciliation and complete context-coverage evidence.
+4. Extend the tested selected-context handoff to additional native adapters and workspace/memory bindings. Preserve explicit coverage and native authority.
+
+## State version and rollback
+
+This checkpoint upgrades the private workspace to state version 2 so older applications cannot silently bypass continuity semantics. A version-1 file workspace receives an automatic native SQLite rollback copy named `workspace.sqlite.before-v2.UUID.sqlite` in its existing private data directory before the version changes. The copy uses private file permissions. Work and history remain in the active database. Stop Forge before restoring a copy; retain the current state separately and use a separate data directory when inspecting an older checkpoint. Never combine the old snapshot with current SQLite sidecars.

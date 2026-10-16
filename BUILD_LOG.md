@@ -1,5 +1,15 @@
 # Build log
 
+## 2026-10-17 · forge-v0.3.0
+
+Added verified Work Capsules and explicit handoff between supported account/harness bindings around the same work ID and project directory. Reused native Git inventory and Node hashing for selected file-state evidence. Capsules retain source/parent/session references, user checkpoints, context coverage, bounded result excerpts and artifact digests. The controller reserves admission during verification, persists native exit confirmation, rechecks work/files/destination configuration, and resets native session authority transactionally while retaining usage and history. Launches are bound to the reviewed work revision.
+
+Added a responsive two-stage handoff view with file/context review, private checkpoint download and destination confirmation. The test server uses a synthetic native worker for the browser approval/handoff path. Expanded type checks to all test/native sources. Upgraded private state to version 2 with a native SQLite rollback copy before version-1 file migration; older apps refuse newer state.
+
+Validation: 39 functional/API/continuity/driver checks, six browser flows, TypeScript and production build pass. Reviewed light/dark desktop and mobile handoff captures; axe and geometry checks report no violations or overflow. Individual native tool conformance and a new actual Codex-to-Claude-to-second-Claude-profile chain pass against local deterministic providers. The chain verifies one work ID, goal/checkpoint/manifest observations, native reading of preceding artifacts, three artifacts/approvals and three retained usage scopes, with zero paid model calls. Backup preservation/forward-version rejection also pass. No existing native account or schedule configuration was changed.
+
+Limitations: portable context is explicit and bounded; native full histories remain referenced and hidden state is not migrated. Live subscription eligibility, provider identity/quota isolation, model quality, external-effect fencing, additional managed adapters, existing-work aggregation, runtime/memory replacement, native scheduling, authenticated phone delivery, budget/outcome accounting, extensions and whole-stack performance remain delivery gates. The full goal remains active. Checkpoint reference: the commit containing this entry; durable tag `forge-v0.3.0`.
+
 ## 2026-10-17 · native-tool-conformance-20261017
 
 Added repeatable opt-in conformance for actual Codex and Claude native workers against deterministic loopback providers. Both request a one-time decision through Forge's HTTP approval endpoint, execute their native tool, produce an exact temporary artifact, report usage and exit. Model responses are synthetic; no paid model call or private credential is used. The command runs workers sequentially and removes its temporary projects/configuration.

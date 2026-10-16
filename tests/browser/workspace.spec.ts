@@ -151,3 +151,69 @@ test('Claude API slots expose the credential reference and native launch choice 
       .status,
   ).toBe('ready');
 });
+
+test('a native approval and verified handoff retain the same work and expose the new binding', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const snapshot = await (await page.request.get('/api/snapshot')).json();
+  const post = async (path: string, data: unknown) => {
+    const result = await page.request.post(`/api${path}`, {
+      data,
+      headers: { 'x-forge-csrf': snapshot.csrf, 'x-forge-workspace': 'local' },
+    });
+    expect(result.ok(), await result.text()).toBe(true);
+    return result.json();
+  };
+  const source = await post('/accounts', { label: 'Handoff native source', harness: 'codex' });
+  const target = await post('/accounts', {
+    label: 'Handoff API target',
+    harness: 'claude',
+    billingMode: 'api',
+    credentialEnv: 'FORGE_HANDOFF_BROWSER_KEY',
+  });
+  const work = await post('/work', {
+    title: 'One work across native harnesses',
+    project: 'Browser fixture',
+    cwd: process.cwd(),
+    goal: 'Keep this goal and its verified files with the same work.',
+    harness: 'codex',
+    accountId: source.id,
+  });
+  await post(`/work/${work.id}/launch`, { expectedRevision: work.revision });
+  await page.reload();
+  await page.getByRole('button', { name: 'Work', exact: true }).click();
+  await page.getByRole('button', { name: work.title, exact: true }).click();
+  const detail = page.getByRole('dialog', { name: work.title });
+  await detail.getByRole('button', { name: 'Review', exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'Review a native command' })
+    .getByRole('button', { name: 'Allow once' })
+    .click();
+  await detail.getByRole('button', { name: 'Change harness or account' }).click();
+  const handoff = page.getByRole('dialog', { name: 'Keep the work. Change the harness.' });
+  await handoff.getByLabel('Continue with').selectOption(target.id);
+  await handoff.getByLabel('Files to verify').fill('package.json');
+  await handoff.getByRole('button', { name: 'Prepare checkpoint' }).click();
+  await expect(handoff.getByText('1 file state verified.')).toBeVisible();
+  const exported = page.waitForEvent('download');
+  await handoff.getByRole('button', { name: 'Download this work checkpoint' }).click();
+  expect((await exported).suggestedFilename()).toMatch(/^forge-checkpoint-/);
+  await handoff.getByRole('checkbox', { name: /I reviewed native activity/ }).check();
+  const result = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+    .analyze();
+  expect(result.violations.map((v) => v.id)).toEqual([]);
+  await page.screenshot({ path: 'artifacts/forge-handoff-light.png' });
+  await handoff.getByRole('button', { name: 'Switch at this checkpoint' }).click();
+  await expect(handoff).not.toBeVisible();
+  await expect(detail.getByText('Handoff API target', { exact: true })).toBeVisible();
+  await expect(detail.getByRole('button', { name: 'Run with Claude', exact: true })).toBeVisible();
+  const after = await (await page.request.get('/api/snapshot')).json();
+  const retained = after.work.find((entry: { id: string }) => entry.id === work.id);
+  expect(retained.accountId).toBe(target.id);
+  expect(retained.nativeSessionId).toBe(null);
+  expect(after.usage.find((entry: { workId: string }) => entry.workId === work.id).accountId).toBe(
+    source.id,
+  );
+});

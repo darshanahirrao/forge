@@ -186,11 +186,45 @@ test('opening a future workspace version fails without rewriting its version', a
   const directory = await mkdtemp(join(tmpdir(), 'forge-future-'));
   const filename = join(directory, 'test.sqlite');
   const store = new Store(filename);
-  store.db.exec('PRAGMA user_version = 2');
+  store.db.exec('PRAGMA user_version = 3');
   store.close();
   try {
     assert.throws(() => new Store(filename), /newer Forge version/);
   } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('upgrading a legacy workspace preserves its records and creates a native SQLite rollback copy', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'forge-upgrade-'));
+  const filename = join(directory, 'workspace.sqlite');
+  let store = new Store(filename);
+  store.put('work', work.id, work);
+  store.db.exec('PRAGMA user_version = 1');
+  store.close();
+  store = new Store(filename);
+  try {
+    assert.ok(store.migrationBackup);
+    assert.equal(store.work(work.id).goal, work.goal);
+    assert.equal(
+      (store.db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version,
+      2,
+    );
+    const { DatabaseSync } = await import('node:sqlite');
+    const backup = new DatabaseSync(store.migrationBackup!, { readOnly: true });
+    try {
+      assert.equal(
+        (backup.prepare('PRAGMA user_version').get() as { user_version: number }).user_version,
+        1,
+      );
+      assert.ok(
+        backup.prepare("SELECT data FROM records WHERE collection='work' AND id=?").get(work.id),
+      );
+    } finally {
+      backup.close();
+    }
+  } finally {
+    store.close();
     await rm(directory, { recursive: true, force: true });
   }
 });

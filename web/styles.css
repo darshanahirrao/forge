@@ -1615,6 +1615,14 @@ label small,
 .native-details li {
   padding: 2px;
 }
+.checkpoint-files {
+  font-size: 13px;
+}
+.checkpoint-files ul {
+  columns: 1;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
 .workspace-footer {
   display: flex;
   justify-content: space-between;
@@ -1782,6 +1790,13 @@ label small,
   align-items: center;
   gap: 10px;
   padding-top: 8px;
+}
+.handoff-footer {
+  flex-wrap: wrap;
+}
+.handoff-footer .button {
+  min-width: 0;
+  white-space: normal;
 }
 .form-error {
   color: var(--danger);

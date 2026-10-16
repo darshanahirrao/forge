@@ -30,7 +30,11 @@ export function LaunchDialog({
     setBusy(true);
     setError('');
     try {
-      await mutate(`/work/${work.id}/launch`, 'POST', { allowMetered: metered, reconciled });
+      await mutate(`/work/${work.id}/launch`, 'POST', {
+        expectedRevision: work.revision,
+        allowMetered: metered,
+        reconciled,
+      });
       onLaunched();
     } catch (error) {
       setError((error as Error).message);

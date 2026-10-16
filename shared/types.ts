@@ -43,6 +43,7 @@ export interface Work {
   revision: number;
   nativeSessionId: string | null;
   activeRunId: string | null;
+  capsuleId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -55,6 +56,13 @@ export interface WorkEvent {
   detail: string;
   createdAt: string;
   generation: number;
+  handoff?: {
+    version: 1;
+    capsuleId: string;
+    from: WorkCapsule['source'];
+    to: { harness: Harness; accountId: string };
+    fileCount: number;
+  };
 }
 export interface Run {
   id: string;
@@ -66,6 +74,42 @@ export interface Run {
   status: 'starting' | 'running' | 'completed' | 'failed' | 'interrupted';
   startedAt: string;
   endedAt: string | null;
+  exitConfirmed?: boolean;
+}
+export interface ArtifactFingerprint {
+  path: string;
+  state: 'present' | 'missing';
+  sha256: string | null;
+  bytes: number;
+  mode: number;
+}
+export interface WorkCapsule {
+  format: 'forge.work-capsule';
+  version: 1;
+  id: string;
+  workId: string;
+  baseRevision: number;
+  parentCapsuleId: string | null;
+  generation: number;
+  source: {
+    harness: Harness;
+    accountId: string | null;
+    nativeSessionId: string | null;
+    runId: string | null;
+  };
+  title: string;
+  goal: string;
+  acceptance: string;
+  context: string;
+  checkpoints: { id: string; note: string; createdAt: string }[];
+  results: { eventId: string; excerpt: string; clipped: boolean; createdAt: string }[];
+  inventory: 'git' | 'explicit';
+  artifacts: ArtifactFingerprint[];
+  excluded: { path: string; reason: string }[];
+  artifactDigest: string;
+  contextDigest: string;
+  createdAt: string;
+  coverage: string;
 }
 export interface Approval {
   id: string;

@@ -45,7 +45,15 @@ async function fixture(
         'x-forge-workspace': mode,
         ...(method !== 'GET' ? { 'content-type': 'application/json' } : {}),
       },
-      payload: method === 'GET' ? undefined : (payload ?? {}),
+      payload:
+        method === 'GET'
+          ? undefined
+          : url.endsWith('/launch')
+            ? {
+                expectedRevision: state.local.get<Work>('work', url.split('/')[3])?.revision ?? 0,
+                ...((payload as object) ?? {}),
+              }
+            : (payload ?? {}),
     });
   return { ...state, call };
 }
@@ -376,6 +384,42 @@ test('overview projections omit full context while explicit work reads preserve 
     assert.equal(overview.work[0].context, undefined);
     assert.equal(overview.events[0].detail, '');
     assert.equal((await state.call('GET', `/api/work/${work.id}`)).json().work.goal, work.goal);
+  } finally {
+    await state.app.close();
+  }
+});
+
+test('launch consent cannot be reused after the work revision changes', async () => {
+  const state = await fixture();
+  try {
+    const { work } = await prepared(state);
+    state.local.updateWork(work.id, { context: 'Changed after the launch dialog was opened.' });
+    const launch = await state.call('POST', `/api/work/${work.id}/launch`, {
+      expectedRevision: work.revision,
+      allowMetered: true,
+    });
+    assert.equal(launch.statusCode, 409);
+    assert.equal(state.local.all('runs').length, 0);
+    assert.equal(state.local.all('approvals').length, 0);
+  } finally {
+    await state.app.close();
+  }
+});
+
+test('demo handoff endpoints cannot inspect local files or change local work bindings', async () => {
+  const state = await fixture();
+  try {
+    const { work } = await prepared(state);
+    assert.equal(
+      (await state.call('POST', `/api/work/${work.id}/capsules`, {}, 'demo')).statusCode,
+      409,
+    );
+    assert.equal(
+      (await state.call('POST', `/api/work/${work.id}/handoff`, {}, 'demo')).statusCode,
+      409,
+    );
+    assert.equal(state.local.all('capsules').length, 0);
+    assert.equal(state.local.work(work.id).harness, 'codex');
   } finally {
     await state.app.close();
   }

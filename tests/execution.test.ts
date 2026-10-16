@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import type { Options, Query, SDKMessage, ModelUsage } from '@anthropic-ai/claude-agent-sdk';
+import type {
+  Options,
+  Query,
+  SDKMessage,
+  ModelUsage,
+  NonNullableUsage,
+} from '@anthropic-ai/claude-agent-sdk';
 import type { Account, Approval, Harness, Usage, Work } from '../shared/types.js';
 import type {
   DriverContext,
@@ -239,6 +245,18 @@ test('Claude native permission callback resolves exactly once without creating p
         uuid: '1-1-1-1-1',
         total_cost_usd: 0.02,
         modelUsage: { fixture: model() },
+        duration_ms: 1,
+        duration_api_ms: 0,
+        num_turns: 1,
+        result: 'Synthetic callback result.',
+        stop_reason: 'end_turn',
+        permission_denials: [],
+        usage: {
+          input_tokens: 10,
+          output_tokens: 4,
+          cache_read_input_tokens: 6,
+          cache_creation_input_tokens: 3,
+        } as NonNullableUsage,
       } as SDKMessage;
       yield result;
       yield result;

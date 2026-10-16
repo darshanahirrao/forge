@@ -31,6 +31,7 @@ export function WorkDetail({
   onClose,
   onEdit,
   onLaunch,
+  onHandoff,
   onApproval,
   onExport,
   onStop,
@@ -44,6 +45,7 @@ export function WorkDetail({
   onClose: () => void;
   onEdit: () => void;
   onLaunch: () => void;
+  onHandoff: () => void;
   onApproval: (approval: Approval) => void;
   onExport: () => void;
   onStop: () => void;
@@ -77,9 +79,16 @@ export function WorkDetail({
               ? 'Fictional work record'
               : work.nativeSessionId
                 ? 'Native session bound'
-                : 'Tracked work record'}
+                : work.capsuleId
+                  ? 'Portable checkpoint retained'
+                  : 'Tracked work record'}
           </span>
         </div>
+        {mode === 'local' && !work.activeRunId && (work.nativeSessionId || work.capsuleId) && (
+          <button className="button secondary small" onClick={onHandoff}>
+            Change harness or account
+          </button>
+        )}
         <div className="binding-box">
           <HarnessMark harness={work.harness} />
           <div>

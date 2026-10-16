@@ -32,6 +32,7 @@ import {
 import { CodexDriver, type RpcFactory } from './adapters/codex-driver.js';
 import { ClaudeDriver } from './adapters/claude-driver.js';
 import { ExecutionController } from './execution.js';
+import { Continuity } from './continuity.js';
 import type { DriverFactory } from './adapters/driver.js';
 import { seedDemo } from './demo.js';
 
@@ -98,6 +99,7 @@ export async function createApp(options: AppOptions) {
       }),
   );
   const machine = new MachineMonitor();
+  const continuity = new Continuity(local, controller);
   const csrf = options.csrf ?? randomBytes(32).toString('hex');
   const port = options.port ?? 4710;
   const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
@@ -179,12 +181,12 @@ export async function createApp(options: AppOptions) {
         : 'Forge could not complete this operation. Refresh and inspect the current state before retrying.',
     });
   });
-  app.get('/api/health', async () => ({ status: 'ok', version: '0.2.0' }));
+  app.get('/api/health', async () => ({ status: 'ok', version: '0.3.0' }));
   app.get('/api/snapshot', async (request) => {
     const db = store(request);
     const result: Snapshot = {
       mode: mode(request),
-      version: '0.2.0',
+      version: '0.3.0',
       csrf,
       work: db.all<WorkSummary>('work_summaries').sort((a, b) => {
         const rank = { waiting: 0, running: 1, failed: 2, interrupted: 2, ready: 3, completed: 4 };
@@ -192,7 +194,9 @@ export async function createApp(options: AppOptions) {
       }),
       accounts: db.all<Account>('accounts'),
       approvals: db.all<Approval>('approvals'),
-      events: db.recentEvents().map((event) => ({ ...event, detail: '' })),
+      events: db
+        .recentEvents()
+        .map(({ handoff: _handoff, ...event }) => ({ ...event, detail: '' })),
       usage: db.all<Usage>('usage'),
       settings: db.settings(),
       connections,
@@ -284,9 +288,9 @@ export async function createApp(options: AppOptions) {
       (body.harness !== undefined && body.harness !== work.harness) ||
       (body.cwd !== undefined && body.cwd !== work.cwd);
     assert(
-      !bindingChanged || !work.nativeSessionId,
+      !bindingChanged || (!work.nativeSessionId && !work.capsuleId),
       409,
-      'Native binding transfer is still under validation. Export this work context to prepare a separate native continuation.',
+      'Use the verified handoff flow to change this native binding while retaining the same work record.',
     );
     if (body.accountId)
       assert(
@@ -322,6 +326,49 @@ export async function createApp(options: AppOptions) {
       return event;
     });
   });
+  app.post('/api/work/:id/capsules', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo checkpoints never inspect local project files.');
+    const body = z
+      .object({
+        expectedRevision: z.number().int().nonnegative(),
+        paths: z.array(z.string().min(1).max(2000)).min(1).max(2000).optional(),
+      })
+      .strict()
+      .parse(request.body);
+    return continuity.capture(
+      (request.params as { id: string }).id,
+      body.expectedRevision,
+      body.paths,
+    );
+  });
+  app.get('/api/work/:id/capsules/:capsuleId', async (request) => {
+    const { id: workId, capsuleId } = request.params as { id: string; capsuleId: string };
+    const capsule = store(request).get<import('../shared/types.js').WorkCapsule>(
+      'capsules',
+      capsuleId,
+    );
+    assert(capsule?.workId === workId, 404, 'This work checkpoint was not found.');
+    return capsule;
+  });
+  app.post('/api/work/:id/handoff', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo work cannot change real native bindings.');
+    const body = z
+      .object({
+        expectedRevision: z.number().int().nonnegative(),
+        capsuleId: z.string().min(1),
+        targetAccountId: z.string().min(1),
+        reconciled: z.boolean().default(false),
+      })
+      .strict()
+      .parse(request.body);
+    return continuity.handoff(
+      (request.params as { id: string }).id,
+      body.expectedRevision,
+      body.capsuleId,
+      body.targetAccountId,
+      body.reconciled,
+    );
+  });
   app.post('/api/work/:id/launch', async (request, reply) => {
     assert(
       mode(request) === 'local',
@@ -329,7 +376,11 @@ export async function createApp(options: AppOptions) {
       'Demo work never starts native execution. Switch to your local workspace to run a real task.',
     );
     const body = z
-      .object({ allowMetered: z.boolean().default(false), reconciled: z.boolean().default(false) })
+      .object({
+        expectedRevision: z.number().int().nonnegative(),
+        allowMetered: z.boolean().default(false),
+        reconciled: z.boolean().default(false),
+      })
       .strict()
       .parse(request.body);
     const workId = (request.params as { id: string }).id;
@@ -338,7 +389,9 @@ export async function createApp(options: AppOptions) {
     await directory(work.cwd, true);
     return reply
       .code(202)
-      .send(await controller.launch(workId, body.allowMetered, body.reconciled));
+      .send(
+        await controller.launch(workId, body.allowMetered, body.reconciled, body.expectedRevision),
+      );
   });
   app.post('/api/work/:id/interrupt', async (request) => {
     assert(mode(request) === 'local', 409, 'This is a fictional demo task.');

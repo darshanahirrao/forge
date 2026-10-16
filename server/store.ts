@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { randomUUID } from 'node:crypto';
-import { chmodSync, mkdirSync } from 'node:fs';
+import { chmodSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { Account, Approval, Run, Settings, Usage, Work, WorkEvent } from '../shared/types.js';
 import { assert } from './errors.js';
@@ -13,6 +13,7 @@ type Collection =
   | 'runs'
   | 'approvals'
   | 'usage'
+  | 'capsules'
   | 'settings'
   | 'config';
 export const now = () => new Date().toISOString();
@@ -21,6 +22,7 @@ export const id = () => randomUUID();
 // SQLite is the source of truth. Every mutation and its receipt share a transaction.
 export class Store {
   readonly db: DatabaseSync;
+  readonly migrationBackup: string | null;
   constructor(filename: string) {
     if (filename !== ':memory:') mkdirSync(dirname(filename), { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(filename);
@@ -28,7 +30,7 @@ export class Store {
     try {
       const version = this.db.prepare('PRAGMA user_version').get() as { user_version: number };
       assert(
-        version.user_version <= 1,
+        version.user_version <= 2,
         409,
         'This workspace was created by a newer Forge version. Open it with that version.',
       );
@@ -40,7 +42,20 @@ export class Store {
         PRIMARY KEY (collection, id)
       );
       CREATE INDEX IF NOT EXISTS events_by_work ON records(json_extract(data,'$.workId')) WHERE collection='events';
-      PRAGMA user_version = 1;`);
+      `);
+      let backup: string | null = null;
+      if (version.user_version > 0 && version.user_version < 2 && filename !== ':memory:') {
+        backup = `${filename}.before-v2.${randomUUID()}.sqlite`;
+        writeFileSync(backup, '', { flag: 'wx', mode: 0o600 });
+        try {
+          this.db.prepare('VACUUM INTO ?').run(backup);
+        } catch (error) {
+          unlinkSync(backup);
+          throw error;
+        }
+      }
+      this.db.exec('PRAGMA user_version = 2');
+      this.migrationBackup = backup;
     } catch (error) {
       this.db.close();
       throw error;
@@ -76,6 +91,14 @@ export class Store {
         "SELECT data FROM records WHERE collection='events' AND json_extract(data,'$.workId')=? AND json_extract(data,'$.kind')='checkpoint' ORDER BY rowid ASC",
       )
       .all(workId)
+      .map((row) => JSON.parse(String(row.data)) as WorkEvent);
+  }
+  assistantResults(workId: string, limit = 5): WorkEvent[] {
+    return this.db
+      .prepare(
+        "SELECT data FROM records WHERE collection='events' AND json_extract(data,'$.workId')=? AND json_extract(data,'$.kind')='assistant' ORDER BY rowid DESC LIMIT ?",
+      )
+      .all(workId, limit)
       .map((row) => JSON.parse(String(row.data)) as WorkEvent);
   }
   get<T>(collection: Collection, key: string): T | null {
@@ -130,7 +153,13 @@ export class Store {
     assert(account, 404, 'This account slot was not found. Choose another account.');
     return account;
   }
-  event(workId: string, kind: string, title: string, detail = ''): WorkEvent {
+  event(
+    workId: string,
+    kind: string,
+    title: string,
+    detail = '',
+    handoff?: WorkEvent['handoff'],
+  ): WorkEvent {
     const event: WorkEvent = {
       id: id(),
       workId,
@@ -139,6 +168,7 @@ export class Store {
       detail,
       createdAt: now(),
       generation: this.work(workId).generation,
+      ...(handoff ? { handoff } : {}),
     };
     return this.put('events', event.id, event);
   }
@@ -167,7 +197,12 @@ export class Store {
       for (const run of this.all<Run>('runs').filter((r) =>
         ['starting', 'running'].includes(r.status),
       )) {
-        this.put('runs', run.id, { ...run, status: 'interrupted', endedAt: now() });
+        this.put('runs', run.id, {
+          ...run,
+          status: 'interrupted',
+          endedAt: now(),
+          exitConfirmed: false,
+        });
         this.invalidateApprovals(run.id);
         this.updateWork(run.workId, { status: 'interrupted', activeRunId: null });
         this.event(

@@ -102,7 +102,7 @@ const state = await createApp({
       },
     }),
 });
-const call = (url: string, payload: unknown) =>
+const call = (url: string, payload: Record<string, unknown>) =>
   state.app.inject({
     method: 'POST',
     url,
@@ -133,7 +133,10 @@ try {
       accountId: account.id,
     })
   ).json<Work>();
-  const launch = await call(`/api/work/${work.id}/launch`, { allowMetered: true });
+  const launch = await call(`/api/work/${work.id}/launch`, {
+    expectedRevision: work.revision,
+    allowMetered: true,
+  });
   assert.equal(launch.statusCode, 202, launch.body);
   const deadline = Date.now() + 45000;
   let decisions = 0;

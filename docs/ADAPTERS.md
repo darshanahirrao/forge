@@ -17,6 +17,8 @@ An adapter advertises its identity, version, protocol, supported operations, con
 
 Native events map to work/attempt IDs without discarding native evidence. Preserve extension payloads under a versioned namespace. The common interface is a coordination contract, not a replacement for every native feature. A model endpoint is not a complete harness integration.
 
+The current implementation now has [verified selected-context handoff](CONTINUITY.md) for Codex and Claude API slots. It retains the work and project, validates source exit and artifacts, starts a fresh native binding, and preserves original session references and accounting. Other proposed operations and adapters below remain capability/conformance gates.
+
 Declare account discovery, effective-identity verification, credential-context isolation, native resume, and quota visibility independently. Each attempt binds a nonsecret account reference and the observed native account scope. The [multi-account contract](ACCOUNTS.md) governs selection and transfer; no universal login or credential-swapping mechanism is assumed.
 
 MCP exposes tools and resources to Hermes or another client. ACP supports agent-client interaction where implemented. Native adapters carry functionality the common protocols do not cover. Neither protocol alone supplies universal cross-harness checkpoints, machine enforcement, or billing truth.

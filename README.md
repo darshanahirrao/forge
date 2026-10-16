@@ -6,7 +6,7 @@ Forge is an open-source local workspace for people who work across AI runtimes a
 
 We call the product concept **Persistent Agency**: your agent profile, memory, workspace, work history, shared connections, schedules, and policies remain in Forge while you change a compatible execution harness at a verified checkpoint.
 
-**Status: early local application, v0.2.0.** Work tracking, account slots, live machine telemetry, a separate demo workspace, and experimental native Codex and Claude API execution/approval adapters are implemented. The broader architecture remains a roadmap. Automatic account switching, cross-harness transfer, phone approvals, scheduling adapters, and hard resource enforcement are not implemented. See [the implementation and evidence](docs/RUNTIME.md).
+**Status: early local application, v0.3.0.** Work tracking, account slots, live machine telemetry, a separate demo workspace, and experimental native Codex and Claude API execution/approval adapters are implemented, including verified handoff around the same work record. The broader architecture remains a roadmap. Automatic quota fallback, additional managed harnesses, phone approvals, scheduling adapters, runtime/memory replacement, and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md).
 
 ## Run Forge
 
@@ -26,7 +26,7 @@ Private state is stored outside this repository. On macOS, the default is `~/Lib
 
 ## What works today
 
-- Persistent work, goals, context, checkpoints, revision conflict checks, and user-selected context exports.
+- Persistent work, goals, context, checkpoints, revision conflict checks, user-selected context exports, and verified [Work Capsules and native handoff](docs/CONTINUITY.md).
 - Multiple account slots per supported harness choice, native Codex/Claude authentication status checks, and native Codex quota evidence when exposed.
 - A shared execution coordinator for experimental Codex app-server and Claude Agent SDK API turns, with one managed worker, supported exact approvals, cancellation, native session continuation, usage snapshots, and recovery receipts.
 - Real CPU, OS memory, process RSS, and service-memory visibility. Quiet mode gates new managed work.
@@ -34,7 +34,7 @@ Private state is stored outside this repository. On macOS, the default is `~/Lib
 - Optional Agent Deck session inventory and ccusage daily Claude reports through their installed native CLIs.
 - Responsive light/dark views, keyboard search, and sanitized setup-blueprint export.
 
-Native adapters have protocol/callback fixtures plus [repeatable native tool conformance checks](tests/native/README.md). Actual Codex and Claude native workers each passed an approval, tool execution, exact artifact verification and usage reporting against local deterministic providers, with zero paid model calls. Real model-backed work and real account-transfer scenarios remain unverified. Native limits, permissions, and compatibility still apply.
+Native adapters have protocol/callback fixtures plus [repeatable native tool conformance checks](tests/native/README.md). Actual Codex and Claude native workers each passed an approval, tool execution, exact artifact verification and usage reporting against local deterministic providers, with zero paid model calls. A native Codex-to-Claude-to-second-Claude-profile conformance also retains one work identity, its goal/checkpoint, three verified artifacts and all three account-attributed usage scopes. Inference is deterministic and local; live subscription/account isolation and real model quality remain unverified. Native limits, permissions, and compatibility still apply.
 
 The figure below describes the broader architecture roadmap.
 

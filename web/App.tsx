@@ -41,6 +41,7 @@ import { AccountForm } from './components/AccountForm';
 import { WorkDetail } from './components/WorkDetail';
 import { ApprovalDialog } from './components/ApprovalDialog';
 import { LaunchDialog } from './components/LaunchDialog';
+import { HandoffDialog } from './components/HandoffDialog';
 import { SearchDialog } from './components/SearchDialog';
 
 export function App() {
@@ -59,6 +60,7 @@ export function App() {
   const [detail, setDetail] = useState<{ work: Work; events: WorkEvent[] } | null>(null);
   const [approval, setApproval] = useState<Approval | null>(null);
   const [launch, setLaunch] = useState<Work | null>(null);
+  const [handoff, setHandoff] = useState(false);
   const [edit, setEdit] = useState<Work | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [help, setHelp] = useState(false);
@@ -81,6 +83,7 @@ export function App() {
     setSelected(null);
     setApproval(null);
     setLaunch(null);
+    setHandoff(false);
     setEdit(null);
     void load();
     const timer = setInterval(() => {
@@ -453,6 +456,7 @@ export function App() {
             setSelected(null);
           }}
           onLaunch={() => setLaunch(selectedWork)}
+          onHandoff={() => setHandoff(true)}
           onApproval={setApproval}
           onExport={() =>
             void act(
@@ -474,6 +478,18 @@ export function App() {
             )
           }
           busy={busy}
+        />
+      )}
+      {snapshot && selectedWork && handoff && (
+        <HandoffDialog
+          work={selectedWork}
+          accounts={snapshot.accounts}
+          mutate={mutate}
+          onClose={() => setHandoff(false)}
+          onMoved={() => {
+            setHandoff(false);
+            setToast('The same work is ready on its new native binding.');
+          }}
         />
       )}
       {snapshot && approval && (
