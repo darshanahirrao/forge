@@ -94,6 +94,7 @@ test('all views remain usable on a narrow screen without page overflow', async (
     'Overview',
     'Work',
     'Activity',
+    'Memory',
     'Approvals',
     'Accounts',
     'Resources',
@@ -304,4 +305,102 @@ test('native activity discovers profiles, preserves observations after reload an
   const snapshot = await (await page.request.get('/api/snapshot')).json();
   expect(snapshot.nativeSchedules).toHaveLength(2);
   expect(JSON.stringify(snapshot.nativeSchedules)).not.toContain('excluded native instructions');
+});
+
+test('native memory is selected by section, pinned to a persistent profile and reviewed before launch', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const fixture = await (await page.request.get('/api/fixture/memory')).json();
+  const before = await (await page.request.get('/api/snapshot')).json();
+  const accountResponse = await page.request.post('/api/accounts', {
+    data: { label: 'Memory browser slot', harness: 'codex' },
+    headers: { 'x-forge-csrf': before.csrf },
+  });
+  expect(accountResponse.ok()).toBe(true);
+  await page.getByRole('navigation').getByRole('button', { name: 'Memory', exact: true }).click();
+  await page.getByRole('button', { name: 'New profile', exact: true }).click();
+  const create = page.getByRole('dialog', { name: 'A profile that stays with you.' });
+  await create.getByLabel('New profile name').fill('Portable browser profile');
+  await create.getByRole('button', { name: 'Create profile' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Portable browser profile', exact: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Add memory reference', exact: true }).click();
+  const source = page.getByRole('dialog', { name: 'Choose native memory.' });
+  await source.getByLabel('Memory label').fill('Native project facts');
+  await source.getByLabel('Native owner').selectOption('hermes');
+  await source.getByLabel('Markdown file').fill(fixture.path);
+  await source.getByRole('button', { name: 'Inspect native file' }).click();
+  await source.getByLabel('Memory section').selectOption(JSON.stringify(['Public']));
+  await expect(source.getByLabel('Selected memory text')).toContainText(
+    'Browser shared memory marker.',
+  );
+  await expect(source.getByLabel('Selected memory text')).not.toContainText(
+    'PRIVATE-BROWSER-EXCLUDED',
+  );
+  await source.getByLabel('Memory project directory').fill(fixture.project);
+  await source.getByRole('button', { name: 'Save memory reference' }).click();
+  await page.getByRole('checkbox', { name: /^Native project facts/ }).check();
+  await page.getByRole('button', { name: 'Save profile', exact: true }).click();
+  await expect
+    .poll(async () => {
+      const snapshot = await (await page.request.get('/api/snapshot')).json();
+      return snapshot.profiles.find(
+        (profile: { name: string }) => profile.name === 'Portable browser profile',
+      ).memorySourceIds.length;
+    })
+    .toBe(1);
+  await page.getByRole('heading', { name: 'Same identity. Persistent memory.' }).click();
+  for (const dark of [false, true]) {
+    if (dark) await page.getByRole('button', { name: 'Use dark theme' }).click();
+    expect(
+      (
+        await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()
+      ).violations.map((v) => v.id),
+    ).toEqual([]);
+    await page.screenshot({
+      path: `artifacts/forge-memory-${dark ? 'dark' : 'light'}.png`,
+      fullPage: true,
+    });
+  }
+  await page.getByRole('button', { name: 'Work', exact: true }).click();
+  await page.getByRole('button', { name: 'New work', exact: true }).click();
+  await page.getByLabel('Work title').fill('Memory follows this work');
+  await page
+    .getByLabel('Goal', { exact: true })
+    .fill('Review selected native memory before running.');
+  await page.getByLabel('Persistent profile').selectOption({ label: 'Portable browser profile' });
+  await page
+    .getByRole('combobox', { name: 'Account', exact: true })
+    .selectOption({ label: 'Memory browser slot' });
+  await page.getByLabel('Project directory').fill(fixture.project);
+  await page.getByRole('dialog').getByRole('button', { name: 'Create work', exact: true }).click();
+  await page.getByRole('button', { name: 'Run with Codex', exact: true }).click();
+  const launch = page.getByRole('dialog', { name: 'Ready to use the native harness?' });
+  await expect(
+    launch.getByRole('heading', { name: 'Profile: Portable browser profile' }),
+  ).toBeVisible();
+  await expect(launch.getByRole('button', { name: 'Start native attempt' })).toBeDisabled();
+  await launch.getByText('Native project facts', { exact: true }).click();
+  await expect(launch.getByText('Browser shared memory marker.', { exact: false })).toBeVisible();
+  await expect(launch.getByText('PRIVATE-BROWSER-EXCLUDED', { exact: false })).not.toBeVisible();
+  await launch
+    .getByRole('checkbox', { name: /I reviewed this profile and selected memory/ })
+    .check();
+  await expect(launch.getByRole('button', { name: 'Start native attempt' })).toBeEnabled();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(
+    (
+      await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()
+    ).violations.map((v) => v.id),
+  ).toEqual([]);
+  await page.screenshot({ path: 'artifacts/forge-memory-launch-mobile.png', fullPage: true });
+  await launch.getByRole('button', { name: 'Keep as ready' }).click();
+  const snapshot = await (await page.request.get('/api/snapshot')).json();
+  expect(
+    snapshot.work.find((work: { title: string }) => work.title === 'Memory follows this work')
+      .status,
+  ).toBe('ready');
 });

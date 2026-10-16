@@ -6,7 +6,7 @@ Forge is an open-source local workspace for people who work across AI runtimes a
 
 We call the product concept **Persistent Agency**: your agent profile, memory, workspace, work history, shared connections, schedules, and policies remain in Forge while you change a compatible execution harness at a verified checkpoint.
 
-**Status: early local application, v0.4.1.** Persistent work, account slots, native chat/schedule inventory, live machine telemetry, an isolated demo, and experimental native Codex and Claude API execution/approval adapters are implemented, including verified handoff around the same work record. The broader architecture remains a roadmap. Automatic quota fallback, additional managed harnesses, phone approvals, native schedule controls, runtime/memory replacement, and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md).
+**Status: early local application, v0.5.0.** Persistent work/profiles, scoped native memory, account slots, native activity, machine telemetry and experimental Codex/Claude API execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic quota fallback, additional managed harnesses/runtimes, phone approvals, native schedule controls, full memory-provider migration and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md).
 
 ## Run Forge
 
@@ -24,11 +24,14 @@ Create a work record, add a native account slot, and check a supported account f
 
 To see existing work, open **Activity**, discover profile references, then read the sources you want. Codex and Claude session catalogs, Codex and Hermes schedule definitions, and existing Hermes/OpenClaw session APIs retain their native owners. [Native activity coverage and setup](docs/NATIVE_ACTIVITY.md) explain the limits and private metadata handling.
 
+Open **Memory** to create a persistent profile and pin scoped native Markdown files or sections. The launch dialog shows the current selection. Corrections invalidate stale reviews and start a fresh native conversation while retaining the work and earlier history. [Profile and memory setup](docs/MEMORY.md) explains scope, provenance and native ownership.
+
 Private state is stored outside this repository. On macOS, the default is `~/Library/Application Support/Forge/workspace.sqlite`. Use `FORGE_DATA_DIR` or `node bin/forge.mjs --data-dir DIRECTORY` to select another location. `FORGE_PORT` or `--port` changes the loopback port. Stop a foreground service with Ctrl+C. No startup agent, background schedule, or hosted service is installed.
 
 ## What works today
 
 - Persistent work, goals, context, checkpoints, revision conflict checks, user-selected context exports, and verified [Work Capsules and native handoff](docs/CONTINUITY.md).
+- Stable profiles and native memory references, project/work scopes, reviewed input fingerprints, corrected-context isolation and selected-memory continuity across supported harnesses/accounts.
 - Multiple account slots per supported harness choice, native Codex/Claude authentication status checks, and native Codex quota evidence when exposed.
 - A shared execution coordinator for experimental Codex app-server and Claude Agent SDK API turns, with one managed worker, supported exact approvals, cancellation, native session continuation, usage snapshots, and recovery receipts.
 - Real CPU, OS memory, process RSS, and service-memory visibility. Quiet mode gates new managed work.
@@ -61,6 +64,7 @@ The defining demonstration is a real task checkpointed in one harness, continued
 - [Current implementation, setup, and limits](docs/RUNTIME.md)
 - [Native capability boundary](docs/NATIVE_BOUNDARY.md)
 - [Native chats, schedules, sources and coverage](docs/NATIVE_ACTIVITY.md)
+- [Profiles, scoped native memory and corrections](docs/MEMORY.md)
 - [Initial existing-solution audit](docs/REUSE_AUDIT.md)
 - [Customizable workspace blueprints](docs/BLUEPRINTS.md)
 - [Architecture and failure semantics](docs/ARCHITECTURE.md)

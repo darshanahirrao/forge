@@ -1,6 +1,6 @@
-import { type Work, type Account } from '../../shared/types';
+import { type Work, type Account, type ContextReview } from '../../shared/types';
 import { type Mutate } from '../api';
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { Dialog, HarnessMark, FormError } from './primitives';
 import { Folder, ShieldCheck, LoaderCircle, Play } from 'lucide-react';
 import { executionName } from '../../shared/harnesses';
@@ -22,6 +22,27 @@ export function LaunchDialog({
   const [reconciled, setReconciled] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [review, setReview] = useState<ContextReview | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
+  const [reading, setReading] = useState(false);
+  async function readContext() {
+    setReading(true);
+    setError('');
+    setReview(null);
+    setConfirmed(false);
+    try {
+      const result = await mutate<ContextReview>(`/work/${work.id}/context-review`, 'POST');
+      setReview(result);
+      setConfirmed(work.contextReceipt?.contentDigest === result.receipt.contentDigest);
+    } catch (cause) {
+      setError((cause as Error).message);
+    } finally {
+      setReading(false);
+    }
+  }
+  useEffect(() => {
+    void readContext();
+  }, [work.id, work.revision]);
   const needsReview = ['failed', 'interrupted'].includes(work.status);
   const claude = work.harness === 'claude';
   const compatible = !claude || account?.billingMode === 'api';
@@ -34,6 +55,7 @@ export function LaunchDialog({
         expectedRevision: work.revision,
         allowMetered: metered,
         reconciled,
+        contextDigest: review?.receipt.reviewDigest,
       });
       onLaunched();
     } catch (error) {
@@ -68,6 +90,60 @@ export function LaunchDialog({
           <Folder size={16} />
           <code>{work.cwd}</code>
         </div>
+        <section className="memory-launch-review">
+          <h3>{review ? `Profile: ${review.receipt.profileName}` : 'Reading selected context'}</h3>
+          {review && (
+            <>
+              <p className="source-note">
+                {review.memories.length} applicable memory{' '}
+                {review.memories.length === 1 ? 'reference' : 'references'}.{' '}
+                {review.skipped.length
+                  ? `${review.skipped.length} references outside this scope were excluded.`
+                  : 'Native sources are checked again when you launch.'}
+              </p>
+              {work.nativeSessionId &&
+                work.contextReceipt?.contentDigest !== review.receipt.contentDigest &&
+                (work.contextReceipt || review.requiresReview) && (
+                  <p className="source-note">
+                    Selected memory changed. This launch starts a fresh native conversation and
+                    retains the earlier work history.
+                  </p>
+                )}
+              {review.instructions && (
+                <details className="native-details">
+                  <summary>Profile instructions</summary>
+                  <pre className="memory-excerpt">{review.instructions}</pre>
+                </details>
+              )}
+              {review.memories.map((memory) => (
+                <details key={memory.sourceId} className="native-details">
+                  <summary>{memory.label}</summary>
+                  <pre className="memory-excerpt" tabIndex={0}>
+                    {memory.content}
+                  </pre>
+                </details>
+              ))}
+              {review.requiresReview && (
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={confirmed}
+                    onChange={(event) => setConfirmed(event.target.checked)}
+                  />
+                  <span>I reviewed this profile and selected memory for the native launch.</span>
+                </label>
+              )}
+            </>
+          )}
+          <button
+            type="button"
+            className="text-button"
+            disabled={reading}
+            onClick={() => void readContext()}
+          >
+            {reading && <LoaderCircle size={14} className="spin" />}Refresh context review
+          </button>
+        </section>
         <label className="checkbox-label">
           <input
             type="checkbox"
@@ -111,7 +187,15 @@ export function LaunchDialog({
           </button>
           <button
             className="button primary"
-            disabled={busy || !compatible || (claude && !metered) || (needsReview && !reconciled)}
+            disabled={
+              busy ||
+              !compatible ||
+              !review ||
+              reading ||
+              (review.requiresReview && !confirmed) ||
+              (claude && !metered) ||
+              (needsReview && !reconciled)
+            }
           >
             {busy ? <LoaderCircle size={16} className="spin" /> : <Play size={16} />}Start native
             attempt

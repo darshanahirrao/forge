@@ -28,6 +28,11 @@ export function PageHeading({
       'Every task has a thread.',
       'Goals, context, decisions, and native activity stay with the work.',
     ],
+    memory: [
+      'PORTABLE CONTEXT',
+      'Same identity. Persistent memory.',
+      'Keep native memory references and profile choices with your workspace.',
+    ],
     approvals: [
       'YOUR ATTENTION',
       'Decisions that move work forward.',

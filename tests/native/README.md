@@ -20,6 +20,8 @@ Protocol references: [Claude Messages streaming](https://platform.claude.com/doc
 
 Observed result with the versions above: three native runs, three approvals, three artifacts, all expected context/read observations, zero paid model calls. The providers simulate inference and billing metadata. This does not establish live subscription eligibility, provider quota pooling, model quality, or complete hidden-state migration. The combined native command includes this check after the two individual adapter checks.
 
+The v0.5 chain also pins a selected native Markdown section to one persistent profile. Codex and both Claude inputs must contain that fact and profile ID while excluding an unselected section. Capsules carry its prepared context receipt. Source text is synthetic and outside the project; no private user memory or paid inference is used. This verifies selected-input portability, not native memory-engine replacement or universal filesystem isolation.
+
 ## Existing metadata inventory
 
 `npm run test:native:inventory` is a separate explicit opt-in that reads metadata from existing default/environment-selected Codex, Claude and Hermes profiles. It is not included in the synthetic combined native command or CI. The script keeps its Forge cache in memory, prints only aggregate counts and coverage, and compares native schedule-definition hashes before/after. Native session catalogs can contain private titles, which the script does not print. It starts no model turn, executes no job, changes no account/configuration and performs no native repair.

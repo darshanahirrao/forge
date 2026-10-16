@@ -8,7 +8,18 @@ import { createApp } from '../../server/app.js';
 import { CodexDriver } from '../../server/adapters/codex-driver.js';
 import { ClaudeDriver } from '../../server/adapters/claude-driver.js';
 import { NativeRpc } from '../../server/adapters/rpc.js';
-import type { Account, Approval, Run, Usage, Work, WorkCapsule } from '../../shared/types.js';
+import type {
+  Account,
+  AgentProfile,
+  Approval,
+  ContextReview,
+  MemoryInspection,
+  MemorySource,
+  Run,
+  Usage,
+  Work,
+  WorkCapsule,
+} from '../../shared/types.js';
 import { fixtureProvider } from './provider.js';
 
 const directory = await mkdtemp(join(tmpdir(), 'forge-native-handoff-'));
@@ -25,9 +36,18 @@ const continuation = 'Verified native Claude continuation.\n';
 const finalProof = 'Verified second native account continuation.\n';
 const checkpointNote = 'Keep the original proof and continue from its verified content.';
 const goal = 'Retain one work identity across native harnesses and accounts.';
+const memoryFact = 'Portable native memory marker: cobalt-orbit.';
+const excludedMemory = 'PRIVATE-OTHER-TENANT-DO-NOT-INJECT';
+const memoryPath = join(directory, 'MEMORY.md');
+await writeFile(memoryPath, `# Shared\n${memoryFact}\n# Other tenant\n${excludedMemory}\n`);
+let sourceMemoryObserved = false;
 let sourceSent = false;
 const sourceProvider = await fixtureProvider('responses', (body) => {
   if (!sourceSent && body.tools?.some((t: { name: string }) => t.name === 'exec_command')) {
+    const nativeInput = JSON.stringify(body.input);
+    assert(nativeInput.includes(memoryFact), 'Codex did not receive the selected native memory.');
+    assert(!nativeInput.includes(excludedMemory), 'Unselected memory reached Codex.');
+    sourceMemoryObserved = true;
     sourceSent = true;
     return {
       tool: 'exec_command',
@@ -54,6 +74,14 @@ function nextProgram(index: number) {
       return { text: 'Local helper fixture.' };
     const history = JSON.stringify(body.messages);
     if (stages[index] === 0) {
+      assert(
+        history.includes(memoryFact),
+        'The destination did not receive selected native memory.',
+      );
+      assert(
+        !history.includes(excludedMemory),
+        'Unselected native memory reached the destination.',
+      );
       assert(
         expectedFragments[index].every((fragment) => history.includes(fragment)),
         'The destination did not receive the portable goal, checkpoint and manifest reference.',
@@ -161,7 +189,12 @@ const post = async <T>(path: string, payload: Record<string, unknown>): Promise<
 let approvals = 0;
 async function runNative(workId: string) {
   const work = state.local.work(workId);
-  await post(`/work/${workId}/launch`, { expectedRevision: work.revision, allowMetered: true });
+  const review = await post<ContextReview>(`/work/${workId}/context-review`, {});
+  await post(`/work/${workId}/launch`, {
+    expectedRevision: work.revision,
+    allowMetered: true,
+    contextDigest: review.receipt.reviewDigest,
+  });
   const deadline = Date.now() + 45000;
   while (Date.now() < deadline) {
     for (const approval of state.local
@@ -192,6 +225,23 @@ async function runNative(workId: string) {
   assert.equal(state.controller.activeCount, 0);
 }
 try {
+  const inspection = await post<MemoryInspection>('/memory/inspect', {
+    path: memoryPath,
+    section: ['Shared'],
+  });
+  const memory = await post<MemorySource>('/memory/sources', {
+    label: 'Native shared facts',
+    owner: 'hermes',
+    path: memoryPath,
+    section: ['Shared'],
+    scope: { kind: 'project', root: project },
+    expectedSha256: inspection.sha256,
+    expectedSelectionSha256: inspection.selectionSha256,
+  });
+  const persistentProfile = await post<AgentProfile>('/profiles', {
+    name: 'Native portable profile',
+    memorySourceIds: [memory.id],
+  });
   const source = await post<Account>('/accounts', {
     label: 'Native Codex source',
     harness: 'codex',
@@ -217,8 +267,10 @@ try {
     acceptance: 'Read the preceding artifact, preserve it, and produce the next artifact.',
     harness: 'codex',
     accountId: source.id,
+    profileId: persistentProfile.id,
   });
   await runNative(work.id);
+  assert(sourceMemoryObserved);
   assert.equal(await readFile(join(project, 'proof.txt'), 'utf8'), sourceProof);
   const originalSession = state.local.work(work.id).nativeSessionId;
   await post(`/work/${work.id}/checkpoint`, { note: checkpointNote });
@@ -229,7 +281,13 @@ try {
       paths: i === 0 ? ['proof.txt'] : ['proof.txt', 'continuation.txt'],
     });
     assert.equal(prepared.capsule.parentCapsuleId, parent);
-    expectedFragments[i] = [goal, checkpointNote, prepared.capsule.artifactDigest];
+    assert.equal(prepared.capsule.contextReceipt?.profileId, persistentProfile.id);
+    expectedFragments[i] = [
+      goal,
+      checkpointNote,
+      prepared.capsule.artifactDigest,
+      persistentProfile.id,
+    ];
     const moved = await post<Work>(`/work/${work.id}/handoff`, {
       expectedRevision: prepared.work.revision,
       capsuleId: prepared.capsule.id,
@@ -237,6 +295,7 @@ try {
       reconciled: true,
     });
     assert.equal(moved.id, work.id);
+    assert.equal(moved.profileId, persistentProfile.id);
     assert.equal(moved.goal, goal);
     assert.equal(moved.nativeSessionId, null);
     await runNative(work.id);
@@ -268,6 +327,8 @@ try {
       isolatedClaudeProfiles: 2,
       artifactCount: 3,
       contextAndCheckpointObserved: true,
+      persistentProfileAndSelectedMemoryObserved: true,
+      unselectedMemoryExcluded: true,
       usageScopesRetained: 3,
       paidModelCalls: 0,
     }),

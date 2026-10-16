@@ -41,4 +41,4 @@ The guarantee to validate is continuity of Forge-owned state across compatible r
 
 ## First proof
 
-Demonstrate both axes independently: Hermes to OpenClaw for the companion role while retaining the same profile and memory references; Claude Code to Codex for an artifact task while retaining its work record. Then test the combined change with faults and native permission differences. No part of this proof has been implemented yet.
+Demonstrate both axes independently: Hermes to OpenClaw for the companion role while retaining the same profile and memory references; Claude Code to Codex for an artifact task while retaining its work record. Then test the combined change with faults and native permission differences. The v0.5 checkpoint verifies persistent profile/selected-memory continuity across actual Codex and Claude API workers, and companion-reference replacement in local conformance. Managed Hermes-to-OpenClaw execution and combined fault recovery remain unproven; see [current evidence](RUNTIME.md).

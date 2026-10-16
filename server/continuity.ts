@@ -24,6 +24,7 @@ export function contextDigest(store: Store, work: Work) {
     goal: work.goal,
     acceptance: work.acceptance,
     context: work.context,
+    profileId: work.profileId,
     cwd: work.cwd,
     checkpoints: store
       .checkpoints(work.id)
@@ -201,6 +202,17 @@ export class Continuity {
         .map((e) => ({ id: e.id, note: e.detail, createdAt: e.createdAt }));
       const results = this.store
         .assistantResults(workId)
+        .filter((event) => {
+          const origin = this.store
+            .all<Run>('runs')
+            .find(
+              (candidate) =>
+                candidate.workId === workId && candidate.generation === event.generation,
+            );
+          return run?.contextReceipt
+            ? origin?.contextReceipt?.contentDigest === run.contextReceipt.contentDigest
+            : !origin?.contextReceipt;
+        })
         .reverse()
         .map((e) => ({
           eventId: e.id,
@@ -250,6 +262,7 @@ export class Continuity {
           contextDigest: contextDigest(this.store, work),
           createdAt: now(),
           coverage: capsuleCoverage,
+          ...(run?.contextReceipt ? { contextReceipt: run.contextReceipt } : {}),
         };
         this.store.put('capsules', capsule.id, capsule);
         const updated = this.store.updateWork(workId, { capsuleId: capsule.id });

@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { z, ZodError } from 'zod';
 import type {
   Account,
+  AgentProfile,
   Approval,
   NativeSession,
   RuntimeProbe,
@@ -34,6 +35,7 @@ import { ClaudeDriver } from './adapters/claude-driver.js';
 import { ExecutionController } from './execution.js';
 import { Continuity } from './continuity.js';
 import { NativeSources, type NativeSourcesOptions } from './native-sources.js';
+import { Profiles, inspectMemory } from './memory.js';
 import type { DriverFactory } from './adapters/driver.js';
 import { seedDemo } from './demo.js';
 
@@ -50,6 +52,7 @@ const workSchema = z
     harness,
     accountId: z.string().nullable().default(null),
     priority: z.enum(['normal', 'high']).default('normal'),
+    profileId: z.string().optional(),
   })
   .strict();
 const accountSchema = z
@@ -84,7 +87,7 @@ export async function createApp(options: AppOptions) {
   local.recoverInterruptedRuns();
   const demo = new Store(':memory:');
   seedDemo(demo);
-  const controller = new ExecutionController(
+  const controller: ExecutionController = new ExecutionController(
     local,
     options.driverFactory ??
       ((context) => {
@@ -100,7 +103,10 @@ export async function createApp(options: AppOptions) {
           'Managed execution for this adapter is not connected yet. Continue through its native client.',
         );
       }),
+    (work, digest) => profiles.prepare(work, digest),
   );
+  const profiles: Profiles = new Profiles(local, () => controller.activeCount > 0);
+  const demoProfiles = new Profiles(demo);
   const machine = new MachineMonitor();
   const continuity = new Continuity(local, controller);
   const nativeSources = new NativeSources(local, {
@@ -190,12 +196,17 @@ export async function createApp(options: AppOptions) {
         : 'Forge could not complete this operation. Refresh and inspect the current state before retrying.',
     });
   });
-  app.get('/api/health', async () => ({ status: 'ok', version: '0.4.1' }));
+  app.get('/api/health', async () => ({
+    status: 'ok',
+    version: '0.5.0',
+    stateVersion: (local.db.prepare('PRAGMA user_version').get() as { user_version: number })
+      .user_version,
+  }));
   app.get('/api/snapshot', async (request) => {
     const db = store(request);
     const result: Snapshot = {
       mode: mode(request),
-      version: '0.4.1',
+      version: '0.5.0',
       csrf,
       work: db.all<WorkSummary>('work_summaries').sort((a, b) => {
         const rank = { waiting: 0, running: 1, failed: 2, interrupted: 2, ready: 3, completed: 4 };
@@ -217,6 +228,9 @@ export async function createApp(options: AppOptions) {
       nativeSources: mode(request) === 'demo' ? [] : nativeSources.list(),
       nativeSchedules:
         mode(request) === 'demo' ? [] : nativeSources.inventories().flatMap((i) => i.schedules),
+      profiles: mode(request) === 'demo' ? demoProfiles.list() : profiles.list(),
+      defaultProfileId: mode(request) === 'demo' ? demoProfiles.defaultId : profiles.defaultId,
+      memorySources: mode(request) === 'demo' ? [] : profiles.sources(),
       hermes:
         mode(request) === 'demo'
           ? {
@@ -260,6 +274,7 @@ export async function createApp(options: AppOptions) {
       );
     const work: Work = {
       ...body,
+      profileId: (mode(request) === 'demo' ? demoProfiles : profiles).profile(body.profileId).id,
       cwd,
       id: id(),
       status: 'ready',
@@ -316,6 +331,8 @@ export async function createApp(options: AppOptions) {
     if (body.harness && body.harness !== work.harness && body.accountId === undefined)
       body.accountId = null;
     if (body.cwd !== undefined && mode(request) !== 'demo') body.cwd = await directory(body.cwd);
+    if (body.profileId)
+      (mode(request) === 'demo' ? demoProfiles : profiles).profile(body.profileId);
     return db.transaction(() => {
       const current = db.work(work.id);
       assert(
@@ -395,6 +412,10 @@ export async function createApp(options: AppOptions) {
         expectedRevision: z.number().int().nonnegative(),
         allowMetered: z.boolean().default(false),
         reconciled: z.boolean().default(false),
+        contextDigest: z
+          .string()
+          .regex(/^[a-f0-9]{64}$/)
+          .optional(),
       })
       .strict()
       .parse(request.body);
@@ -411,7 +432,13 @@ export async function createApp(options: AppOptions) {
     return reply
       .code(202)
       .send(
-        await controller.launch(workId, body.allowMetered, body.reconciled, body.expectedRevision),
+        await controller.launch(
+          workId,
+          body.allowMetered,
+          body.reconciled,
+          body.expectedRevision,
+          body.contextDigest,
+        ),
       );
   });
   app.post('/api/work/:id/interrupt', async (request) => {
@@ -620,8 +647,85 @@ export async function createApp(options: AppOptions) {
   });
   app.delete('/api/native/sources/:id', async (request) => {
     assert(mode(request) === 'local', 409, 'Demo sources never disconnect native profiles.');
-    nativeSources.remove((request.params as { id: string }).id);
+    const sourceId = (request.params as { id: string }).id;
+    assert(
+      !profiles.list().some((profile) => profile.companionSourceId === sourceId),
+      409,
+      'A profile references this native companion. Change its binding before forgetting the source.',
+    );
+    nativeSources.remove(sourceId);
     return { ok: true };
+  });
+  const profileSchema = z
+    .object({
+      name: text(100).min(1),
+      instructions: text(8000).default(''),
+      companionSourceId: z.string().nullable().default(null),
+      memorySourceIds: z.array(z.string()).max(8).default([]),
+    })
+    .strict();
+  app.post('/api/profiles', async (request) =>
+    (mode(request) === 'demo' ? demoProfiles : profiles).create(profileSchema.parse(request.body)),
+  );
+  app.patch('/api/profiles/:id', async (request) => {
+    const { expectedRevision, ...body } = profileSchema
+      .extend({ expectedRevision: z.number().int().nonnegative() })
+      .parse(request.body);
+    return (mode(request) === 'demo' ? demoProfiles : profiles).update(
+      (request.params as { id: string }).id,
+      expectedRevision,
+      body,
+    );
+  });
+  app.delete('/api/profiles/:id', async (request) => {
+    (mode(request) === 'demo' ? demoProfiles : profiles).removeProfile(
+      (request.params as { id: string }).id,
+    );
+    return { ok: true };
+  });
+  const memorySelection = {
+    path: text(2000).min(1),
+    section: z.array(text(500).min(1)).max(12).default([]),
+  };
+  app.post('/api/memory/inspect', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo memory never reads native files.');
+    const body = z.object(memorySelection).strict().parse(request.body);
+    return inspectMemory(body.path, body.section);
+  });
+  app.post('/api/memory/discover', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo memory never discovers native files.');
+    return profiles.discover();
+  });
+  app.post('/api/memory/sources', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo memory never registers native files.');
+    const body = z
+      .object({
+        ...memorySelection,
+        label: text(100).min(1),
+        owner: z.enum(['hermes', 'openclaw', 'obsidian', 'markdown']),
+        scope: z.discriminatedUnion('kind', [
+          z.object({ kind: z.literal('global') }).strict(),
+          z.object({ kind: z.literal('project'), root: text(2000).min(1) }).strict(),
+          z.object({ kind: z.literal('work'), workId: z.string() }).strict(),
+        ]),
+        expectedSha256: z.string().regex(/^[a-f0-9]{64}$/),
+        expectedSelectionSha256: z.string().regex(/^[a-f0-9]{64}$/),
+      })
+      .strict()
+      .parse(request.body);
+    if (body.scope.kind === 'project') body.scope.root = await directory(body.scope.root, true);
+    if (body.scope.kind === 'work') local.work(body.scope.workId);
+    const { expectedSha256, expectedSelectionSha256, ...input } = body;
+    return profiles.addSource(input, expectedSha256, expectedSelectionSha256);
+  });
+  app.delete('/api/memory/sources/:id', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo memory never removes native references.');
+    profiles.removeSource((request.params as { id: string }).id);
+    return { ok: true };
+  });
+  app.post('/api/work/:id/context-review', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo memory never reads native work context.');
+    return profiles.review(local.work((request.params as { id: string }).id));
   });
   app.post('/api/connections/ccusage/refresh', async (request) => {
     assert(mode(request) === 'local', 409, 'Demo usage never reads native billing data.');
@@ -642,6 +746,19 @@ export async function createApp(options: AppOptions) {
         billingMode: a.billingMode,
       })),
       settings: { maxConcurrent: 1 },
+      profiles: db.all<AgentProfile>('profiles').map((profile, index) => ({
+        role: `profile-${index + 1}`,
+        memoryOwners: (mode(request) === 'demo' ? demoProfiles : profiles)
+          .sources()
+          .filter((source) => profile.memorySourceIds.includes(source.id))
+          .map((source) => ({ owner: source.owner, scope: source.scope.kind })),
+        preferredCompanion: profile.companionSourceId
+          ? (db.get<import('../shared/types.js').NativeSource>(
+              'native_sources',
+              profile.companionSourceId,
+            )?.kind ?? null)
+          : null,
+      })),
       requirements: [
         'Connect your own native accounts',
         'Choose project data and local paths explicitly',

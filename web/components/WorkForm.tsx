@@ -1,4 +1,10 @@
-import { type Account, type Work, type WorkspaceMode, type Harness } from '../../shared/types';
+import {
+  type Account,
+  type Work,
+  type WorkspaceMode,
+  type Harness,
+  type AgentProfile,
+} from '../../shared/types';
 import { type Mutate } from '../api';
 import { useState, type FormEvent } from 'react';
 import { Dialog, FormError } from './primitives';
@@ -7,6 +13,8 @@ import { LoaderCircle } from 'lucide-react';
 
 export function WorkForm({
   accounts,
+  profiles,
+  defaultProfileId,
   initial,
   mode,
   mutate,
@@ -14,6 +22,8 @@ export function WorkForm({
   onCreated,
 }: {
   accounts: Account[];
+  profiles: AgentProfile[];
+  defaultProfileId: string;
   initial: Work | null;
   mode: WorkspaceMode;
   mutate: Mutate;
@@ -43,6 +53,7 @@ export function WorkForm({
           harness,
           accountId: accountId || null,
           priority: form.get('priority'),
+          profileId: form.get('profileId'),
           ...(initial ? { expectedRevision: initial.revision } : {}),
         },
       );
@@ -89,6 +100,20 @@ export function WorkForm({
             </select>
           </label>
         </div>
+        <label>
+          Persistent profile
+          <select name="profileId" defaultValue={initial?.profileId ?? defaultProfileId}>
+            {profiles.map((profile) => (
+              <option key={profile.id} value={profile.id}>
+                {profile.name}
+              </option>
+            ))}
+          </select>
+          <small>
+            Its selected memory is reviewed before launch. Changing remembered context starts a
+            fresh native session.
+          </small>
+        </label>
         <label>
           Goal
           <textarea

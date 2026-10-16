@@ -24,7 +24,7 @@ try {
   await app.close();
   process.exit(1);
 }
-console.log(`Forge 0.4.1 is ready at http://127.0.0.1:${port}`);
+console.log(`Forge 0.5.0 is ready at http://127.0.0.1:${port}`);
 let closing = false;
 for (const signal of ['SIGINT', 'SIGTERM'] as const)
   process.on(signal, () => {

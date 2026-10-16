@@ -8,6 +8,13 @@ const directory = mkdtempSync(join(tmpdir(), 'forge-browser-'));
 const nativeHome = join(directory, 'native-fixture');
 mkdirSync(join(nativeHome, 'automations', 'fixture-schedule'), { recursive: true });
 mkdirSync(join(nativeHome, 'cron'));
+const memoryPath = join(directory, 'MEMORY.md');
+const memoryProject = join(directory, 'project');
+mkdirSync(memoryProject);
+writeFileSync(
+  memoryPath,
+  '# Public\nBrowser shared memory marker.\n# Private\nPRIVATE-BROWSER-EXCLUDED\n',
+);
 writeFileSync(
   join(nativeHome, 'automations', 'fixture-schedule', 'automation.toml'),
   'id = "fixture-schedule"\nname = "Native morning review"\nkind = "heartbeat"\nstatus = "ACTIVE"\nrrule = "FREQ=DAILY;BYHOUR=9"\nprompt = "excluded native instructions"\n',
@@ -42,6 +49,7 @@ const { app } = await createApp({
       env: { PATH: process.env.PATH },
     }),
 });
+app.get('/api/fixture/memory', async () => ({ path: memoryPath, project: memoryProject }));
 await app.listen({ host: '127.0.0.1', port: 4711 });
 console.log('Forge browser fixture is ready on 4711. Native execution uses a synthetic worker.');
 let closing = false;

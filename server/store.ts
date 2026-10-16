@@ -16,6 +16,8 @@ type Collection =
   | 'capsules'
   | 'native_sources'
   | 'native_inventories'
+  | 'profiles'
+  | 'memory_sources'
   | 'settings'
   | 'config';
 export const now = () => new Date().toISOString();
@@ -32,7 +34,7 @@ export class Store {
     try {
       const version = this.db.prepare('PRAGMA user_version').get() as { user_version: number };
       assert(
-        version.user_version <= 2,
+        version.user_version <= 3,
         409,
         'This workspace was created by a newer Forge version. Open it with that version.',
       );
@@ -46,8 +48,8 @@ export class Store {
       CREATE INDEX IF NOT EXISTS events_by_work ON records(json_extract(data,'$.workId')) WHERE collection='events';
       `);
       let backup: string | null = null;
-      if (version.user_version > 0 && version.user_version < 2 && filename !== ':memory:') {
-        backup = `${filename}.before-v2.${randomUUID()}.sqlite`;
+      if (version.user_version > 0 && version.user_version < 3 && filename !== ':memory:') {
+        backup = `${filename}.before-v3.${randomUUID()}.sqlite`;
         writeFileSync(backup, '', { flag: 'wx', mode: 0o600 });
         try {
           this.db.prepare('VACUUM INTO ?').run(backup);
@@ -56,7 +58,7 @@ export class Store {
           throw error;
         }
       }
-      this.db.exec('PRAGMA user_version = 2');
+      this.db.exec('PRAGMA user_version = 3');
       this.migrationBackup = backup;
     } catch (error) {
       this.db.close();
@@ -113,7 +115,7 @@ export class Store {
     if (collection === 'work') {
       const summary = Object.fromEntries(
         Object.entries(data as Work).filter(
-          ([name]) => !['goal', 'acceptance', 'context'].includes(name),
+          ([name]) => !['goal', 'acceptance', 'context', 'contextReceipt'].includes(name),
         ),
       );
       // One SQLite statement commits canonical work and its list projection together.

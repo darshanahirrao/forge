@@ -37,6 +37,7 @@ import { AccountsPage } from './pages/AccountsPage';
 import { ResourcesPage } from './pages/ResourcesPage';
 import { ConnectionsPage } from './pages/ConnectionsPage';
 import { ActivityPage } from './pages/ActivityPage';
+import { MemoryPage } from './pages/MemoryPage';
 import { WorkForm } from './components/WorkForm';
 import { AccountForm } from './components/AccountForm';
 import { WorkDetail } from './components/WorkDetail';
@@ -242,7 +243,7 @@ export function App() {
           <div className="local-indicator">
             <span className="status-dot" />
             <span>Local workspace</span>
-            <span className="mono">v{snapshot?.version ?? '0.4.1'}</span>
+            <span className="mono">v{snapshot?.version ?? '0.5.0'}</span>
           </div>
         </div>
       </aside>
@@ -353,6 +354,13 @@ export function App() {
                 <WorkPage data={snapshot} onWork={setSelected} onNewWork={() => setNewWork(true)} />
               )}
               {view === 'activity' && <ActivityPage data={snapshot} mutate={mutate} />}
+              {view === 'memory' && (
+                <MemoryPage
+                  data={snapshot}
+                  mutate={mutate}
+                  onActivity={() => navigate('activity')}
+                />
+              )}
               {view === 'approvals' && <ApprovalsPage data={snapshot} onApproval={setApproval} />}
               {view === 'accounts' && (
                 <AccountsPage
@@ -420,6 +428,8 @@ export function App() {
       {snapshot && (newWork || edit) && (
         <WorkForm
           accounts={snapshot.accounts}
+          profiles={snapshot.profiles}
+          defaultProfileId={snapshot.defaultProfileId}
           initial={edit}
           mode={mode}
           mutate={mutate}

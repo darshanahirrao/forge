@@ -44,10 +44,12 @@ export interface Work {
   nativeSessionId: string | null;
   activeRunId: string | null;
   capsuleId?: string | null;
+  profileId?: string;
+  contextReceipt?: ContextReceipt;
   createdAt: string;
   updatedAt: string;
 }
-export type WorkSummary = Omit<Work, 'goal' | 'acceptance' | 'context'>;
+export type WorkSummary = Omit<Work, 'goal' | 'acceptance' | 'context' | 'contextReceipt'>;
 export interface WorkEvent {
   id: string;
   workId: string;
@@ -75,6 +77,7 @@ export interface Run {
   startedAt: string;
   endedAt: string | null;
   exitConfirmed?: boolean;
+  contextReceipt?: ContextReceipt;
 }
 export interface ArtifactFingerprint {
   path: string;
@@ -110,6 +113,69 @@ export interface WorkCapsule {
   contextDigest: string;
   createdAt: string;
   coverage: string;
+  contextReceipt?: ContextReceipt;
+}
+export type MemoryScope =
+  { kind: 'global' } | { kind: 'project'; root: string } | { kind: 'work'; workId: string };
+export interface AgentProfile {
+  id: string;
+  revision: number;
+  name: string;
+  instructions: string;
+  companionSourceId: string | null;
+  memorySourceIds: string[];
+  createdAt: string;
+  updatedAt: string;
+}
+export interface MemorySource {
+  id: string;
+  revision: number;
+  label: string;
+  owner: 'hermes' | 'openclaw' | 'obsidian' | 'markdown';
+  path: string;
+  section: string[];
+  scope: MemoryScope;
+  sha256: string;
+  selectionSha256: string;
+  observedAt: string;
+}
+export interface MemoryInspection {
+  path: string;
+  sha256: string;
+  bytes: number;
+  characters: number;
+  sections: { path: string[]; characters: number }[];
+  selectionSha256: string;
+  content: string | null;
+  tooLarge: boolean;
+}
+export interface ContextReceipt {
+  profileId: string;
+  profileRevision: number;
+  profileName: string;
+  companionSourceId: string | null;
+  sources: Pick<
+    MemorySource,
+    | 'id'
+    | 'revision'
+    | 'label'
+    | 'owner'
+    | 'path'
+    | 'section'
+    | 'scope'
+    | 'sha256'
+    | 'selectionSha256'
+  >[];
+  contentDigest: string;
+  reviewDigest: string;
+  preparedAt: string;
+}
+export interface ContextReview {
+  receipt: ContextReceipt;
+  instructions: string;
+  memories: { sourceId: string; label: string; content: string }[];
+  skipped: { sourceId: string; label: string; reason: string }[];
+  requiresReview: boolean;
 }
 export interface Approval {
   id: string;
@@ -239,6 +305,9 @@ export interface Snapshot {
   nativeSessions: NativeSession[];
   nativeSources: NativeSource[];
   nativeSchedules: NativeSchedule[];
+  profiles: AgentProfile[];
+  defaultProfileId: string;
+  memorySources: MemorySource[];
   hermes: RuntimeProbe;
   now: string;
 }

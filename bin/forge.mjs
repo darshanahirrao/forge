@@ -2,10 +2,10 @@
 const args = process.argv.slice(2);
 if (args.includes('--help') || args.includes('-h')) {
   console.log(
-    'Forge 0.4.1\n\nUsage: forge [start] [--port PORT] [--data-dir DIRECTORY]\n\nA local workspace for native agents. Open the printed URL to begin.\nNative accounts connect explicitly. Read existing chats and schedules from Activity.',
+    'Forge 0.5.0\n\nUsage: forge [start] [--port PORT] [--data-dir DIRECTORY]\n\nA local workspace for native agents. Open the printed URL to begin.\nNative accounts connect explicitly. Read existing chats and schedules from Activity.',
   );
 } else if (args.includes('--version')) {
-  console.log('0.4.1');
+  console.log('0.5.0');
 } else {
   for (let i = 0; i < args.length; i++) {
     if (args[i] === 'start' && i === 0) continue;

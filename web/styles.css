@@ -346,6 +346,8 @@ kbd {
   background: var(--nav);
   color: var(--nav-text);
   z-index: 20;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .wordmark {
   display: block;
@@ -1788,6 +1790,83 @@ label small,
 .native-facts dd {
   margin: 0;
   overflow-wrap: anywhere;
+}
+.memory-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.memory-toolbar label {
+  min-width: min(100%, 260px);
+}
+.profile-form {
+  padding: 23px;
+}
+.memory-pins {
+  border: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  min-width: 0;
+}
+.memory-pins legend {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+.memory-pins .checkbox-label small {
+  overflow-wrap: anywhere;
+}
+.memory-excerpt {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 15px;
+  font-size: 12px;
+  line-height: 1.75;
+  margin: 10px 0;
+}
+.memory-launch-review {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 17px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+.memory-launch-review h3 {
+  font-size: 14px;
+}
+.memory-candidates {
+  padding: 20px 23px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.memory-candidates .text-button {
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-align: left;
+}
+.memory-source-row {
+  flex-wrap: wrap;
+}
+.memory-source-row .native-entry-copy {
+  min-width: min(100%, 220px);
+}
+.memory-source-row code {
+  font-size: 11px;
+  color: var(--muted);
 }
 .native-overview-link {
   display: flex;

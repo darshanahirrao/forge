@@ -6,13 +6,22 @@ import {
   ShieldCheck,
   UsersRound,
   Radio,
+  BookOpen,
 } from 'lucide-react';
 export type View =
-  'overview' | 'work' | 'activity' | 'approvals' | 'accounts' | 'resources' | 'connections';
+  | 'overview'
+  | 'work'
+  | 'activity'
+  | 'memory'
+  | 'approvals'
+  | 'accounts'
+  | 'resources'
+  | 'connections';
 export const nav = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'work', label: 'Work', icon: Layers3 },
   { id: 'activity', label: 'Activity', icon: Radio },
+  { id: 'memory', label: 'Memory', icon: BookOpen },
   { id: 'approvals', label: 'Approvals', icon: ShieldCheck },
   { id: 'accounts', label: 'Accounts', icon: UsersRound },
   { id: 'resources', label: 'Resources', icon: Activity },
