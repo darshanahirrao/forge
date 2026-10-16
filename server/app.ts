@@ -33,6 +33,7 @@ import { CodexDriver, type RpcFactory } from './adapters/codex-driver.js';
 import { ClaudeDriver } from './adapters/claude-driver.js';
 import { ExecutionController } from './execution.js';
 import { Continuity } from './continuity.js';
+import { NativeSources, type NativeSourcesOptions } from './native-sources.js';
 import type { DriverFactory } from './adapters/driver.js';
 import { seedDemo } from './demo.js';
 
@@ -69,6 +70,7 @@ export interface AppOptions {
   csrf?: string;
   rpcFactory?: RpcFactory;
   driverFactory?: DriverFactory;
+  nativeSourcesOptions?: NativeSourcesOptions;
   codexBinary?: string;
   staticRoot?: string;
   test?: boolean;
@@ -100,6 +102,12 @@ export async function createApp(options: AppOptions) {
   );
   const machine = new MachineMonitor();
   const continuity = new Continuity(local, controller);
+  const nativeSources = new NativeSources(local, {
+    rpcFactory: options.rpcFactory,
+    codexBinary: options.codexBinary,
+    ...options.nativeSourcesOptions,
+    isManagedBusy: () => controller.activeCount > 0,
+  });
   const csrf = options.csrf ?? randomBytes(32).toString('hex');
   const port = options.port ?? 4710;
   const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
@@ -181,12 +189,12 @@ export async function createApp(options: AppOptions) {
         : 'Forge could not complete this operation. Refresh and inspect the current state before retrying.',
     });
   });
-  app.get('/api/health', async () => ({ status: 'ok', version: '0.3.0' }));
+  app.get('/api/health', async () => ({ status: 'ok', version: '0.4.0' }));
   app.get('/api/snapshot', async (request) => {
     const db = store(request);
     const result: Snapshot = {
       mode: mode(request),
-      version: '0.3.0',
+      version: '0.4.0',
       csrf,
       work: db.all<WorkSummary>('work_summaries').sort((a, b) => {
         const rank = { waiting: 0, running: 1, failed: 2, interrupted: 2, ready: 3, completed: 4 };
@@ -201,7 +209,13 @@ export async function createApp(options: AppOptions) {
       settings: db.settings(),
       connections,
       machine: await machine.sample(),
-      nativeSessions: mode(request) === 'demo' ? [] : sessions,
+      nativeSessions:
+        mode(request) === 'demo'
+          ? []
+          : [...sessions, ...nativeSources.inventories().flatMap((i) => i.sessions)],
+      nativeSources: mode(request) === 'demo' ? [] : nativeSources.list(),
+      nativeSchedules:
+        mode(request) === 'demo' ? [] : nativeSources.inventories().flatMap((i) => i.schedules),
       hermes:
         mode(request) === 'demo'
           ? {
@@ -370,6 +384,11 @@ export async function createApp(options: AppOptions) {
     );
   });
   app.post('/api/work/:id/launch', async (request, reply) => {
+    assert(
+      !nativeSources.isReading,
+      409,
+      'Wait for the native inventory read to finish before starting a managed worker.',
+    );
     assert(
       mode(request) === 'local',
       409,
@@ -552,6 +571,55 @@ export async function createApp(options: AppOptions) {
     assert(mode(request) === 'local', 409, 'Demo sources never read native sessions.');
     sessions = await readDeckSessions();
     return sessions;
+  });
+  app.post('/api/native/discover', async (request) => {
+    assert(
+      mode(request) === 'local',
+      409,
+      'Demo discovery never reads native profile directories.',
+    );
+    return nativeSources.discover();
+  });
+  app.post('/api/native/sources', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo sources never connect to native services.');
+    const body = z
+      .object({
+        kind: z.enum([
+          'codex',
+          'claude',
+          'codex-schedules',
+          'hermes-schedules',
+          'hermes',
+          'openclaw',
+        ]),
+        label: text(100).min(1),
+        home: text(2000).default(''),
+        endpoint: text(300).default(''),
+        tokenEnv: z
+          .string()
+          .regex(/^FORGE_[A-Z0-9_]+$/)
+          .optional(),
+      })
+      .strict()
+      .parse(request.body);
+    if (['hermes', 'openclaw'].includes(body.kind)) {
+      body.endpoint = loopbackEndpoint.parse(body.endpoint);
+      body.home = '';
+    } else {
+      body.home = await directory(body.home, true);
+      body.endpoint = '';
+      assert(!body.tokenEnv, 400, 'Local metadata sources do not use a gateway token.');
+    }
+    return nativeSources.add(body);
+  });
+  app.post('/api/native/sources/:id/refresh', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo sources never read native activity.');
+    return nativeSources.refresh((request.params as { id: string }).id);
+  });
+  app.delete('/api/native/sources/:id', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo sources never disconnect native profiles.');
+    nativeSources.remove((request.params as { id: string }).id);
+    return { ok: true };
   });
   app.post('/api/connections/ccusage/refresh', async (request) => {
     assert(mode(request) === 'local', 409, 'Demo usage never reads native billing data.');

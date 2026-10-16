@@ -6,7 +6,7 @@ Forge is an open-source local workspace for people who work across AI runtimes a
 
 We call the product concept **Persistent Agency**: your agent profile, memory, workspace, work history, shared connections, schedules, and policies remain in Forge while you change a compatible execution harness at a verified checkpoint.
 
-**Status: early local application, v0.3.0.** Work tracking, account slots, live machine telemetry, a separate demo workspace, and experimental native Codex and Claude API execution/approval adapters are implemented, including verified handoff around the same work record. The broader architecture remains a roadmap. Automatic quota fallback, additional managed harnesses, phone approvals, scheduling adapters, runtime/memory replacement, and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md).
+**Status: early local application, v0.4.0.** Persistent work, account slots, native chat/schedule inventory, live machine telemetry, an isolated demo, and experimental native Codex and Claude API execution/approval adapters are implemented, including verified handoff around the same work record. The broader architecture remains a roadmap. Automatic quota fallback, additional managed harnesses, phone approvals, native schedule controls, runtime/memory replacement, and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md).
 
 ## Run Forge
 
@@ -22,6 +22,8 @@ Open [the local workspace](http://127.0.0.1:4710). The real workspace starts emp
 
 Create a work record, add a native account slot, and check a supported account from the Accounts view. For experimental managed Codex work, select the account and an existing project directory, then review the launch dialog. Native sign-in stays in the harness; Forge does not collect credentials or purchase credits. Each launch checks effective native account configuration and permissions. Claude managed turns use the official Agent SDK with API authentication and an explicit metered-usage choice; native claude.ai subscription sessions remain in their native client. [Claude setup and integration limits](docs/NATIVE_DRIVERS.md) explain this distinction.
 
+To see existing work, open **Activity**, discover profile references, then read the sources you want. Codex and Claude session catalogs, Codex and Hermes schedule definitions, and existing Hermes/OpenClaw session APIs retain their native owners. [Native activity coverage and setup](docs/NATIVE_ACTIVITY.md) explain the limits and private metadata handling.
+
 Private state is stored outside this repository. On macOS, the default is `~/Library/Application Support/Forge/workspace.sqlite`. Use `FORGE_DATA_DIR` or `node bin/forge.mjs --data-dir DIRECTORY` to select another location. `FORGE_PORT` or `--port` changes the loopback port. Stop a foreground service with Ctrl+C. No startup agent, background schedule, or hosted service is installed.
 
 ## What works today
@@ -30,7 +32,7 @@ Private state is stored outside this repository. On macOS, the default is `~/Lib
 - Multiple account slots per supported harness choice, native Codex/Claude authentication status checks, and native Codex quota evidence when exposed.
 - A shared execution coordinator for experimental Codex app-server and Claude Agent SDK API turns, with one managed worker, supported exact approvals, cancellation, native session continuation, usage snapshots, and recovery receipts.
 - Real CPU, OS memory, process RSS, and service-memory visibility. Quiet mode gates new managed work.
-- Hermes API health and capability discovery through an existing local server.
+- Native activity across profile/account homes: Codex and Claude chats, byte-preserving Codex/Hermes schedule inventory, and capability-aware Hermes/OpenClaw session API observations.
 - Optional Agent Deck session inventory and ccusage daily Claude reports through their installed native CLIs.
 - Responsive light/dark views, keyboard search, and sanitized setup-blueprint export.
 
@@ -58,6 +60,7 @@ The defining demonstration is a real task checkpointed in one harness, continued
 
 - [Current implementation, setup, and limits](docs/RUNTIME.md)
 - [Native capability boundary](docs/NATIVE_BOUNDARY.md)
+- [Native chats, schedules, sources and coverage](docs/NATIVE_ACTIVITY.md)
 - [Initial existing-solution audit](docs/REUSE_AUDIT.md)
 - [Customizable workspace blueprints](docs/BLUEPRINTS.md)
 - [Architecture and failure semantics](docs/ARCHITECTURE.md)

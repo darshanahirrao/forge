@@ -1,6 +1,6 @@
 {
   "name": "@forge-workspace/forge",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A local workspace for continuous work across agent harnesses.",
   "private": true,
   "type": "module",
@@ -23,6 +23,7 @@
     "test:native:codex": "tsx tests/native/codex-conformance.ts",
     "test:native:claude": "tsx tests/native/claude-conformance.ts",
     "test:native:handoff": "tsx tests/native/handoff-conformance.ts",
+    "test:native:inventory": "tsx tests/native/inventory-conformance.ts --existing",
     "test:native": "npm run test:native:codex && npm run test:native:claude && npm run test:native:handoff"
   },
   "dependencies": {
@@ -32,6 +33,7 @@
     "lucide-react": "^0.577.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "smol-toml": "1.9.1",
     "zod": "^4.0.0"
   },
   "devDependencies": {

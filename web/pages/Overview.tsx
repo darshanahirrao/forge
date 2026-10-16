@@ -27,6 +27,7 @@ export function Overview({
   onAccounts,
   onResources,
   onConnections,
+  onActivity,
   onDemo,
   onQuiet,
   busy,
@@ -38,6 +39,7 @@ export function Overview({
   onAccounts: () => void;
   onResources: () => void;
   onConnections: () => void;
+  onActivity: () => void;
   onDemo: () => void;
   onQuiet: () => void;
   busy: string;
@@ -45,6 +47,10 @@ export function Overview({
   const pending = data.approvals.filter((a) => a.status === 'pending');
   const ongoing = data.work.filter((w) => !['completed'].includes(w.status));
   const usage = usageSummary(data.usage);
+  const nativeObserved =
+    data.nativeSessions.length > 0 ||
+    data.nativeSchedules.length > 0 ||
+    data.nativeSources.some((source) => source.checkedAt);
   return (
     <>
       <div className="metrics-row">
@@ -99,6 +105,26 @@ export function Overview({
       )}
       <div className="overview-grid">
         <div className="overview-main">
+          {data.mode === 'local' && (
+            <section className="native-overview-link">
+              <Network size={21} />
+              <div>
+                <h2>
+                  {nativeObserved
+                    ? `${data.nativeSessions.length} native chat${data.nativeSessions.length === 1 ? '' : 's'} · ${data.nativeSchedules.length} schedule record${data.nativeSchedules.length === 1 ? '' : 's'}`
+                    : 'Bring your existing work into view.'}
+                </h2>
+                <p>
+                  {nativeObserved
+                    ? 'Source observations stay separate from managed work. Check their freshness in Activity.'
+                    : 'Connect native chats, heartbeats and schedules from your existing profiles.'}
+                </p>
+              </div>
+              <button className="text-button" onClick={onActivity}>
+                View native activity <ArrowRight size={14} />
+              </button>
+            </section>
+          )}
           {pending.length > 0 && (
             <section className="attention-strip">
               <div className="attention-icon">

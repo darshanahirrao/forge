@@ -1,6 +1,6 @@
-# Forge v0.3.0
+# Forge v0.4.0
 
-Implementation checkpoint, 17 October 2026. This adds verified Work Capsules and native account/harness handoff to the shared coordinator. The full Persistent Agency architecture remains a delivery plan rather than a claim of completed interoperability.
+Implementation checkpoint, 17 October 2026. Native activity now adds existing chat catalogs and schedule observations to the verified Work Capsules and shared native coordinator. The full Persistent Agency architecture remains a delivery plan rather than a claim of completed interoperability.
 
 ## Start and develop
 
@@ -21,7 +21,8 @@ For development, `npm run dev` starts a watched TypeScript service on port 4710 
 | Approvals | Correlated command requests and reviewable file changes, digest/generation checks, allow once/decline, expiry, native withdrawal, invalidation after connection loss | Unsupported requests receive no grant. Persistent rule amendments, expanded file roots, and unreviewable request types are not silently accepted. |
 | Usage | Cumulative Codex thread and Claude SDK model-pipeline snapshots, SDK dollar estimates, optional ccusage daily reports | Repeated snapshots replace their scope rather than adding again. Daily imports are excluded from the overview total when native reports for the same harness could overlap. Native Codex dollar cost is unknown here. ccusage reports are estimates and remain unattributed to individual accounts or tasks when upstream data is aggregate. |
 | Resources | Live OS CPU/memory, process names/RSS/CPU, Forge service RSS; quiet-mode admission | Process arguments and environment variables are omitted. RSS includes shared pages; OS used memory includes reclaimable cache. This is observation, not a memory-pressure or hard-limit implementation. |
-| Hermes | Explicit local API connection; read-only `/health` and `/v1/capabilities` | Installed source informed the discovery contract, which is tested with a synthetic HTTP server. Native execution, memory, approval responses, and scheduling remain future integration work. |
+| Native activity | Explicit discovery/registration and bounded metadata reads across Codex/Claude homes, Codex/Hermes schedules and Hermes/OpenClaw APIs | Native owners remain authoritative. Reads are on demand, serialized and mutually excluded with managed launches. Last successful data survives a failed refresh. [Coverage and setup](NATIVE_ACTIVITY.md) list each interface. |
+| Hermes/OpenClaw observation | Hermes health/capabilities/session resources and OpenClaw's fixed native `sessions_list` gateway tool | Gateway/API capabilities and native policy apply. Synthetic HTTP conformance is verified. These are read adapters; managed runtime replacement, memory and exact approval integration remain open. |
 | Existing foundations | Optional `agent-deck list --json` and `ccusage daily --json` | Installed CLIs are reused without vendoring session management or transcript parsers. Neither CLI was installed or connected to private data during this checkpoint. |
 | Customization | Account/runtime references, themes, explicit native choices, safe setup-blueprint export | Blueprint activation/import and a third-party extension loader are not implemented. The MIT source remains editable. |
 
@@ -45,11 +46,15 @@ The service binds only to `127.0.0.1`. Host/origin checks, a per-start CSRF toke
 
 The demo uses a different in-memory database. Its accounts, work, costs, and approvals are fictional. All native execution, identity probes, usage reads, and runtime connections are blocked in demo mode. OS telemetry remains live and is labeled accordingly.
 
+Native source references and cached titles/summaries/schedule metadata also belong to private state. Full native transcripts, schedule instructions and delivery destinations are omitted from their projection. Forgetting a source deletes its cached observation without changing native data. Different sources may describe the same session; metadata counts are not deduplicated global execution counts.
+
 Stop Forge before making a filesystem backup of the state directory. Preserve the database and any remaining SQLite sidecar files together. The repository and setup-blueprint export exclude private runtime state. A blueprint contains generic account roles and required harness choices, without identities, paths, credentials, or work content.
 
 ## Resource behavior
 
 Only the selected managed attempt starts a harness process. Registering an account does not start a worker. CLI discovery checks executable presence without starting every tool. The visible UI polls every five seconds, skips background-tab polling, and reuses a coalesced OS sample. There is no perpetual sampling timer when the UI is closed.
+
+Explicit native activity reads may briefly start a metadata connection/process for Codex or Claude; they exit after the read. Discovery itself only registers known existing profile paths. Source refresh and managed launch are mutually excluded at the HTTP boundary to avoid starting both together. Native schedule definitions are read without calling repair loaders, scheduler ticks or model tools.
 
 Work summaries are persisted separately from full context and committed atomically with it. The overview reads summaries and bounded event metadata. A task's context and recent detailed receipts load on demand; native reasoning is not captured. Raw native assistant messages have an explicit excerpt limit and retain their native-session reference.
 
@@ -59,15 +64,17 @@ The earlier 75 MB / 1% core target is a design target, not a passed performance 
 
 The repository includes type checks, functional/API tests, Playwright user flows, and axe accessibility checks. Synthetic native protocol fixtures never run shell commands, call a model, or write project files. They cover request correlation, one-time decisions, stale generations, expiry, withdrawal, policy mismatch, cancellation/recovery, billing admission, usage deduplication, demo isolation, revision conflicts, atomic persistence, and lightweight projections. A synthetic Hermes server checks discovery against read-only endpoints.
 
-The installed Claude SDK passed a real stream-json transport check against a synthetic executable worker, including permission delivery, cumulative usage and native child exit. This is SDK conformance evidence, not a real upstream model run. There are 39 functional/API/continuity/driver tests and six browser flows at this checkpoint. Type checks also cover the test and native-fixture sources.
+The installed Claude SDK passed a real stream-json transport check against a synthetic executable worker, including permission delivery, cumulative usage and native child exit. This is SDK conformance evidence, not a real upstream model run. There are 45 functional/API/continuity/driver/inventory tests and seven browser flows at this checkpoint. Type checks also cover the test and native-fixture sources.
 
 The installed Codex CLI also passed a real initialization handshake. No account lookup, paid model turn, real command approval, account migration, or private native usage import was requested for that smoke check. Separate opt-in tests now exercise actual Codex 0.159.3 and the SDK native Claude Code 2.1.301 against local deterministic providers. Both passed native approval delivery, real tool execution, exact artifact verification, usage and process exit. The Claude test verifies that conflicting project credentials/routing cannot replace the selected host configuration. [Native conformance instructions](../tests/native/README.md) explain the isolated fixtures. The additional native handoff check now chains Codex to Claude API profile one and then a second isolated Claude API profile. Each target receives the portable context, reads the preceding artifact and writes the next artifact with its native tools. One work ID, goal, user checkpoint and all three usage scopes remain. These are synthetic model responses and selected fixture credentials; live subscription/account isolation and model quality remain unverified.
+
+The separate opt-in existing-inventory check observed 89 Codex and 25 Claude chats, nine Codex schedule definitions and four Hermes jobs on 17 October 2026. Schedule-definition hashes remained unchanged. No model turn or native job was requested. Synthetic API fixtures verify Hermes capability negotiation and OpenClaw's fixed metadata-only tool call; they do not establish live remote execution compatibility.
 
 ## Next delivery gates
 
 1. Extend conformance to missed events, cancellation near external effects, restart/process ownership, live account isolation and real model-backed tasks.
 2. Extend the existing-foundation evaluation before adding Hermes, OpenClaw, or OpenCode managed execution. Preserve native tools, memory, and schedule owners.
-3. Add supported authenticated approval delivery, native scheduling inventory, and resource-ownership evidence.
+3. Add supported authenticated approval delivery, native schedule operations/ticker evidence, and resource-ownership evidence. Inventory alone does not prove execution health.
 4. Extend the tested selected-context handoff to additional native adapters and workspace/memory bindings. Preserve explicit coverage and native authority.
 
 ## State version and rollback

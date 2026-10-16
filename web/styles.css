@@ -1615,6 +1615,231 @@ label small,
 .native-details li {
   padding: 2px;
 }
+.activity-heading {
+  flex-wrap: wrap;
+}
+.activity-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+.section-heading > .activity-actions {
+  flex-direction: row;
+}
+.activity-actions .inline-search {
+  flex-direction: row;
+}
+.activity-actions label {
+  min-width: 0;
+}
+.activity-actions select {
+  font-size: 12px;
+  min-height: 34px;
+  max-width: 220px;
+}
+.native-sources {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 290px), 1fr));
+  border-top: 1px solid var(--line);
+}
+.native-source {
+  padding: 22px;
+  min-width: 0;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.native-source + .native-source {
+  border-left: 1px solid var(--line);
+}
+.native-source-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+.native-source h3,
+.native-entry h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.native-connection-state {
+  color: var(--accent);
+  font-size: 11px;
+}
+.native-source p,
+.native-entry p {
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.native-source .text-error {
+  color: var(--danger);
+}
+.native-source .native-details {
+  margin-bottom: 7px;
+}
+.native-source .native-details p,
+.native-entry .native-details p {
+  margin-top: 8px;
+}
+.native-source-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+}
+.native-source-actions .button {
+  min-width: 0;
+  white-space: normal;
+  text-align: left;
+}
+.native-source-actions .button svg {
+  flex-shrink: 0;
+}
+.native-source-intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 26px;
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 78ch;
+}
+.native-source-intro svg {
+  flex-shrink: 0;
+  color: var(--accent);
+}
+.panel-footnote {
+  padding: 14px 22px;
+  font-size: 12px;
+  color: var(--muted);
+  border-top: 1px solid var(--line);
+}
+.native-entry {
+  display: flex;
+  width: 100%;
+  align-items: flex-start;
+  gap: 15px;
+  padding: 20px 23px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+.native-session:hover {
+  background: var(--soft);
+}
+.native-entry-icon {
+  margin-top: 3px;
+  flex-shrink: 0;
+  color: var(--muted);
+}
+.native-entry-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.native-entry-copy > strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+.native-entry-copy > span,
+.native-entry-copy > small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.native-entry-copy > small {
+  font-size: 11px;
+}
+.native-entry-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  margin-top: 3px;
+}
+.native-rule {
+  display: block;
+  font-size: 12px;
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+.native-facts {
+  display: grid;
+  gap: 16px;
+  font-size: 13px;
+}
+.native-facts dt {
+  color: var(--muted);
+  font-size: 11px;
+  margin-bottom: 5px;
+}
+.native-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.native-overview-link {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 15px;
+  padding: 21px 23px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.native-overview-link > svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.native-overview-link > div {
+  flex: 1;
+  min-width: 180px;
+}
+.native-overview-link h2 {
+  font-size: 14px;
+  line-height: 1.5;
+}
+.native-overview-link p {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (max-width: 760px) {
+  .activity-actions,
+  .native-filter > .activity-actions {
+    width: 100%;
+  }
+  .native-filter .inline-search {
+    flex: 1;
+    min-width: 140px;
+  }
+  .activity-heading .activity-actions .button {
+    flex: 1;
+  }
+  .native-entry {
+    gap: 11px;
+    padding: 18px;
+  }
+  .native-entry-meta {
+    font-size: 0;
+    gap: 0;
+  }
+  .native-source + .native-source {
+    border-left: 0;
+  }
+}
 .checkpoint-files {
   font-size: 13px;
 }

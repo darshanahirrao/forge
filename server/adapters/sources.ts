@@ -30,9 +30,14 @@ export const loopbackEndpoint = z
     }
   }, 'Use a local HTTP API address, such as http://127.0.0.1:8642, without a path or credentials.');
 
-async function boundedJson(url: string, token?: string): Promise<any> {
+export async function boundedJson(url: string, token?: string, body?: unknown): Promise<any> {
   const response = await fetch(url, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    method: body === undefined ? 'GET' : 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
     signal: AbortSignal.timeout(3500),
     redirect: 'error',
   });

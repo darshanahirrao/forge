@@ -14,6 +14,8 @@ type Collection =
   | 'approvals'
   | 'usage'
   | 'capsules'
+  | 'native_sources'
+  | 'native_inventories'
   | 'settings'
   | 'config';
 export const now = () => new Date().toISOString();

@@ -90,7 +90,15 @@ test('quiet mode persists, search is keyboard accessible, and both themes meet a
 test('all views remain usable on a narrow screen without page overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  for (const label of ['Overview', 'Work', 'Approvals', 'Accounts', 'Resources', 'Connections']) {
+  for (const label of [
+    'Overview',
+    'Work',
+    'Activity',
+    'Approvals',
+    'Accounts',
+    'Resources',
+    'Connections',
+  ]) {
     await page.getByRole('button', { name: 'Toggle navigation' }).click();
     await page.getByRole('navigation').getByRole('button', { name: label, exact: true }).click();
     await expect(page.locator('main h1')).toBeVisible();
@@ -216,4 +224,84 @@ test('a native approval and verified handoff retain the same work and expose the
   expect(after.usage.find((entry: { workId: string }) => entry.workId === work.id).accountId).toBe(
     source.id,
   );
+});
+
+test('native activity discovers profiles, preserves observations after reload and shows native schedules in both themes and mobile', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('navigation').getByRole('button', { name: 'Activity', exact: true }).click();
+  await page.getByRole('button', { name: 'Discover profiles' }).click();
+  const sources = page.locator('.native-source');
+  await expect(sources).toHaveCount(3);
+  for (const label of [
+    'Codex native chats',
+    'Codex desktop schedules',
+    'Hermes profile schedules',
+  ]) {
+    await page.getByRole('button', { name: `Read ${label}`, exact: true }).click();
+    await expect(
+      sources
+        .filter({ has: page.getByRole('heading', { name: label, exact: true }) })
+        .getByText('Observed', { exact: true }),
+    ).toBeVisible();
+  }
+  await expect(page.getByText('Existing native fixture chat', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('More available in the native client', { exact: false }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: /^Existing native fixture chat/ }).click();
+  const detail = page.getByRole('dialog', { name: 'Existing native fixture chat' });
+  await expect(detail.getByText('fixture-observed-thread', { exact: true })).toBeVisible();
+  await expect(detail.getByText('Stored session; live state unknown')).toBeVisible();
+  await detail.getByRole('button', { name: 'Close dialog' }).click();
+  await page.reload();
+  await expect(
+    page.getByRole('heading', { name: '1 native chat · 2 schedule records' }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'View native activity', exact: true }).click();
+  await expect(page.getByText('Existing native fixture chat', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /^Schedules / }).click();
+  await expect(page.getByRole('heading', { name: 'Native morning review' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Native Hermes check' })).toBeVisible();
+  await expect(page.getByText('excluded native instructions')).not.toBeVisible();
+  await page.getByLabel('Search native activity').fill('Hermes check');
+  await expect(page.getByRole('heading', { name: 'Native morning review' })).not.toBeVisible();
+  await page.getByLabel('Search native activity').clear();
+  for (const dark of [false, true]) {
+    if (dark) await page.getByRole('button', { name: 'Use dark theme' }).click();
+    expect(
+      (
+        await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()
+      ).violations.map((v) => v.id),
+    ).toEqual([]);
+    await page.screenshot({
+      path: `artifacts/forge-activity-${dark ? 'dark' : 'light'}.png`,
+      fullPage: true,
+    });
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'artifacts/forge-activity-mobile.png', fullPage: true });
+  await page.getByRole('button', { name: 'Add source', exact: true }).click();
+  const add = page.getByRole('dialog', { name: 'Connect existing activity.' });
+  await add.getByLabel('Source type').selectOption('openclaw');
+  await expect(add.getByLabel('Local API address')).toHaveValue('http://127.0.0.1:18789');
+  await add.getByLabel('Source label').fill('Gateway browser fixture');
+  expect(
+    (
+      await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()
+    ).violations.map((v) => v.id),
+  ).toEqual([]);
+  await add.getByRole('button', { name: 'Save source reference' }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Gateway browser fixture', exact: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Forget Gateway browser fixture', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Gateway browser fixture', exact: true }),
+  ).not.toBeVisible();
+  const snapshot = await (await page.request.get('/api/snapshot')).json();
+  expect(snapshot.nativeSchedules).toHaveLength(2);
+  expect(JSON.stringify(snapshot.nativeSchedules)).not.toContain('excluded native instructions');
 });

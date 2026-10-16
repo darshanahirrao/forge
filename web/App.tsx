@@ -36,6 +36,7 @@ import { ApprovalsPage } from './pages/ApprovalsPage';
 import { AccountsPage } from './pages/AccountsPage';
 import { ResourcesPage } from './pages/ResourcesPage';
 import { ConnectionsPage } from './pages/ConnectionsPage';
+import { ActivityPage } from './pages/ActivityPage';
 import { WorkForm } from './components/WorkForm';
 import { AccountForm } from './components/AccountForm';
 import { WorkDetail } from './components/WorkDetail';
@@ -241,7 +242,7 @@ export function App() {
           <div className="local-indicator">
             <span className="status-dot" />
             <span>Local workspace</span>
-            <span className="mono">v0.1</span>
+            <span className="mono">v{snapshot?.version ?? '0.4.0'}</span>
           </div>
         </div>
       </aside>
@@ -338,6 +339,7 @@ export function App() {
                   onAccounts={() => navigate('accounts')}
                   onResources={() => navigate('resources')}
                   onConnections={() => navigate('connections')}
+                  onActivity={() => navigate('activity')}
                   onDemo={() => switchMode('demo')}
                   onQuiet={() =>
                     void act('quiet', () =>
@@ -350,6 +352,7 @@ export function App() {
               {view === 'work' && (
                 <WorkPage data={snapshot} onWork={setSelected} onNewWork={() => setNewWork(true)} />
               )}
+              {view === 'activity' && <ActivityPage data={snapshot} mutate={mutate} />}
               {view === 'approvals' && <ApprovalsPage data={snapshot} onApproval={setApproval} />}
               {view === 'accounts' && (
                 <AccountsPage

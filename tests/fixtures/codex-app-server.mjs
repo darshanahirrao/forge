@@ -13,6 +13,30 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
   }
   if (!initialized) return;
   if (message.method === 'initialized') return;
+  if (message.method === 'thread/list') {
+    if (message.params?.useStateDbOnly !== true || message.params?.limit !== 100)
+      send({
+        id: message.id,
+        error: { code: -32602, message: 'Fixture requires a bounded state-only catalog.' },
+      });
+    else
+      send({
+        id: message.id,
+        result: {
+          data: [
+            {
+              id: 'fixture-observed-thread',
+              name: 'Existing native fixture chat',
+              cwd: '/fixture/project',
+              updatedAt: 1792170000,
+              status: { type: 'notLoaded' },
+            },
+          ],
+          nextCursor: 'more-native-chats',
+        },
+      });
+    return;
+  }
   if (message.method === 'account/read')
     send({
       id: message.id,

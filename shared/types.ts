@@ -161,7 +161,47 @@ export interface NativeSession {
   harness: string;
   status: string;
   project: string;
-  source: 'agent-deck';
+  source:
+    'agent-deck' | 'codex/app-server' | 'claude/agent-sdk' | 'hermes/api' | 'openclaw/gateway';
+  sourceId?: string;
+  updatedAt?: string | null;
+  cwd?: string;
+  observedAt?: string;
+  control?: 'observed';
+}
+export type NativeSourceKind =
+  'codex' | 'claude' | 'codex-schedules' | 'hermes-schedules' | 'hermes' | 'openclaw';
+export interface NativeSource {
+  id: string;
+  kind: NativeSourceKind;
+  label: string;
+  home: string;
+  endpoint: string;
+  tokenEnv?: string;
+  state: 'configured' | 'connected' | 'error';
+  checkedAt: string | null;
+  error: string | null;
+  capabilities: string[];
+  observation?: { sessions: number; schedules: number; moreAvailable: boolean };
+}
+export interface NativeSchedule {
+  id: string;
+  sourceId: string;
+  title: string;
+  owner: 'codex' | 'hermes';
+  kind: string;
+  state: string;
+  rule: string;
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+  lastOutcome: string | null;
+  observedAt: string;
+}
+export interface NativeInventory {
+  sessions: NativeSession[];
+  schedules: NativeSchedule[];
+  moreAvailable: boolean;
+  checkedAt: string;
 }
 export interface RuntimeProbe {
   status: 'connected' | 'disconnected' | 'error';
@@ -197,6 +237,8 @@ export interface Snapshot {
   connections: Connection[];
   machine: MachineSnapshot;
   nativeSessions: NativeSession[];
+  nativeSources: NativeSource[];
+  nativeSchedules: NativeSchedule[];
   hermes: RuntimeProbe;
   now: string;
 }

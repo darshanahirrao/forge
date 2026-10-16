@@ -33,6 +33,11 @@ export function PageHeading({
       'Decisions that move work forward.',
       'Review the exact native request and respond to this attempt once.',
     ],
+    activity: [
+      'ACROSS YOUR TOOLS',
+      'Everything has a home.',
+      'Native chats and schedules, with their owner and last observation in view.',
+    ],
     accounts: [
       'YOUR CAPACITY',
       'Many accounts. One workspace.',

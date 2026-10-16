@@ -184,7 +184,7 @@ export function ConnectionsPage({
           ))}
         </div>
       </section>
-      {data.nativeSessions.length > 0 && (
+      {data.nativeSessions.some((s) => s.source === 'agent-deck') && (
         <section className="panel">
           <div className="section-heading">
             <div>
@@ -203,14 +203,16 @@ export function ConnectionsPage({
                 </tr>
               </thead>
               <tbody>
-                {data.nativeSessions.map((s) => (
-                  <tr key={s.id}>
-                    <td>{s.title}</td>
-                    <td>{s.harness}</td>
-                    <td>{s.status}</td>
-                    <td>{s.project}</td>
-                  </tr>
-                ))}
+                {data.nativeSessions
+                  .filter((s) => s.source === 'agent-deck')
+                  .map((s) => (
+                    <tr key={s.id}>
+                      <td>{s.title}</td>
+                      <td>{s.harness}</td>
+                      <td>{s.status}</td>
+                      <td>{s.project}</td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
