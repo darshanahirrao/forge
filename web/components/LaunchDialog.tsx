@@ -3,7 +3,7 @@ import { type Mutate } from '../api';
 import { useState, useEffect, type FormEvent } from 'react';
 import { Dialog, HarnessMark, FormError } from './primitives';
 import { Folder, ShieldCheck, LoaderCircle, Play } from 'lucide-react';
-import { executionName } from '../../shared/harnesses';
+import { executionName, canExecuteAccount } from '../../shared/harnesses';
 
 export function LaunchDialog({
   work,
@@ -46,10 +46,9 @@ export function LaunchDialog({
   const needsReview = ['failed', 'interrupted'].includes(work.status);
   const claude = work.harness === 'claude';
   const opencode = work.harness === 'opencode';
-  const requiresMetered = claude || opencode;
-  const compatible =
-    (!claude || account?.billingMode === 'api') &&
-    (!opencode || (Boolean(account?.nativeHome) && account?.billingMode !== 'subscription'));
+  const hermes = work.harness === 'hermes';
+  const requiresMetered = claude || opencode || hermes;
+  const compatible = canExecuteAccount(account);
   async function start(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -81,7 +80,7 @@ export function LaunchDialog({
             <strong>{account?.label}</strong>
             <p>
               {account?.identity ??
-                (opencode
+                (opencode || hermes
                   ? 'Native profile and model are checked before input. Provider identity and quotas remain unknown.'
                   : 'Native identity will be checked before the turn starts.')}
             </p>
@@ -182,15 +181,19 @@ export function LaunchDialog({
         <div className="notice">
           <ShieldCheck size={18} />
           <p>
-            {opencode
+            {hermes
               ? compatible
-                ? 'OpenCode v2 owns tools and native permissions. Session allow rules request review while native denials stay in order. These permissions use your host authority. Provider billing and saved native grants remain native.'
-                : 'Choose an explicit OpenCode profile root and native or API billing. Forge cannot verify or require subscription allowance for this route.'
-              : claude
+                ? 'Hermes owns its tools, skills, memory and provider settings. Native default edit review is checked before input; native command policies still apply. Requests can expire in under a minute. Provider identity, allowance and final task acceptance remain separate.'
+                : 'Choose an explicit Hermes home and native or API billing. Forge cannot require an unverified subscription allowance.'
+              : opencode
                 ? compatible
-                  ? 'This route uses API authentication and native manual permission mode. Existing native rules can allow tools without a prompt. API credentials stay in the referenced environment variable.'
-                  : 'Managed Claude turns require an API slot. Native claude.ai subscription sessions continue through their native client under Anthropic’s integration rules.'
-                : 'Forge requests the native untrusted approval policy and workspace-write sandbox. Launch stops if the server does not confirm these settings.'}
+                  ? 'OpenCode v2 owns tools and native permissions. Session allow rules request review while native denials stay in order. These permissions use your host authority. Provider billing and saved native grants remain native.'
+                  : 'Choose an explicit OpenCode profile root and native or API billing. Forge cannot verify or require subscription allowance for this route.'
+                : claude
+                  ? compatible
+                    ? 'This route uses API authentication and native manual permission mode. Existing native rules can allow tools without a prompt. API credentials stay in the referenced environment variable.'
+                    : 'Managed Claude turns require an API slot. Native claude.ai subscription sessions continue through their native client under Anthropic’s integration rules.'
+                  : 'Forge requests the native untrusted approval policy and workspace-write sandbox. Launch stops if the server does not confirm these settings.'}
           </p>
         </div>
         <FormError error={error} />

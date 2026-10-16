@@ -1,13 +1,13 @@
 // Actual native tools across one work identity and two credential contexts; inference remains synthetic.
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, realpath } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { createApp } from '../../server/app.js';
 import { CodexDriver } from '../../server/adapters/codex-driver.js';
 import { OpenCodeDriver } from '../../server/adapters/opencode-driver.js';
 import { openCodeWorker } from '../../server/adapters/opencode-worker.js';
+import { HermesDriver } from '../../server/adapters/hermes-driver.js';
 import { ClaudeDriver } from '../../server/adapters/claude-driver.js';
 import { NativeRpc } from '../../server/adapters/rpc.js';
 import type {
@@ -24,13 +24,15 @@ import type {
 } from '../../shared/types.js';
 import { fixtureProvider } from './provider.js';
 
-const directory = await mkdtemp(join(tmpdir(), 'forge-native-handoff-'));
+await mkdir(join(process.cwd(), 'artifacts'), { recursive: true });
+const directory = await mkdtemp(join(process.cwd(), 'artifacts', 'forge-native-handoff-'));
 let project = join(directory, 'project');
 const homes = [
   join(directory, 'codex'),
   join(directory, 'claude-one'),
   join(directory, 'claude-two'),
   join(directory, 'opencode'),
+  join(directory, 'hermes'),
 ];
 await mkdir(project);
 project = await realpath(project);
@@ -65,10 +67,10 @@ const sourceProvider = await fixtureProvider('responses', (body) => {
   }
   return { text: 'The native source artifact was produced.' };
 });
-const expectedFragments: string[][] = [[], [], []];
-const observedContext = [false, false, false];
-const observedRead = [false, false, false];
-const stages = [0, 0, 0];
+const expectedFragments: string[][] = [[], [], [], []];
+const observedContext = [false, false, false, false];
+const observedRead = [false, false, false, false];
+const stages = [0, 0, 0, 0];
 function nextProgram(index: number) {
   const sourceName = index === 0 ? 'proof.txt' : 'continuation.txt';
   const destinationName = index === 0 ? 'continuation.txt' : 'final.txt';
@@ -152,6 +154,45 @@ const openCodeProvider = await fixtureProvider(
   },
   'synthetic-profile-three',
 );
+const hermesProof = 'Verified native Hermes continuation.\n';
+const hermesProvider = await fixtureProvider(
+  'chat',
+  (body) => {
+    if (
+      !body.tools?.some((t: { function?: { name?: string } }) => t.function?.name === 'write_file')
+    )
+      return { text: 'Native helper fixture.' };
+    const history = JSON.stringify(body.messages);
+    if (stages[3] === 0) {
+      assert(body.model === 'forge-conformance');
+      assert(history.includes(memoryFact) && !history.includes(excludedMemory));
+      assert(expectedFragments[3].every((fragment) => history.includes(fragment)));
+      observedContext[3] = true;
+      stages[3]++;
+      return {
+        tool: 'read_file',
+        id: 'handoff-hermes-read',
+        input: { path: join(project, 'opencode.txt') },
+      };
+    }
+    if (stages[3] === 1) {
+      assert(history.includes('handoff-hermes-read') && history.includes(openCodeProof.trim()));
+      observedRead[3] = true;
+      stages[3]++;
+      return {
+        tool: 'write_file',
+        id: 'handoff-hermes-write',
+        input: { path: join(project, 'hermes.txt'), content: hermesProof },
+      };
+    }
+    return { text: 'The native Hermes continuation was verified.' };
+  },
+  'synthetic-profile-four',
+);
+await writeFile(
+  join(homes[4], 'config.yaml'),
+  `model:\n  default: forge-conformance\n  provider: custom\n  base_url: ${hermesProvider.endpoint}/v1\n  api_mode: chat_completions\n  api_key: synthetic-profile-four\nterminal:\n  backend: local\n  cwd: ${project}\nagent:\n  max_turns: 5\n`,
+);
 await mkdir(join(homes[3], 'config', 'opencode'), { recursive: true });
 await writeFile(
   join(homes[3], 'config', 'opencode', 'opencode.json'),
@@ -212,6 +253,7 @@ const state = await createApp({
       return new OpenCodeDriver((account, cwd) =>
         openCodeWorker(account, cwd, process.env.FORGE_OPENCODE_CONFORMANCE_BINARY),
       );
+    if (context.work.harness === 'hermes') return new HermesDriver();
     const index = profileIds.indexOf(context.account.id);
     assert(index >= 0);
     return new ClaudeDriver((params) =>
@@ -274,6 +316,7 @@ async function runNative(workId: string) {
           'claude/canUseTool/Write',
           'opencode/permission/read',
           'opencode/permission/edit',
+          'hermes/acp/request_permission',
         ].includes(approval.method),
       );
       await post(`/approvals/${approval.id}/decision`, {
@@ -339,6 +382,16 @@ try {
       })
     ).id,
   );
+  profileIds.push(
+    (
+      await post<Account>('/accounts', {
+        label: 'Native Hermes target',
+        harness: 'hermes',
+        nativeHome: homes[4],
+        billingMode: 'native',
+      })
+    ).id,
+  );
   const work = await post<Work>('/work', {
     title: 'One native work identity',
     project: 'Synthetic',
@@ -355,15 +408,10 @@ try {
   const originalSession = state.local.work(work.id).nativeSessionId;
   await post(`/work/${work.id}/checkpoint`, { note: checkpointNote });
   let parent: string | null = null;
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     const prepared = await post<{ capsule: WorkCapsule; work: Work }>(`/work/${work.id}/capsules`, {
       expectedRevision: state.local.work(work.id).revision,
-      paths:
-        i === 0
-          ? ['proof.txt']
-          : i === 1
-            ? ['proof.txt', 'continuation.txt']
-            : ['proof.txt', 'continuation.txt', 'final.txt'],
+      paths: ['proof.txt', 'continuation.txt', 'final.txt', 'opencode.txt'].slice(0, i + 1),
     });
     assert.equal(prepared.capsule.parentCapsuleId, parent);
     assert.equal(prepared.capsule.contextReceipt?.profileId, persistentProfile.id);
@@ -393,13 +441,15 @@ try {
   assert.equal(await readFile(join(project, 'continuation.txt'), 'utf8'), continuation);
   assert.equal(await readFile(join(project, 'final.txt'), 'utf8'), finalProof);
   assert.equal(await readFile(join(project, 'opencode.txt'), 'utf8'), openCodeProof);
+  assert.equal(await readFile(join(project, 'hermes.txt'), 'utf8'), hermesProof);
+  assert.equal(hermesProvider.failure(), null);
   assert.equal(openCodeProvider.failure(), null);
   const usage = state.local.all<Usage>('usage').filter((u) => u.workId === work.id);
-  assert.equal(usage.length, 4);
-  assert.equal(new Set(usage.map((u) => u.accountId)).size, 4);
+  assert.equal(usage.length, 5);
+  assert.equal(new Set(usage.map((u) => u.accountId)).size, 5);
   assert.equal(
     state.local.all<Run>('runs').filter((r) => r.workId === work.id && r.exitConfirmed).length,
-    4,
+    5,
   );
   assert.equal(state.local.checkpoints(work.id)[0].detail, checkpointNote);
   assert.equal(sourceProvider.failure(), null);
@@ -408,15 +458,15 @@ try {
     JSON.stringify({
       status: 'passed',
       workIdentityRetained: true,
-      nativeRuns: 4,
+      nativeRuns: 5,
       nativeApprovals: approvals,
-      harnesses: ['codex', 'claude', 'opencode'],
+      harnesses: ['codex', 'claude', 'opencode', 'hermes'],
       isolatedClaudeProfiles: 2,
-      artifactCount: 4,
+      artifactCount: 5,
       contextAndCheckpointObserved: true,
       persistentProfileAndSelectedMemoryObserved: true,
       unselectedMemoryExcluded: true,
-      usageScopesRetained: 4,
+      usageScopesRetained: 5,
       paidModelCalls: 0,
     }),
   );
@@ -424,6 +474,7 @@ try {
   await state.app.close();
   await sourceProvider.close();
   await openCodeProvider.close();
+  await hermesProvider.close();
   for (const provider of destinations) await provider.close();
   refs.forEach((ref, index) => {
     if (saved[index] === undefined) delete process.env[ref];

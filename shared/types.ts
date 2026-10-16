@@ -199,7 +199,8 @@ export interface Usage {
   workId: string | null;
   accountId: string | null;
   harness: Harness;
-  source: 'codex/app-server' | 'claude/agent-sdk' | 'opencode/v2' | 'ccusage' | 'example';
+  source:
+    'codex/app-server' | 'claude/agent-sdk' | 'opencode/v2' | 'hermes/acp' | 'ccusage' | 'example';
   scope: string;
   inputTokens: number;
   outputTokens: number;

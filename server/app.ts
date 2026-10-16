@@ -34,6 +34,7 @@ import {
 import { CodexDriver, type RpcFactory } from './adapters/codex-driver.js';
 import { ClaudeDriver } from './adapters/claude-driver.js';
 import { OpenCodeDriver } from './adapters/opencode-driver.js';
+import { HermesDriver } from './adapters/hermes-driver.js';
 import { ExecutionController } from './execution.js';
 import { Continuity } from './continuity.js';
 import { NativeSources, type NativeSourcesOptions } from './native-sources.js';
@@ -100,6 +101,7 @@ export async function createApp(options: AppOptions) {
           );
         if (context.work.harness === 'claude') return new ClaudeDriver();
         if (context.work.harness === 'opencode') return new OpenCodeDriver();
+        if (context.work.harness === 'hermes') return new HermesDriver();
         assert(
           false,
           409,

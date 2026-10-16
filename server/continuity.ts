@@ -5,7 +5,7 @@ import { constants } from 'node:fs';
 import { open, realpath } from 'node:fs/promises';
 import { isAbsolute, resolve, sep } from 'node:path';
 import type { ArtifactFingerprint, Run, Work, WorkCapsule } from '../shared/types.js';
-import { managedHarnesses } from '../shared/harnesses.js';
+import { canExecuteAccount } from '../shared/harnesses.js';
 import { assert } from './errors.js';
 import { ExecutionController } from './execution.js';
 import { Store, id, now } from './store.js';
@@ -304,12 +304,9 @@ export class Continuity {
       const account = this.store.account(targetAccountId);
       assert(account.id !== work.accountId, 400, 'Choose a different native account or harness.');
       assert(
-        managedHarnesses.includes(account.harness) &&
-          (account.harness !== 'claude' || account.billingMode === 'api') &&
-          (account.harness !== 'opencode' ||
-            (Boolean(account.nativeHome) && account.billingMode !== 'subscription')),
+        canExecuteAccount(account),
         409,
-        'This account has no compatible managed execution route. Choose a Codex slot, Claude API slot, or explicit OpenCode native/API profile.',
+        'This account has no compatible managed execution route. Choose a Codex slot, Claude API slot, or explicit OpenCode/Hermes native/API profile.',
       );
       const snapshot = await artifactSnapshot(
         work.cwd,

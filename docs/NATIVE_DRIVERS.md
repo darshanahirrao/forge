@@ -33,3 +33,7 @@ The SDK transport fixture does not execute real tools. Separate opt-in checks no
 ## OpenCode v2, forge-v0.6.0
 
 The shared coordinator also supports OpenCode through its installed native server and MIT official client 2.0.6. Native versions 2.0.6 and 2.0.31 pass the real two-profile tool/continuity check. Profile roots, configured agent/model selection, private server identity, native recovery guards, exact one-time requests, temporary policy cleanup, final settlement and usage stay explicit. Provider identity/allowance are not verified. V1 and the older `@opencode-ai/sdk` are not substituted. Read [OpenCode setup and evidence](OPENCODE.md).
+
+## Hermes ACP, forge-v0.7.0
+
+The shared coordinator hosts native Hermes 0.17.0 through the official Apache-2.0 ACP SDK 1.9.0. An explicit home retains native providers, tools, skills, memory and sessions. The versioned process-local reporting adapter exposes native outcomes/counters without recreating a model loop or changing installed files. Default edit review, session provenance, exact one-time options, short native deadlines, profile ownership and native exit are verified. Read [Hermes setup, memory semantics and conformance](HERMES.md). Managed OpenClaw and cross-work companion planning/control remain open.

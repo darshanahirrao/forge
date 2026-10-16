@@ -1,6 +1,6 @@
 {
   "name": "@forge-workspace/forge",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "A local workspace for continuous work across agent harnesses.",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
   },
   "scripts": {
     "dev": "concurrently -k -n server,web \"tsx watch server/index.ts\" \"vite --host 127.0.0.1\"",
-    "build": "tsc -p tsconfig.server.json && vite build",
+    "build": "tsc -p tsconfig.server.json && node bin/copy-native-assets.mjs && vite build",
     "start": "node dist/server/index.js",
     "check": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.tests.json",
     "format": "prettier --write --ignore-unknown web server shared tests bin *.json *.ts",
@@ -24,10 +24,12 @@
     "test:native:claude": "tsx tests/native/claude-conformance.ts",
     "test:native:handoff": "tsx tests/native/handoff-conformance.ts",
     "test:native:inventory": "tsx tests/native/inventory-conformance.ts --existing",
-    "test:native": "npm run test:native:codex && npm run test:native:claude && npm run test:native:opencode && npm run test:native:handoff",
-    "test:native:opencode": "tsx tests/native/opencode-conformance.ts"
+    "test:native": "npm run test:native:codex && npm run test:native:claude && npm run test:native:opencode && npm run test:native:hermes && npm run test:native:handoff",
+    "test:native:opencode": "tsx tests/native/opencode-conformance.ts",
+    "test:native:hermes": "tsx tests/native/hermes-conformance.ts"
   },
   "dependencies": {
+    "@agentclientprotocol/sdk": "1.9.0",
     "@anthropic-ai/claude-agent-sdk": "0.3.301",
     "@fastify/static": "^10.1.6",
     "@opencode/client": "2.0.6",

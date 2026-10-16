@@ -49,10 +49,16 @@ const definitions: Omit<Connection, 'installed'>[] = [
     id: 'hermes',
     name: 'Hermes',
     kind: 'runtime',
-    capabilities: ['Health check', 'Capability discovery'],
+    capabilities: [
+      'Native ACP turns',
+      'Native edit reviews',
+      'Native memory and skills',
+      'Health check',
+      'Capability discovery',
+    ],
     description:
-      'Connect an existing local API server. Forge uses its advertised capabilities and keeps Hermes replaceable.',
-    documentation: 'https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server',
+      'Launch an owned native ACP worker from an explicit Hermes home, or observe an existing local API server. Provider identity and allowance are not verified.',
+    documentation: 'https://hermes-agent.nousresearch.com/docs/user-guide/features/acp',
   },
   {
     id: 'opencode',

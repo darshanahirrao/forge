@@ -302,12 +302,18 @@ export class ExecutionController {
     };
   }
   private approval(active: Active, request: NativeApproval) {
+    const deadline = Math.min(
+      Date.now() + 10 * 60 * 1000,
+      request.expiresAt ? Date.parse(request.expiresAt) : Infinity,
+    );
     if (
       request.sessionId !== active.sessionId ||
       request.turnId !== active.turnId ||
       request.signal?.aborted ||
       !request.command ||
-      request.command.length > 200000
+      request.command.length > 200000 ||
+      !Number.isFinite(deadline) ||
+      deadline <= Date.now()
     ) {
       void Promise.resolve()
         .then(() => request.respond('decline'))
@@ -348,7 +354,7 @@ export class ExecutionController {
       cwd: request.cwd,
       status: 'pending',
       createdAt: now(),
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      expiresAt: new Date(deadline).toISOString(),
       resolvedAt: null,
     };
     this.store.transaction(() => {
@@ -366,7 +372,7 @@ export class ExecutionController {
       () => {
         void this.expire(active, approval.id);
       },
-      10 * 60 * 1000,
+      Math.max(0, deadline - Date.now()),
     );
     timer.unref();
     active.controls.set(approval.id, { request, timer, abort });
@@ -440,7 +446,7 @@ export class ExecutionController {
         approval.workId,
         'approval',
         'Approval expired',
-        'The exact native request was declined after ten minutes.',
+        'The exact native request was declined when its review window expired.',
       );
     } catch {
       this.store.put('approvals', approvalId, {

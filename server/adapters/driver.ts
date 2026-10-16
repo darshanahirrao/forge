@@ -19,6 +19,7 @@ export interface NativeApproval {
   command: string;
   cwd: string;
   signal?: AbortSignal;
+  expiresAt?: string;
   respond(decision: 'accept' | 'decline'): void | Promise<void>;
 }
 export interface DriverSink {

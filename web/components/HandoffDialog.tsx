@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Account, Work, WorkCapsule } from '../../shared/types';
-import { managedHarnesses } from '../../shared/harnesses';
+import { canExecuteAccount } from '../../shared/harnesses';
 import { type Mutate, download } from '../api';
 import { Dialog, FormError, HarnessMark } from './primitives';
 import { ArrowRightLeft, Check, FolderCheck, LoaderCircle, ArrowDownToLine } from 'lucide-react';
@@ -19,13 +19,7 @@ export function HandoffDialog({
   onClose: () => void;
   onMoved: () => void;
 }) {
-  const eligible = accounts.filter(
-    (a) =>
-      a.id !== work.accountId &&
-      managedHarnesses.includes(a.harness) &&
-      (a.harness !== 'claude' || a.billingMode === 'api') &&
-      (a.harness !== 'opencode' || (Boolean(a.nativeHome) && a.billingMode !== 'subscription')),
-  );
+  const eligible = accounts.filter((a) => a.id !== work.accountId && canExecuteAccount(a));
   const [target, setTarget] = useState(eligible[0]?.id ?? '');
   const [paths, setPaths] = useState('');
   const [prepared, setPrepared] = useState<{ capsule: WorkCapsule; work: Work } | null>(null);

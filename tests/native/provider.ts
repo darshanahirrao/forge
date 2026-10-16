@@ -3,7 +3,9 @@ import { createServer } from 'node:http';
 import assert from 'node:assert/strict';
 
 export type FixtureReply =
-  { tool: string; id: string; input: Record<string, unknown> } | { text: string };
+  | { tool: string; id: string; input: Record<string, unknown> }
+  | { text: string }
+  | { error: { status: number; message: string } };
 export async function fixtureProvider(
   protocol: 'responses' | 'messages' | 'chat',
   program: (body: any) => FixtureReply,
@@ -39,6 +41,16 @@ export async function fixtureProvider(
         );
       requests++;
       const action = program(body);
+      if ('error' in action) {
+        reply.statusCode = action.error.status;
+        reply.setHeader('content-type', 'application/json');
+        reply.end(
+          JSON.stringify({
+            error: { message: action.error.message, type: 'authentication_error' },
+          }),
+        );
+        return;
+      }
       const tool = 'tool' in action;
       const emit = (value: { type: string; [key: string]: unknown }) =>
         reply.write(`event: ${value.type}\ndata: ${JSON.stringify(value)}\n\n`);

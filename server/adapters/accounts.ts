@@ -6,6 +6,7 @@ import { findBinary } from './discovery.js';
 import { NativeRpc } from './rpc.js';
 import { assert, safeMessage } from '../errors.js';
 import { now } from '../store.js';
+import { probeHermesAccount } from './hermes-driver.js';
 import { openCodeWorker } from './opencode-worker.js';
 const exec = promisify(execFile);
 
@@ -175,6 +176,7 @@ export async function probeAccount(account: Account): Promise<Account> {
       quotas: [],
     };
   }
+  if (account.harness === 'hermes') return probeHermesAccount(account);
   if (account.harness === 'opencode') {
     const worker = await openCodeWorker(account, account.nativeHome);
     try {

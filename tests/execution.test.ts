@@ -81,7 +81,7 @@ class FixtureDriver implements NativeDriver {
     sink.session(`session-${context.work.id}`);
     sink.turn('turn-1');
   }
-  request(signal?: AbortSignal) {
+  request(signal?: AbortSignal, expiresAt?: string) {
     const request: NativeApproval = {
       requestId: 'request-1',
       method: 'fixture/permission',
@@ -93,6 +93,7 @@ class FixtureDriver implements NativeDriver {
       command: 'fixture input',
       cwd: process.cwd(),
       signal,
+      expiresAt,
       respond: (decision) => {
         this.decisions.push(decision);
       },
@@ -481,5 +482,36 @@ test('an unexpected native auth route receives no task input before failure', as
     store.close();
     if (original === undefined) delete process.env.FORGE_FIXTURE_CLAUDE_KEY;
     else process.env.FORGE_FIXTURE_CLAUDE_KEY = original;
+  }
+});
+
+test('the approval inbox honors a shorter native deadline and refuses invalid deadlines', async () => {
+  const store = new Store(':memory:');
+  const { work } = prepared(store, 'hermes');
+  const driver = new FixtureDriver('hermes');
+  const controller = new ExecutionController(store, () => driver);
+  try {
+    await controller.launch(work.id, true, false);
+    const expiresAt = new Date(Date.now() + 100).toISOString();
+    driver.request(undefined, expiresAt);
+    const approval = store.all<Approval>('approvals')[0];
+    assert.equal(approval.expiresAt, expiresAt);
+    await waitFor(
+      () => store.get<Approval>('approvals', approval.id)?.status === 'expired',
+      'native approval deadline',
+    );
+    assert.deepEqual(driver.decisions, ['decline']);
+    await assert.rejects(
+      controller.decide(approval.id, approval.digest, 'accept'),
+      /no longer pending/,
+    );
+    driver.request(undefined, 'invalid');
+    driver.request(undefined, new Date(Date.now() - 1000).toISOString());
+    await waitFor(() => driver.decisions.length === 3, 'invalid deadlines rejected');
+    assert.equal(store.all<Approval>('approvals').length, 1);
+    assert.deepEqual(driver.decisions, ['decline', 'decline', 'decline']);
+  } finally {
+    await controller.close();
+    store.close();
   }
 });
