@@ -24,7 +24,7 @@ A capsule carries artifact manifests, an optional encrypted workspace patch, pen
 
 ## System boundary
 
-Start with one local Rust daemon, `forged`, serving an embedded TypeScript interface. Use SQLite with WAL, a serialized critical-state writer, and a local artifact store. Keep permission decisions, work events, and dispatch intent in durable transactions. Maintain a transactional outbox for commands; rebuild UI projections from durable events and snapshots. High-frequency machine samples use a bounded, downsampled store rather than an unlimited event stream.
+The initial Rust-daemon/SQLite sketch is provisional. Evaluate the existing foundations in [REUSE_AUDIT.md](REUSE_AUDIT.md) before choosing a stack or implementing a new core. Architecture roles describe required responsibilities, which may be supplied by an existing project. If a remaining coordination service is justified, keep it small and local. Durable permission receipts, work events, and dispatch intent need transactional persistence; projections can be rebuilt from records and snapshots. High-frequency machine samples need a bounded, downsampled store rather than an unlimited event stream.
 
 Component adapters can run as on-demand sidecars. Runtimes such as Hermes and OpenClaw remain separately installed services, started or connected only when selected. The initial topology needs neither a distributed database nor a permanently running stack of supporting services. An optional remote worker is a later execution target, not a requirement for a laptop installation.
 

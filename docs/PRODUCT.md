@@ -4,6 +4,8 @@
 
 One place to understand and operate ongoing AI work. Hermes and OpenClaw are replaceable companion runtimes. Runtimes, harnesses, models, memory backends, tools, channels, and hosts are explicit choices around a durable agent profile and task record.
 
+Anyone should be able to reshape that arrangement through presets, configuration, and extensions. The proposed [workspace blueprints](BLUEPRINTS.md) separate a shareable setup from private work data. A strong default should remain simple while deeper customization stays accessible.
+
 ## Capabilities worth earning
 
 | Capability | What the person gets | What makes it credible |
@@ -11,6 +13,7 @@ One place to understand and operate ongoing AI work. Hermes and OpenClaw are rep
 | One control surface | Work, native activity, approvals, resources, memory references, and usage. | Existing runtime capabilities and surfaces connected through adapters. |
 | Work Capsules | Continue the same goal through a compatible harness. | Verified artifacts, explicit missing capabilities, safe handoff. |
 | Dynamic components | Replace Hermes or OpenClaw, as well as the coding harness and other service backends. | Independent profile and work state, versioned contracts, verified replacement. |
+| Workspace blueprints | Shape and share a setup for different work and preferences. | Existing component bindings, sanitized configuration, compatibility preview, and supported extension contracts. |
 | Resource view and Quiet mode | See ownership and preserve capacity for foreground work. | Real telemetry and admission control over managed work. |
 | Token and dollar ledger | Understand spend by project, task, harness, and model. | Source-labeled usage, deduplication, estimated versus confirmed charges. |
 | Approval inbox | Handle supported decisions from desktop or phone. | Authenticated responses tied to the exact live native request. |
@@ -24,6 +27,8 @@ These are intended capabilities. They are not currently available in Forge.
 Browser/computer use, terminal and file execution, native skills, memory engines, and existing schedulers are supplied by connected runtimes and providers. Forge's contribution is their coordination, continuity, and cross-runtime visibility. See [NATIVE_BOUNDARY.md](NATIVE_BOUNDARY.md).
 
 ## Delivery sequence
+
+First evaluate the [existing-solution candidates](REUSE_AUDIT.md). The sequence below describes needed outcomes; it does not require implementing a new service for each row or rebuilding an existing control plane.
 
 1. **Observe:** ship a small local resource and schedule inventory, honest source coverage, a usage ledger from two supported harnesses, and a read-only Hermes bridge. Preserve native schedule ownership.
 2. **Control:** manage newly created sessions, own their resources, route native approvals, and persist recoverable task state. Prove permission and accounting conformance.

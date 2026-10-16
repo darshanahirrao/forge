@@ -19,3 +19,7 @@ Validation and limitations: local Markdown links, SVG XML, credential/private-pa
 ## 2026-10-16 · reuse-before-build
 
 Extended the reuse rule beyond native harness capabilities to existing libraries and open-source products, including proposed Forge core features. The next step is a product/component reuse map; adopting or extending a suitable existing solution takes precedence over duplicating it. Marked the product-level gap audit as outstanding rather than claiming the proposal establishes novelty. Validation: local document links and Git diff checks pass; documentation-only change. Checkpoint reference: the commit containing this entry.
+
+## 2026-10-16 · blueprints-and-reuse-review
+
+Added the proposal for user-moldable workspace blueprints: presets, configuration, and extensions over existing component bindings, with private data excluded from sharing. Added product judgments around a calm home, stall explanations, attention-aware decisions, outcome accounting, and compatibility previews. Recorded an initial primary-source reuse review of Agent Deck, CC Switch, ccusage, HAPI, and Superset, with observed commit and license references. Marked the initial Rust/SQLite stack as provisional pending existing-foundation evaluation. No candidates were installed, executed, or connected to private data; overlap and integration fit remain distinct. Validation: local document links, source-hygiene audit, and Git diff checks pass; no runtime exists to test. Checkpoint reference: the commit containing this entry.

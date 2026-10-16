@@ -26,6 +26,8 @@ The defining demonstration is a real task checkpointed in one harness, continued
 ## Read the design
 
 - [Native capability boundary](docs/NATIVE_BOUNDARY.md)
+- [Initial existing-solution audit](docs/REUSE_AUDIT.md)
+- [Customizable workspace blueprints](docs/BLUEPRINTS.md)
 - [Architecture and failure semantics](docs/ARCHITECTURE.md)
 - [The intended workspace experience](docs/EXPERIENCE.md)
 - [Harness interfaces and integration limits](docs/ADAPTERS.md)

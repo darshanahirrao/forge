@@ -17,7 +17,7 @@ Reviewed 16 October 2026 using primary papers and official protocol documentatio
 
 The useful contribution to test is a coherent, lightweight implementation that connects durable agent and task continuity, replaceable Hermes/OpenClaw-style runtimes, heterogeneous native harnesses, ownership-based resource control, and attributable cost. These mechanisms have substantial prior art individually and in adjacent combinations.
 
-A product-level reuse audit remains outstanding. The architecture does not establish that its proposed core functions are absent from existing tools. Before implementation, compare existing products and libraries, adopt or extend what fits, and build only a verified remaining gap. If an existing product meets the full need, use it rather than duplicate it.
+An [initial product-level reuse audit](REUSE_AUDIT.md) now identifies substantial overlap with existing tools. Practical integration and whole-product fit remain untested. The architecture does not establish that its proposed core functions are absent elsewhere. Before implementation, evaluate candidates, adopt or extend what fits, and build only a verified remaining gap. If an existing product meets the full need, use it rather than duplicate it.
 
 The product should make its strongest claim through a reproducible demonstration: continue meaningful artifact-producing work across two different harnesses, preserve the task record and accounting, reject stale authority, and keep the host responsive under a measured workload. Publish the unsuccessful scenarios too.
 
