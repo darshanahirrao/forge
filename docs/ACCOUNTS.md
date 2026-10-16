@@ -1,6 +1,6 @@
 # Multiple accounts, one continuous workspace
 
-Design proposal, 16 October 2026. A person can connect several authorized accounts for the same harness and choose among compatible accounts without creating a separate Forge workspace or manually reconstructing the task. Changing accounts is independent of changing the harness, companion runtime, model, or host. No account connector or switching flow has been implemented in Forge.
+Design proposal, 16 October 2026, with an initial implementation on 17 October. A person should be able to connect several authorized accounts for the same harness and choose among compatible accounts without creating a separate Forge workspace or manually reconstructing the task. Account slots and native Codex/Claude status probes are implemented. An experimental managed Codex task binds one selected account. Automatic switching and native binding transfer are not implemented; see [RUNTIME.md](RUNTIME.md).
 
 ## The experience
 

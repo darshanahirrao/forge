@@ -1,0 +1,45 @@
+{
+  "name": "@forge-workspace/forge",
+  "version": "0.1.0",
+  "description": "A local workspace for continuous work across agent harnesses.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "bin": {
+    "forge": "bin/forge.mjs"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n server,web \"tsx watch server/index.ts\" \"vite --host 127.0.0.1\"",
+    "build": "tsc -p tsconfig.server.json && vite build",
+    "start": "node dist/server/index.js",
+    "check": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit",
+    "format": "prettier --write --ignore-unknown web server shared tests bin *.json *.ts",
+    "format:check": "prettier --check --ignore-unknown web server shared tests bin *.json *.ts",
+    "test": "tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@fastify/static": "^10.1.6",
+    "fastify": "^5.6.0",
+    "lucide-react": "^0.577.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.0",
+    "@playwright/test": "^1.56.0",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "concurrently": "^9.0.0",
+    "prettier": "^3.9.10",
+    "tsx": "^4.20.0",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.4"
+  }
+}

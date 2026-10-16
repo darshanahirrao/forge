@@ -8,7 +8,7 @@ A blueprint describes an arrangement of existing components: agent profiles, run
 
 One person could use Hermes, Codex, Obsidian, and phone notifications. Another could use OpenClaw, OpenCode, an existing external memory provider, and a terminal-oriented view. Their configurations should not require maintaining separate forks of Forge.
 
-Blueprints refer to existing capability implementations. They do not carry a new browser, computer-use engine, terminal, model client, or memory engine. Prefer compatible existing preset and manifest formats before defining a new schema. The format and packaging remain to be selected after the reuse audit.
+Blueprints refer to existing capability implementations. They do not carry a new browser, computer-use engine, terminal, model client, or memory engine. Prefer compatible existing preset and manifest formats before defining a new schema. The first local application exports a small version-1 setup manifest; import, activation, packaging, and richer preset compatibility remain to be evaluated. See [RUNTIME.md](RUNTIME.md).
 
 ## Three levels of customization
 

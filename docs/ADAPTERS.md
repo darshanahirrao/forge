@@ -1,6 +1,6 @@
 # Harness adapter contracts
 
-Research checked 16 October 2026. All Forge adapters are proposed. Upstream support in this table is not a tested Forge integration.
+Research checked 16 October 2026. An experimental Codex app-server adapter, native Codex/Claude status probes, Hermes health/capability discovery, and optional Agent Deck/ccusage readers are now implemented. [RUNTIME.md](RUNTIME.md) describes their actual scope and test evidence. The table below also contains broader proposed mappings; documented upstream support does not prove full Forge conformance.
 
 | Harness | Documented integration surface | Forge mapping | Boundary |
 | --- | --- | --- | --- |

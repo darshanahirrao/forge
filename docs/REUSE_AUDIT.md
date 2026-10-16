@@ -39,3 +39,11 @@ The [account design](ACCOUNTS.md) adds effective-identity checks, authentication
 ## Current direction
 
 Prefer one suitable orchestration foundation, native runtime capabilities, and optional data-source adapters. Use a new Forge component only where a tested requirement remains unmet. Shareable workspace blueprints, a calm attention model, causal explanations for stalled work, and evidence-based continuity are product hypotheses to evaluate against these candidates.
+
+## First implementation decision, 17 October 2026
+
+Reviewed Agent Deck's `list --json` golden output and `session_approve_cmd.go` directly. Its current approval CLI resolves a visibly active native TUI overlay with a guarded keypress. The first Forge adapter needs the native RPC request identity and generation attached to a durable Forge work record. This is the concrete integration boundary chosen for the prototype; it is not a claim that a full upstream product audit proves the entire Forge design is novel.
+
+Keep Agent Deck session management intact and read its inventory through the existing CLI when installed. Reuse ccusage's JSON reports for Claude daily accounting rather than parsing conversations. Use the existing Codex app-server for native execution, permissions, sessions, and tools; Forge adds only the local work binding, request correlation, projections, and interface. Hermes discovery reads the installed API's advertised contract. Other managed adapters remain gated on reuse and conformance evidence.
+
+The first implementation uses Fastify, native SQLite, React, Vite, Lucide, Zod, Playwright, and axe. It installs no replacement browser, terminal, memory engine, native scheduler, or model execution loop. There is no extra always-running orchestration product required to open the workspace. Candidate CLIs were not installed or connected to private data. Whole-product fit and measured overhead comparisons remain open.

@@ -1,5 +1,7 @@
 # Forge architecture
 
+This document defines the broader architecture. The first local application is implemented as a TypeScript/Node service over native SQLite, with a React interface and experimental native adapters. [RUNTIME.md](RUNTIME.md) separates implemented behavior and test evidence from the remaining design. The initial Rust sketch remains an alternative to evaluate after measured evidence.
+
 Proposal dated 16 October 2026. Components and contracts below are design decisions to validate, not implemented functionality.
 
 ## A permanent workspace with replaceable execution

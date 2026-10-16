@@ -2,15 +2,45 @@
 
 **Your work survives your tools.**
 
-Forge is a proposed open-source coordination workspace for people who work across AI runtimes and harnesses. It connects ongoing work, memory references, approvals, machine resources, and usage accounting in one place while using each runtime's existing capabilities. Hermes and OpenClaw are replaceable agent runtime integrations. Codex, Claude Code, OpenCode, and other harnesses are execution choices. Hermes is a first-class reference integration, with no required runtime dependency.
+Forge is an open-source local workspace for people who work across AI runtimes and harnesses. It keeps work records, context, native account references, approval receipts, machine resources, and usage evidence together. Native tools supply execution. Hermes is an important integration and remains replaceable.
 
 We call the product concept **Persistent Agency**: your agent profile, memory, workspace, work history, shared connections, schedules, and policies remain in Forge while you change a compatible execution harness at a verified checkpoint.
 
-**Status: research and architecture proposal. There is no runnable Forge application yet.** The diagrams describe intended behavior. No harness integration, migration, resource enforcement, or usage accounting has been implemented or benchmarked here.
+**Status: early local application, v0.1.0.** Work tracking, account slots, live machine telemetry, a separate demo workspace, and an experimental Codex execution/approval adapter are implemented. The broader architecture remains a roadmap. Automatic account switching, cross-harness transfer, phone approvals, scheduling adapters, and hard resource enforcement are not implemented. See [the implementation and evidence](docs/RUNTIME.md).
+
+## Run Forge
+
+Use Node.js 24 or newer:
+
+```sh
+npm ci
+npm run build
+npm start
+```
+
+Open [the local workspace](http://127.0.0.1:4710). The real workspace starts empty. Use the workspace selector to explore clearly labeled fictional examples in a separate in-memory demo. Demo actions never start native execution. Machine telemetry is live in both views.
+
+Create a work record, add a native account slot, and check a supported account from the Accounts view. For experimental managed Codex work, select the account and an existing project directory, then review the launch dialog. Native sign-in stays in the harness; Forge does not collect credentials or purchase credits. Each launch checks effective native account configuration and permissions.
+
+Private state is stored outside this repository. On macOS, the default is `~/Library/Application Support/Forge/workspace.sqlite`. Use `FORGE_DATA_DIR` or `node bin/forge.mjs --data-dir DIRECTORY` to select another location. `FORGE_PORT` or `--port` changes the loopback port. Stop a foreground service with Ctrl+C. No startup agent, background schedule, or hosted service is installed.
+
+## What works today
+
+- Persistent work, goals, context, checkpoints, revision conflict checks, and user-selected context exports.
+- Multiple account slots per supported harness choice, native Codex/Claude authentication status checks, and native Codex quota evidence when exposed.
+- Experimental Codex app-server start/resume, one managed attempt at a time, supported command/file-change approvals, cancellation, native usage snapshots, and crash-recovery receipts.
+- Real CPU, OS memory, process RSS, and service-memory visibility. Quiet mode gates new managed work.
+- Hermes API health and capability discovery through an existing local server.
+- Optional Agent Deck session inventory and ccusage daily Claude reports through their installed native CLIs.
+- Responsive light/dark views, keyboard search, and sanitized setup-blueprint export.
+
+The native execution adapter has protocol-fixture tests and an installed Codex initialization smoke check. A real model-backed task and real account-transfer scenarios have not been exercised. Native limits, permissions, and compatibility still apply.
+
+The figure below describes the broader architecture roadmap.
 
 ![Forge architecture](docs/diagrams/architecture.svg)
 
-## The experience
+## The intended experience
 
 - See what is running, what owns the resources, and what is waiting for a decision.
 - Keep a durable record of project decisions, verified progress, artifacts, and relevant memory.
@@ -26,6 +56,7 @@ The defining demonstration is a real task checkpointed in one harness, continued
 
 ## Read the design
 
+- [Current implementation, setup, and limits](docs/RUNTIME.md)
 - [Native capability boundary](docs/NATIVE_BOUNDARY.md)
 - [Initial existing-solution audit](docs/REUSE_AUDIT.md)
 - [Customizable workspace blueprints](docs/BLUEPRINTS.md)
@@ -52,6 +83,6 @@ This design builds on published work on agent persistence, memory, and schedulin
 
 ## Contributing
 
-At this stage, useful contributions are protocol corrections, adapter capability evidence, adversarial failure scenarios, and improvements to the proposed work checkpoint format. Please distinguish documented upstream support from behavior you have tested. Never contribute private conversations, memory, credentials, billing records, or account data.
+Start with [CONTRIBUTING.md](CONTRIBUTING.md). Useful contributions include native adapter conformance, recorded synthetic fixtures, accessibility improvements, and evidence for existing components Forge can reuse. Distinguish documented upstream support from behavior you have tested. Never contribute private conversations, memory, credentials, billing records, or account data.
 
 The project is available under the [MIT License](LICENSE). Runtime integrations retain their own licenses, authentication requirements, and upstream policies.

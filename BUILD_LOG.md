@@ -1,5 +1,15 @@
 # Build log
 
+## 2026-10-17 · forge-v0.1.0
+
+Built the first local application: a responsive light/dark workspace, keyboard search, native installation discovery, SQLite work records and checkpoints, account slots, native account/allowance probes, real OS telemetry, quiet-mode admission, selected context exports, and sanitized setup-blueprint export. Added an experimental Codex app-server bridge for managed turns, native one-time approvals, cancellation, usage snapshots, and interrupted-run receipts. Hermes has explicit read-only health/capability discovery. Existing Agent Deck and ccusage CLIs remain optional inventory/accounting sources.
+
+Used native SQLite exclusive ownership to prevent a second service from recovering or dispatching an active workspace. Work summaries commit atomically with full context and keep polling lightweight. Added revision conflicts, native-request withdrawal handling, CSRF/origin/host checks, bounded capture, and isolated fictional demo state. Source is divided into server adapters, a deterministic controller/store, shared contracts, and focused interface modules. Added contributor setup and a pinned GitHub Actions verification workflow.
+
+Validation: type checks, formatting, production build, 20 functional/API checks, and four Playwright flows with axe checks pass. Browser coverage includes real persistence/reload, demo decisions, keyboard search, themes, and all views at a narrow width. Rendered light/dark desktop and mobile previews. The installed Codex CLI passed a native initialization handshake without an account lookup or model turn. Dependency audit reports zero known vulnerabilities at this checkpoint. Local document links and Git diff checks pass.
+
+Limitations: native execution is experimental and tested with synthetic protocol fixtures plus the initialization smoke check. No real model task, real native approval, account migration, paid usage, or private native import was exercised. Automatic account fallback, cross-harness transfer, mobile approvals, scheduling control, hard resource limits, and full runtime/memory replacement remain delivery gates. Preliminary service RSS was about 80 MB; full-stack performance targets are unproven. No existing native account or schedule configuration was changed. Checkpoint reference: the commit containing this entry; durable tag `forge-v0.1.0`.
+
 ## 2026-10-16 · architecture-20261016
 
 Created Forge's open-source architecture proposal for Persistent Agency. Defined a primary workspace with stable agent identity, dynamic component contracts, replaceable Hermes/OpenClaw runtimes, heterogeneous native harness adapters, portable work checkpoints, scoped memory, resource ownership, approval correlation, and source-labeled token and dollar accounting.
