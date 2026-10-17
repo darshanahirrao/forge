@@ -2,9 +2,11 @@ import { DatabaseSync } from 'node:sqlite';
 import { chmod, lstat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { assert } from '../errors.js';
+import { checkWorkerProfile } from '../worker-proof.mjs';
 
 /** Cooperative ownership between Forge processes, retained until the native worker exits. */
 export async function acquireProfileLease(root: string): Promise<() => void> {
+  checkWorkerProfile(root);
   const path = join(root, '.forge-native-owner.sqlite');
   const existing = await lstat(path).catch((error) => {
     if (error.code === 'ENOENT') return null;

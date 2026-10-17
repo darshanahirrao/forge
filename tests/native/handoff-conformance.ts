@@ -26,6 +26,8 @@ import type {
   WorkCapsule,
 } from '../../shared/types.js';
 import { fixtureProvider } from './provider.js';
+import { readWorkerExit } from '../../server/worker-proof.mjs';
+import type { WorkerProofDescriptor } from '../../shared/recovery.js';
 
 await mkdir(join(process.cwd(), 'artifacts'), { recursive: true });
 const directory = await mkdtemp(join(process.cwd(), 'artifacts', 'forge-native-handoff-'));
@@ -306,6 +308,7 @@ const profileIds: string[] = [];
 const state = await createApp({
   memoryPressureReader: unknownPressure,
   filename: ':memory:',
+  workerDirectory: join(directory, 'worker-state'),
   csrf: 'handoff-conformance',
   test: true,
   driverFactory: (context) => {
@@ -324,8 +327,14 @@ const state = await createApp({
           }),
       );
     if (context.work.harness === 'opencode')
-      return new OpenCodeDriver((account, cwd) =>
-        openCodeWorker(account, cwd, process.env.FORGE_OPENCODE_CONFORMANCE_BINARY),
+      return new OpenCodeDriver((account, cwd, credentials, spawnNative) =>
+        openCodeWorker(
+          account,
+          cwd,
+          process.env.FORGE_OPENCODE_CONFORMANCE_BINARY,
+          credentials,
+          spawnNative,
+        ),
       );
     if (context.work.harness === 'hermes') return new HermesDriver();
     if (context.work.harness === 'openclaw') return new OpenClawDriver();
@@ -579,6 +588,18 @@ try {
     state.local.all<Run>('runs').filter((r) => r.workId === work.id && r.exitConfirmed).length,
     6,
   );
+  for (const run of state.local.all<Run>('runs')) {
+    assert.equal(run.nativeWorker?.version, 2);
+    assert.ok(run.supervisionId);
+    const descriptor = state.local.get<WorkerProofDescriptor>(
+      'worker_supervisions',
+      run.supervisionId,
+    )!;
+    const proof = readWorkerExit(descriptor);
+    assert.equal(proof.payload.nativeClosed, true);
+    assert.equal(proof.payload.stdioClosed, true);
+    assert.equal(proof.payload.started, true);
+  }
   assert.equal(state.local.checkpoints(work.id)[0].detail, checkpointNote);
   assert.equal(sourceProvider.failure(), null);
   for (const provider of destinations) assert.equal(provider.failure(), null);
@@ -587,6 +608,7 @@ try {
       status: 'passed',
       workIdentityRetained: true,
       nativeRuns: 6,
+      signedNativeExits: 6,
       nativeResourceOwnershipRuns: attributedRuns.size,
       nativeResourcePartitionRuns: attributedRuns.size,
       nativeApprovals: approvals,

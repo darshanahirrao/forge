@@ -1,6 +1,6 @@
 {
   "name": "@forge-workspace/forge",
-  "version": "0.26.0",
+  "version": "0.27.0",
   "description": "A local workspace for continuous work across agent harnesses.",
   "private": true,
   "type": "module",
@@ -37,6 +37,7 @@
     "test:native:availability": "node tests/native/availability-conformance.mjs",
     "test:native:pressure": "node tests/native/pressure-conformance.mjs",
     "test:native:resources": "node tests/native/resource-conformance.mjs",
+    "test:native:recovery": "tsx tests/native/recovery-conformance.ts",
     "test:native:t3": "tsx tests/native/t3-conformance.ts",
     "test:native:t3-execution": "tsx tests/native/t3-execution-conformance.ts",
     "test:native:companion": "tsx tests/native/companion-conformance.ts",

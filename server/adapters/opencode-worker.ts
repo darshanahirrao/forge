@@ -1,13 +1,15 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
-import { lstat, chmod } from 'node:fs/promises';
+import { lstat } from 'node:fs/promises';
 import { DatabaseSync } from 'node:sqlite';
 import type { OpenCodeClient } from '@opencode/client';
 import type { Account } from '../../shared/types.js';
 import { assert, ForgeError } from '../errors.js';
 import { credentialValue, type CredentialMaterial } from '../credentials.js';
 import { findBinary } from './discovery.js';
+import { acquireProfileLease } from './profile-lease.js';
+import type { NativeSpawn, SupervisedChild } from '../worker-supervision.js';
 
 export interface OpenCodeConnection {
   readonly pid?: number;
@@ -21,6 +23,7 @@ export type OpenCodeFactory = (
   account: Account,
   cwd: string,
   credentials?: CredentialMaterial,
+  spawnNative?: NativeSpawn,
 ) => Promise<OpenCodeConnection>;
 
 /** Read native recovery metadata only. Never edit claims or let startup replay an uncertain turn. */
@@ -116,18 +119,17 @@ export async function openCodeWorker(
   cwd: string,
   binaryOverride?: string,
   credentials?: CredentialMaterial,
+  spawnNative?: NativeSpawn,
 ): Promise<OpenCodeConnection> {
   const binary = binaryOverride ?? (await findBinary('opencode'));
   assert(binary, 409, 'Install OpenCode v2 through its native setup before launching.');
   const password = randomBytes(32).toString('hex');
   const env = { ...openCodeEnvironment(account, credentials), OPENCODE_SERVER_PASSWORD: password };
-  const lease = new DatabaseSync(join(account.nativeHome, '.forge-native-owner.sqlite'));
+  const release = await acquireProfileLease(account.nativeHome);
   try {
-    await chmod(join(account.nativeHome, '.forge-native-owner.sqlite'), 0o600);
-    lease.exec('PRAGMA busy_timeout = 0; BEGIN EXCLUSIVE');
     await assertIdleOpenCodeProfile(account.nativeHome);
   } catch (error) {
-    lease.close();
+    release();
     throw error;
   }
   let child: ChildProcess;
@@ -140,14 +142,17 @@ export async function openCodeWorker(
     resolveReady = resolve;
   });
   try {
-    child = spawn(binary, ['serve', '--hostname', '127.0.0.1', '--port', '0'], {
+    const args = ['serve', '--hostname', '127.0.0.1', '--port', '0'];
+    const childOptions = {
       cwd,
       env,
-      stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
-    });
+    };
+    child = spawnNative
+      ? spawnNative(binary, args, childOptions, { input: 'ignore', graceMs: 3000 })
+      : spawn(binary, args, { ...childOptions, stdio: ['ignore', 'pipe', 'pipe'] });
   } catch (error) {
-    lease.close();
+    release();
     throw error;
   }
   const exit = new Promise<void>((resolve) => {
@@ -190,7 +195,7 @@ export async function openCodeWorker(
           output = '';
         }
       } finally {
-        lease.close();
+        release();
       }
     })());
   const timer = setTimeout(() => resolveReady(null), 15000);
@@ -284,7 +289,8 @@ export async function openCodeWorker(
     });
     const info = await client.server.info({ signal: AbortSignal.timeout(5000) });
     assert(
-      /^2\.0\./.test(info.version) && info.pid === child.pid,
+      /^2\.0\./.test(info.version) &&
+        info.pid === (spawnNative ? await (child as SupervisedChild).nativeStarted : child.pid),
       409,
       'OpenCode must confirm its compatible v2.0 API and owned server process before task input.',
     );

@@ -51,6 +51,7 @@ export function Overview({
   const pending = data.approvals.filter((approval) => approval.status === 'pending');
   const notificationIssues = data.notifications?.needsReview ?? 0;
   const nativeControlIssues = data.nativeControls?.needsReview ?? 0;
+  const recoveryIssues = data.recovery?.needsReview ?? 0;
   const active = data.work.filter((work) => work.activeRunId).length;
   const sourceErrors = data.nativeSources.filter((source) => source.state === 'error').length;
   const sources = new Map(data.nativeSources.map((source) => [source.id, source.label]));
@@ -137,12 +138,17 @@ export function Overview({
           {data.settings.quietMode ? 'New work paused' : 'Pause new work'}
         </button>
       </section>
-      {(pending.length > 0 || notificationIssues > 0 || nativeControlIssues > 0) && (
+      {(pending.length > 0 ||
+        notificationIssues > 0 ||
+        nativeControlIssues > 0 ||
+        recoveryIssues > 0) && (
         <section className="workspace-attention" aria-label="Needs your attention">
           <h2>
             <ShieldCheck size={16} />
             Needs your attention{' '}
-            <span>{pending.length + notificationIssues + nativeControlIssues}</span>
+            <span>
+              {pending.length + notificationIssues + nativeControlIssues + recoveryIssues}
+            </span>
           </h2>
           {pending.map((approval) => (
             <button
@@ -162,6 +168,20 @@ export function Overview({
               </span>
             </button>
           ))}
+          {recoveryIssues > 0 && (
+            <button className="attention-row" onClick={onResources}>
+              <span>
+                <strong>Interrupted native workers need review</strong>
+                <small>
+                  {recoveryIssues} unconfirmed {recoveryIssues === 1 ? 'exit' : 'exits'} hold new
+                  managed launches.
+                </small>
+              </span>
+              <span>
+                Review recovery <ChevronRight size={15} />
+              </span>
+            </button>
+          )}
           {notificationIssues > 0 && (
             <button className="attention-row" onClick={onConnections}>
               <span>

@@ -331,6 +331,7 @@ export class NativeConnectors {
     account: Account,
     cwd: string,
     credentials?: CredentialMaterial,
+    spawnNative?: import('./worker-supervision.js').NativeSpawn,
   ) {
     const connector = (await this.validateAccount(account))!;
     const home = await realpath(account.nativeHome);
@@ -342,6 +343,7 @@ export class NativeConnectors {
         connector.manifest.args,
         cwd,
         connectorEnvironment(connector, account, credentials, home),
+        spawnNative,
       );
       let stopping: Promise<void> | undefined;
       return {
@@ -366,7 +368,8 @@ export class NativeConnectors {
       mode: connector.manifest.mode,
       configModes: true,
       coverage,
-      start: (app, ctx) => this.start(app, ctx.account, ctx.work.cwd, ctx.credentials),
+      start: (app, ctx) =>
+        this.start(app, ctx.account, ctx.work.cwd, ctx.credentials, ctx.spawnNative),
       initialize: (worker) => this.initialize(worker, connector),
       configureSession: async (worker, state, sessionId) => {
         if (!connector.manifest.model) return state;

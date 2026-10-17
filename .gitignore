@@ -17,6 +17,7 @@ __pycache__/
 .forge-service.json
 .forge-activation-*.json*
 memory-packs/
+worker-proofs/
 .forge-t3-*.json
 .forge-t3-*.json.*
 .local/

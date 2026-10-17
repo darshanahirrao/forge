@@ -10,6 +10,8 @@ import { gb, age, harnessName } from '../lib/format';
 import { Empty } from '../components/primitives';
 import type { ResourceObservation } from '../../shared/resources';
 import { ResourceMap } from '../components/ResourceMap';
+import { NativeRecovery } from '../components/NativeRecovery';
+import type { NativeRecoverySnapshot, NativeRecoveryRow } from '../../shared/recovery';
 
 export function ResourcesPage({
   machine,
@@ -22,6 +24,8 @@ export function ResourcesPage({
   memoryPolicy = 'protect',
   onMemoryPolicy,
   resources,
+  recovery,
+  onReconcile,
 }: {
   machine: MachineSnapshot;
   quiet: boolean;
@@ -33,6 +37,8 @@ export function ResourcesPage({
   memoryPolicy?: Settings['memoryPressurePolicy'];
   onMemoryPolicy?: () => void;
   resources?: ResourceObservation;
+  recovery?: NativeRecoverySnapshot;
+  onReconcile?: (row: NativeRecoveryRow) => void;
 }) {
   const [showAll, setShowAll] = useState(false);
   const [order, setOrder] = useState<'memory' | 'cpu'>('memory');
@@ -42,6 +48,13 @@ export function ResourcesPage({
   const active = work.filter((w) => w.activeRunId);
   return (
     <div className="page-stack">
+      <NativeRecovery
+        recovery={recovery}
+        work={work}
+        busy={busy}
+        onReconcile={onReconcile}
+        onWork={onWork}
+      />
       <section className="panel resource-controls" aria-label="Memory pressure protection">
         <div>
           <span className="eyebrow">LAPTOP HEADROOM</span>

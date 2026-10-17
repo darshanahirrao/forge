@@ -41,14 +41,17 @@ export async function spawnAcpWorker(
   args: string[],
   cwd: string,
   env: NodeJS.ProcessEnv,
+  spawnNative?: import('../worker-supervision.js').NativeSpawn,
 ): Promise<AcpWorker> {
   const { ndJsonStream } = await import('@agentclientprotocol/sdk');
-  const child = spawn(binary, args, {
+  const childOptions = {
     cwd,
     env,
-    stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
-  });
+  };
+  const child = spawnNative
+    ? spawnNative(binary, args, childOptions, { graceMs: 3000 })
+    : spawn(binary, args, { ...childOptions, stdio: ['pipe', 'pipe', 'pipe'] });
   let exited = false;
   const exit = new Promise<void>((resolve) => {
     child.once('exit', () => {

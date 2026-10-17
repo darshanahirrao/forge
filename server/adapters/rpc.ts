@@ -2,6 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { ForgeError } from '../errors.js';
 import { version } from '../../shared/version.js';
+import type { NativeSpawn } from '../worker-supervision.js';
 
 export interface RpcMessage {
   id?: string | number;
@@ -11,6 +12,7 @@ export interface RpcMessage {
   error?: { code: number; message: string };
 }
 export interface RpcOptions {
+  spawnNative?: NativeSpawn;
   binary: string;
   args?: string[];
   cwd?: string;
@@ -29,12 +31,19 @@ export class NativeRpc extends EventEmitter {
   closed = false;
   constructor(private options: RpcOptions) {
     super();
-    this.child = spawn(options.binary, options.args ?? ['app-server'], {
+    const childOptions = {
       cwd: options.cwd,
       env: options.env ?? process.env,
-      stdio: ['pipe', 'pipe', 'pipe'],
       windowsHide: true,
-    });
+    };
+    this.child = options.spawnNative
+      ? options.spawnNative(options.binary, options.args ?? ['app-server'], childOptions, {
+          graceMs: 1500,
+        })
+      : spawn(options.binary, options.args ?? ['app-server'], {
+          ...childOptions,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
     this.child.stdout.setEncoding('utf8');
     this.child.stdout.on('data', (chunk: string) => this.read(chunk));
     // Drain native diagnostic output. Never forward arbitrary stderr or credentials to the browser.

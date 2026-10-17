@@ -1,5 +1,7 @@
 # Native tool conformance
 
+Build first, then run `npm run test:native:recovery` for compiled Forge crash/restart around an approved actual Codex external effect and a second pending native approval. Exact signed-close reconciliation must produce no extra provider request or unapproved artifact. The six-run handoff also requires signed native-close receipts for every harness. See [native recovery evidence and limits](../../docs/NATIVE_RECOVERY.md).
+
 `npm run test:native:connector` checks registered generic ACP execution with a compatible native OpenCode binary. Set `FORGE_CONNECTOR_CONFORMANCE_BINARY` for an isolated version comparison. Native 2.0.31 passes model/approval/artifact/context/private-reference evidence; installed 2.0.6 is explicitly checked with `-- --expect-model-hold` to prove no input or provider request. See [connector contracts and setup](../../docs/NATIVE_CONNECTORS.md).
 
 `npm run test:native:credentials` checks an owned public synthetic macOS Keychain item and removes that exact item. The Claude SDK check now uses a private-file credential reference against its loopback provider. `npm run test:native:service` also checks reference availability across native restarts. See [credential scope and evidence](../../docs/CREDENTIAL_REFERENCES.md).

@@ -3523,6 +3523,13 @@ label small,
 .native-worker-metrics {
   min-width: 0;
 }
+.native-recovery-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.native-recovery-row small {
+  max-width: 80ch;
+  line-height: 1.6;
+}
 .native-worker-work strong {
   display: block;
   overflow-wrap: anywhere;

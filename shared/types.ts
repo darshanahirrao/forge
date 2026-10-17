@@ -133,6 +133,8 @@ export interface Run {
   startedAt: string;
   endedAt: string | null;
   exitConfirmed?: boolean;
+  supervisionId?: string;
+  recovery?: import('./recovery.js').NativeRecoveryReceipt;
   settlement?: {
     kind: 'delegated-run';
     backendId: string;
@@ -153,7 +155,8 @@ export interface Run {
   nativeWorker?: NativeWorkerIdentity;
 }
 export interface NativeWorkerIdentity {
-  version: 1;
+  version: 1 | 2;
+  supervisionId?: string;
   pid: number;
   ownerPid: number;
   uid: number | null;
@@ -426,6 +429,7 @@ export interface BackgroundRuntime {
   definitionDirectory?: string;
 }
 export interface Snapshot {
+  recovery?: import('./recovery.js').NativeRecoverySnapshot;
   resources?: import('./resources.js').ResourceObservation;
   memoryPacks?: import('./memory-packs.js').MemoryPackReceipt[];
   availability?: import('./availability.js').AvailabilitySnapshot;

@@ -12,6 +12,7 @@ import { Store, id, now } from './store.js';
 import { requestDigest } from './adapters/sources.js';
 import { captureWorker } from './processes.js';
 import { Spending } from './spending.js';
+import type { WorkerSupervisions } from './worker-supervision.js';
 import { accountBinding } from './adapters/binding.js';
 import type { CredentialMaterial } from './credentials.js';
 import type {
@@ -53,6 +54,7 @@ export class ExecutionController {
     private admissionCheck?: () => Promise<void>,
     private authorizeLaunch?: (work: Work, account: Account, allowMetered: boolean) => void,
     private prepareCredentials?: (account: Account) => Promise<CredentialMaterial | undefined>,
+    private supervisions?: WorkerSupervisions,
   ) {
     this.spending = new Spending(store);
     this.spending.recover();
@@ -137,10 +139,11 @@ export class ExecutionController {
         .some((run) =>
           run.settlement
             ? !run.settlement.confirmed
-            : run.workId === workId && run.exitConfirmed === false,
+            : run.exitConfirmed === false ||
+              Boolean(run.nativeWorker && run.exitConfirmed !== true),
         ),
       409,
-      'A prior native worker exit remains unconfirmed. Reconcile its ownership before starting another attempt for this work.',
+      'A prior native worker exit remains unconfirmed. Open Resources and reconcile its ownership before starting another attempt.',
     );
     assert(
       account.harness === work.harness,
@@ -196,6 +199,7 @@ export class ExecutionController {
         ...(review ? { contextReceipt: review.receipt } : {}),
       };
       const context: DriverContext = {
+        spawnNative: this.supervisions?.spawner(run, account),
         credentials: material,
         work: effectiveWork,
         account,
@@ -372,7 +376,8 @@ export class ExecutionController {
         if (active.run.nativeWorker) return;
         // Persist the spawn report synchronously, including during native startup.
         active.run.nativeWorker = {
-          version: 1,
+          version: active.run.supervisionId ? 2 : 1,
+          ...(active.run.supervisionId ? { supervisionId: active.run.supervisionId } : {}),
           pid,
           ownerPid: process.pid,
           uid: null,
@@ -710,6 +715,10 @@ export class ExecutionController {
           }
         }
         await active.driver.close();
+        if (active.run.supervisionId) {
+          const proof = this.supervisions?.inspect(active.run);
+          assert(proof?.state === 'ready', 409, 'Native child closure has not been verified.');
+        }
         if (active.driver.ownership === 'delegated-run') {
           assert(
             active.driver.settlement?.confirmed,
@@ -753,6 +762,83 @@ export class ExecutionController {
       this.active.delete(active.run.workId);
     });
     return active.finishing;
+  }
+  async reconcileOwned(
+    runId: string,
+    expectedRevision: number,
+    digest: string,
+    actor: ApprovalActor,
+  ) {
+    const saved = this.store.get<Run>('runs', runId);
+    assert(saved && !saved.settlement, 409, 'This run is not an owned native attempt.');
+    if (saved.recovery?.digest === digest && saved.exitConfirmed) return saved.recovery;
+    assert(
+      saved.exitConfirmed === false,
+      409,
+      'This native attempt does not need exit reconciliation.',
+    );
+    const active = this.active.get(saved.workId);
+    assert(
+      !this.closing &&
+        !this.preparing &&
+        !this.checkpointOwner &&
+        [...this.active.values()].every((item) => item === active && item.ending),
+      409,
+      'Wait for active native execution before reconciling this run.',
+    );
+    this.checkpointOwner = saved.workId;
+    try {
+      await active?.finishing;
+      const run = this.store.get<Run>('runs', runId)!;
+      const work = this.store.work(run.workId);
+      assert(
+        work.revision === expectedRevision && (!work.activeRunId || work.activeRunId === run.id),
+        409,
+        'This work changed. Review its current recovery evidence.',
+      );
+      const proof = this.supervisions?.inspect(run);
+      assert(
+        proof?.state === 'ready' && proof.digest === digest && proof.method && run.supervisionId,
+        409,
+        'Native exit evidence changed or is unavailable. Its reservation stays held.',
+      );
+      const receipt = {
+        digest,
+        supervisionId: run.supervisionId,
+        method: proof.method,
+        at: now(),
+        actor,
+        ...(proof.native ? { native: proof.native } : {}),
+      };
+      this.store.transaction(() => {
+        const settled: Run = {
+          ...run,
+          status: 'interrupted',
+          exitConfirmed: true,
+          recovery: receipt,
+          endedAt: run.endedAt ?? now(),
+        };
+        this.store.put('runs', run.id, settled);
+        this.spending.settle(settled);
+        this.store.invalidateApprovals(run.id);
+        this.store.updateWork(work.id, {
+          status: 'interrupted',
+          activeRunId: null,
+          stopRequestedAt: null,
+        });
+        this.store.event(
+          work.id,
+          'recovery',
+          'Native exit reconciled',
+          'The original launch or signed child-close evidence released the worker reservation. Review external effects and unknown spending before retrying. No prompt or approval was replayed.',
+        );
+      });
+      active?.credentials?.dispose();
+      this.active.delete(work.id);
+      return receipt;
+    } finally {
+      this.checkpointOwner = null;
+    }
   }
   async reconcileDelegated(
     runId: string,

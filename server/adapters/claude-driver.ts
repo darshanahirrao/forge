@@ -171,13 +171,18 @@ export class ClaudeDriver implements NativeDriver {
           409,
           'The native SDK requested a replacement root worker. Reconcile this attempt before starting another worker.',
         );
-        const child = spawn(options.command, options.args, {
+        const childOptions = {
           cwd: options.cwd,
           env: options.env,
-          stdio: ['pipe', 'pipe', 'pipe'],
           windowsHide: true,
           signal: options.signal,
-        });
+        };
+        const child = context.spawnNative
+          ? context.spawnNative(options.command, options.args, childOptions, { graceMs: 4000 })
+          : spawn(options.command, options.args, {
+              ...childOptions,
+              stdio: ['pipe', 'pipe', 'pipe'],
+            });
         this.child = child;
         this.childExit = new Promise((resolve) => {
           child.once('exit', () => resolve());

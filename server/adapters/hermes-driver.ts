@@ -70,6 +70,7 @@ export async function startHermesWorker(
   account: Account,
   cwd: string,
   credentials?: CredentialMaterial,
+  spawnNative?: import('../worker-supervision.js').NativeSpawn,
 ): Promise<AcpWorker> {
   const env = hermesEnvironment(account, credentials);
   const binary = await findBinary('hermes');
@@ -83,6 +84,7 @@ export async function startHermesWorker(
       [fileURLToPath(new URL('./hermes-native.py', import.meta.url))],
       cwd,
       env,
+      spawnNative,
     );
     let stopped: Promise<void> | null = null;
     return {
@@ -170,7 +172,13 @@ export class HermesDriver extends AcpDriver {
         coverage:
           'Native tools, memory, skills and provider configuration remain in the selected Hermes home. Native command rules and default edit review apply.',
         start: (app, context) =>
-          startHermesWorker(app, context.account, context.work.cwd, context.credentials),
+          startHermesWorker(
+            app,
+            context.account,
+            context.work.cwd,
+            context.credentials,
+            context.spawnNative,
+          ),
         initialize: initializeHermesWorker,
         verifySession: (state, sessionId) => {
           const native = state._meta?.hermes as

@@ -12,6 +12,7 @@ type Collection =
   | 'backends'
   | 'events'
   | 'runs'
+  | 'worker_supervisions'
   | 'approvals'
   | 'usage'
   | 'capsules'
@@ -48,7 +49,7 @@ export class Store {
     try {
       const version = this.db.prepare('PRAGMA user_version').get() as { user_version: number };
       assert(
-        version.user_version <= 6,
+        version.user_version <= 7,
         409,
         'This workspace was created by a newer Forge version. Open it with that version.',
       );
@@ -69,8 +70,8 @@ export class Store {
       CREATE INDEX IF NOT EXISTS native_controls_by_job ON records(json_extract(data,'$.sourceId'), json_extract(data,'$.jobId'), json_extract(data,'$.state')) WHERE collection='native_controls';
       `);
       let backup: string | null = null;
-      if (version.user_version > 0 && version.user_version < 6 && filename !== ':memory:') {
-        backup = `${filename}.before-v6.${randomUUID()}.sqlite`;
+      if (version.user_version > 0 && version.user_version < 7 && filename !== ':memory:') {
+        backup = `${filename}.before-v7.${randomUUID()}.sqlite`;
         writeFileSync(backup, '', { flag: 'wx', mode: 0o600 });
         try {
           this.db.prepare('VACUUM INTO ?').run(backup);
@@ -79,7 +80,7 @@ export class Store {
           throw error;
         }
       }
-      this.db.exec('PRAGMA user_version = 6');
+      this.db.exec('PRAGMA user_version = 7');
       this.migrationBackup = backup;
     } catch (error) {
       this.db.close();
@@ -108,6 +109,19 @@ export class Store {
          AND (json_extract(data,'$.exitConfirmed') IS NOT 1
               OR json_extract(data,'$.status') IN ('starting','running'))
          ORDER BY rowid DESC`,
+      )
+      .all()
+      .map((row) => JSON.parse(String(row.data)) as Run);
+  }
+  unconfirmedNativeRuns(): Run[] {
+    return this.db
+      .prepare(
+        `SELECT data FROM records WHERE collection='runs'
+        AND (json_extract(data,'$.exitConfirmed')=0 OR
+          (json_type(data,'$.nativeWorker')='object' AND json_extract(data,'$.exitConfirmed') IS NOT 1
+            AND json_extract(data,'$.status') NOT IN ('starting','running')))
+        AND json_type(data,'$.settlement') IS NULL
+      ORDER BY rowid DESC`,
       )
       .all()
       .map((row) => JSON.parse(String(row.data)) as Run);

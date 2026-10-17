@@ -24,6 +24,7 @@ export function LaunchDialog({
   onResources,
   onRouted,
   onSpending,
+  unresolvedWorkers = 0,
 }: {
   work: Work;
   account?: Account;
@@ -35,6 +36,7 @@ export function LaunchDialog({
   onResources?: () => void;
   onRouted: (work: Work) => void;
   onSpending: () => void;
+  unresolvedWorkers?: number;
 }) {
   const [metered, setMetered] = useState(false);
   const [reconciled, setReconciled] = useState(false);
@@ -206,6 +208,21 @@ export function LaunchDialog({
               </button>
             </section>
           )}
+          {unresolvedWorkers > 0 && (
+            <div className="notice" role="status">
+              <div>
+                <strong>A prior native exit needs review.</strong>
+                <p>
+                  {unresolvedWorkers} unconfirmed{' '}
+                  {unresolvedWorkers === 1 ? 'worker holds' : 'workers hold'} new managed launches.
+                  Review the original exit evidence before starting.
+                </p>
+                <button type="button" className="text-button" onClick={onResources}>
+                  Review worker recovery
+                </button>
+              </div>
+            </div>
+          )}
           {pressureHigh && (
             <div className="notice" role="status">
               <div>
@@ -362,6 +379,7 @@ export function LaunchDialog({
             className="button primary"
             disabled={
               busy ||
+              unresolvedWorkers > 0 ||
               pressureHigh ||
               !compatible ||
               !review ||

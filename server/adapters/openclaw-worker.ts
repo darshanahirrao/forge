@@ -56,6 +56,7 @@ export type OpenClawFactory = (
   account: Account,
   cwd: string,
   credentials?: CredentialMaterial,
+  spawnNative?: import('../worker-supervision.js').NativeSpawn,
 ) => Promise<OpenClawConnection>;
 
 /** A dedicated native execution profile. Other accounts' ambient provider keys are excluded. */
@@ -287,6 +288,7 @@ export async function openClawWorker(
   account: Account,
   cwd: string,
   credentials?: CredentialMaterial,
+  spawnNative?: import('../worker-supervision.js').NativeSpawn,
 ): Promise<OpenClawConnection> {
   const env = openClawEnvironment(account, credentials);
   const installation = await openClawInstallation(env);
@@ -301,7 +303,11 @@ export async function openClawWorker(
       await import('@openclaw/gateway-client');
     identity.cleanExit = false;
     await saveIdentity(filename, identity);
-    const child = spawn(
+    const nativeSpawn =
+      spawnNative ??
+      ((command, args, options) =>
+        spawn(command, args, { ...options, stdio: ['ignore', 'pipe', 'pipe'] }));
+    const child = nativeSpawn(
       installation.node,
       [
         installation.binary,
@@ -319,9 +325,9 @@ export async function openClawWorker(
       {
         cwd,
         env: { ...env, OPENCLAW_GATEWAY_TOKEN: token },
-        stdio: ['ignore', 'pipe', 'pipe'],
         windowsHide: true,
       },
+      { input: 'ignore', graceMs: 335000 },
     );
     // Diagnostics are private and bounded; never return native logs or bootstrap credentials.
     child.stdout?.resume();

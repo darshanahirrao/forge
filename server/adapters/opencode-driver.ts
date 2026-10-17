@@ -53,8 +53,8 @@ export class OpenCodeDriver implements NativeDriver {
     return this.closing || Boolean(this.worker?.transportLost);
   }
   constructor(
-    private factory: OpenCodeFactory = (account, cwd, credentials) =>
-      openCodeWorker(account, cwd, undefined, credentials),
+    private factory: OpenCodeFactory = (account, cwd, credentials, spawnNative) =>
+      openCodeWorker(account, cwd, undefined, credentials, spawnNative),
   ) {}
 
   async start(context: DriverContext, sink: DriverSink) {
@@ -68,7 +68,12 @@ export class OpenCodeDriver implements NativeDriver {
       409,
       'Forge cannot verify or require subscription allowance through this OpenCode route. Choose native or API billing.',
     );
-    this.starting = this.factory(context.account, context.work.cwd, context.credentials);
+    this.starting = this.factory(
+      context.account,
+      context.work.cwd,
+      context.credentials,
+      context.spawnNative,
+    );
     this.worker = await this.starting;
     if (this.closing) {
       await this.worker.stop();

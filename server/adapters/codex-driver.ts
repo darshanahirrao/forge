@@ -30,6 +30,7 @@ export class CodexDriver implements NativeDriver {
     assert(binary, 409, 'Codex is not installed on PATH. Complete its native setup first.');
     if (this.closing) return;
     const rpc = this.factory({
+      spawnNative: context.spawnNative,
       binary,
       cwd: context.work.cwd,
       env: nativeEnvironment(context.account, context.credentials),

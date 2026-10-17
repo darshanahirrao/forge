@@ -440,6 +440,18 @@ export function App() {
               )}
               {view === 'resources' && (
                 <ResourcesPage
+                  recovery={snapshot.recovery}
+                  onReconcile={(row) =>
+                    void act(
+                      `recovery:${row.runId}`,
+                      () =>
+                        mutate(`/recovery/${row.runId}/reconcile`, 'POST', {
+                          expectedRevision: row.revision,
+                          digest: row.digest,
+                        }),
+                      'Native exit reconciled. Review external effects and spending before retrying.',
+                    )
+                  }
                   machine={snapshot.machine}
                   resources={snapshot.resources}
                   workers={snapshot.nativeWorkers}
@@ -604,6 +616,7 @@ export function App() {
       )}
       {snapshot && launch && (
         <LaunchDialog
+          unresolvedWorkers={snapshot.recovery?.needsReview}
           work={launch}
           onRouted={setLaunch}
           onSpending={() => {

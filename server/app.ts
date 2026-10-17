@@ -38,6 +38,7 @@ import { OpenCodeDriver } from './adapters/opencode-driver.js';
 import { HermesDriver } from './adapters/hermes-driver.js';
 import { OpenClawDriver } from './adapters/openclaw-driver.js';
 import { ExecutionController } from './execution.js';
+import { WorkerSupervisions } from './worker-supervision.js';
 import { Continuity } from './continuity.js';
 import { NativeSources, type NativeSourcesOptions } from './native-sources.js';
 import { Profiles, inspectMemory } from './memory.js';
@@ -96,6 +97,8 @@ const accountSchema = z
   })
   .strict();
 export interface AppOptions {
+  /** Explicit owned test directory enables supervision for in-memory fixtures. */
+  workerDirectory?: string;
   availability?: AvailabilityOptions;
   nativeControlBridge?: NativeControlBridge;
   notificationFetch?: typeof fetch;
@@ -123,6 +126,13 @@ export async function createApp(options: AppOptions) {
   const app = Fastify({ logger: false, bodyLimit: 512 * 1024, requestTimeout: 35000 });
   const local = new Store(options.filename);
   local.recoverInterruptedRuns();
+  const supervisions = new WorkerSupervisions(
+    local,
+    options.workerDirectory ??
+      (options.filename === ':memory:'
+        ? undefined
+        : resolve(dirname(options.filename), 'worker-proofs')),
+  );
   const demo = new Store(':memory:');
   seedDemo(demo);
   const backends = new T3Backends(
@@ -165,6 +175,7 @@ export async function createApp(options: AppOptions) {
       await connectors.validateAccount(account);
       return resolveCredential(account);
     },
+    supervisions,
   );
   const profiles: Profiles = new Profiles(local, () => controller.activeCount > 0);
   const demoProfiles = new Profiles(demo);
@@ -508,6 +519,7 @@ export async function createApp(options: AppOptions) {
       spending: mode(request) === 'demo' ? undefined : controller.spending.snapshot(),
       notifications: mode(request) === 'demo' ? undefined : notifications.snapshot(),
       nativeControls: mode(request) === 'demo' ? undefined : nativeControls.snapshot(),
+      recovery: mode(request) === 'demo' ? undefined : supervisions.snapshot(),
       outcomes: mode(request) === 'demo' ? [] : controller.spending.outcomes(),
       version,
       csrf,
@@ -1259,6 +1271,22 @@ export async function createApp(options: AppOptions) {
       return result;
     }),
   );
+  app.post('/api/recovery/:id/reconcile', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo work has no native exit evidence.');
+    const input = z
+      .object({
+        expectedRevision: z.number().int().nonnegative(),
+        digest: z.string().regex(/^[a-f0-9]{64}$/),
+      })
+      .strict()
+      .parse(request.body);
+    return controller.reconcileOwned(
+      (request.params as { id: string }).id,
+      input.expectedRevision,
+      input.digest,
+      bridgeActor(request.headers, options.phoneBridge),
+    );
+  });
   app.post('/api/runs/:id/reconcile', async (request) => {
     assert(mode(request) === 'local', 409, 'Demo work has no native run.');
     const input = z
