@@ -4,6 +4,8 @@ This document defines the broader architecture. The first local application is i
 
 Proposal dated 16 October 2026. Components and contracts below are design decisions to validate, not implemented functionality.
 
+Reuse update, 17 October: [T3 Code's pinned review](T3_CODE_REVIEW.md) establishes substantial overlap and makes it the first existing foundation to evaluate before extending duplicate infrastructure. The current v0.12 runtime remains unchanged. If T3 supplies execution, Forge must call its supported boundary and keep one native owner; a Forge control surface must not independently dispatch, approve or clean up the same T3-owned worker. Product fit, native Hermes/OpenClaw behavior and whole-stack overhead still need isolated runtime evidence.
+
 ## A permanent workspace with replaceable execution
 
 Forge owns a stable `agent_id` and versioned profile: authored identity and instructions, memory references, project memberships, goals, schedule references, shared tool and skill bindings, and policy. A harness binding identifies an execution engine, reasoner, host, native session, and generation. Changing that binding must not reset the durable profile or workspace.

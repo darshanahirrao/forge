@@ -1,5 +1,13 @@
 # Build log
 
+## 2026-10-17 · t3code-reuse-20261017
+
+Reviewed the user's T3 Code reference against pinned upstream `02d48aec5c75e6abb90d06fd2c63939a82bd3718`, including its MIT license, provider/account boundaries, EventSink transaction/outbox source, portable handoff source, authenticated external MCP, native services, usage and resource diagnostics. Recorded substantial existing overlap and made an isolated T3 comparison the next foundation gate before expanding duplicate infrastructure. The review distinguishes compatible account switching from arbitrary migration, bounded summaries from native context parity, and a Hermes ACP worker from an always-on companion.
+
+Added docs/T3_CODE_REVIEW.md with pinned primary sources, single-owner integration boundaries and concrete account/approval/companion/recovery/performance acceptance cases. Updated architecture, reuse audit, completion audit and this handoff together. Validation: new-document formatting, changed-document local links and pinned source targets, source-evidence checks and Git diff checks pass. This is a documentation checkpoint; no runtime code or dependency changed, and the existing 113 functional, three package and fourteen browser checks were not rerun for this source review.
+
+No upstream code was copied, dependencies installed, T3 process launched, credentials connected, private work migrated or startup service changed. Current runtime remains v0.12.0. Adoption, runtime performance and missing-product claims are not established; no completion percentage changes. Checkpoint reference: the commit containing this entry; durable tag `t3code-reuse-20261017`.
+
 ## 2026-10-17 · forge-v0.12.0
 
 Added fresh reported-memory-pressure admission before creating managed native workers. The default policy holds on recognized macOS warning/critical pressure, while an explicit observe-only choice persists and exports with generic setup. Preparation capacity remains reserved through context reads and the fresh query; the coordinator then reads current policy and rechecks quiet mode/work revision before factory construction. A hold creates no run or native task input and is not automatically retried. Resources displays native pressure/coverage and policy; launch review explains a high-pressure hold and links back to Resources. Existing work and foreign sessions retain native controls.

@@ -2,6 +2,8 @@
 
 Reviewed 16 October 2026 from primary project documentation and GitHub metadata. This is an initial candidate map, not an integration decision or exhaustive market review. No candidate was installed, executed, benchmarked, or connected to private user data.
 
+Update, 17 October 2026: the user added T3 Code as a reference. Its pinned source and license review is recorded in [T3_CODE_REVIEW.md](T3_CODE_REVIEW.md). T3 is now the first whole-product foundation to evaluate before extending overlapping Forge infrastructure. This later review checked source in an isolated sparse checkout; it did not execute T3 or change the current runtime.
+
 Several functions previously proposed for Forge are already available in existing products. The next step is to assess whether one existing foundation can meet the whole need, and then identify a small, verified gap. Avoid adding several overlapping control planes to a resource-constrained laptop.
 
 ## Candidate evidence
@@ -20,6 +22,7 @@ The license labels above identify the reviewed upstream material. Distribution, 
 
 GitHub HEAD references observed during the review:
 
+- T3 Code, added 17 October: `02d48aec5c75e6abb90d06fd2c63939a82bd3718`. The root LICENSE is MIT, copyright 2026 T3 Tools Inc.; see the [pinned review](T3_CODE_REVIEW.md) for actual account/continuation limits and adoption gates.
 - Agent Deck: `8d0f1fe1506dec1405d774c42c178291d1b20f40`.
 - CC Switch: `797e0276ffc20e54cbdf55e3de84505d77231c91`.
 - ccusage: `06810ef8075ce6b5297985327ce841382e89c88f`, canonical repository [ccusage/ccusage](https://github.com/ccusage/ccusage).
@@ -39,6 +42,8 @@ The [account design](ACCOUNTS.md) adds effective-identity checks, authentication
 ## Current direction
 
 Prefer one suitable orchestration foundation, native runtime capabilities, and optional data-source adapters. Use a new Forge component only where a tested requirement remains unmet. Shareable workspace blueprints, a calm attention model, causal explanations for stalled work, and evidence-based continuity are product hypotheses to evaluate against these candidates.
+
+Prioritize the [T3 Code comparison](T3_CODE_REVIEW.md) before expanding native account, mobile, orchestration or provider infrastructure. Its existing authenticated MCP boundary, instance model, transactional orchestration and demand-driven resource collector are concrete reuse candidates. Preserve a single execution owner and require measured compatibility and overhead before adoption; do not count this source review as a working integration.
 
 ## First implementation decision, 17 October 2026
 
