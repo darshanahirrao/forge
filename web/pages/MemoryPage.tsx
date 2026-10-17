@@ -645,6 +645,7 @@ function NewProfile({
             maxLength={100}
             required
             autoFocus
+            data-autofocus=""
           />
         </label>
         <p className="source-note">

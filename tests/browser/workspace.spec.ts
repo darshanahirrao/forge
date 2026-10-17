@@ -221,7 +221,7 @@ test('create an account slot, save work and a checkpoint, and retain them after 
   page,
 }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Your workspace, in focus.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Workspace', level: 1 })).toBeVisible();
   await page.getByRole('button', { name: 'Accounts', exact: true }).click();
   await page.getByRole('button', { name: 'Add account', exact: true }).click();
   await page.getByLabel('Account label').fill('Browser fixture slot');
@@ -287,11 +287,11 @@ test('quiet mode persists, search is keyboard accessible, and both themes meet a
   await expect(quiet).toHaveAttribute('aria-checked', 'true');
   await quiet.click();
   await page.keyboard.press('Control+k');
-  const search = page.getByRole('dialog', { name: 'Find your next step.' });
+  const search = page.getByRole('dialog', { name: 'Commands' });
   await expect(search).toBeVisible();
-  await search.getByLabel('Search views and work').fill('Accounts');
-  await search.getByRole('button', { name: 'Accounts', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Many accounts. One workspace.' })).toBeVisible();
+  await search.getByLabel('Search commands and work').fill('Accounts');
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('heading', { name: 'Accounts', level: 1 })).toBeVisible();
   for (const dark of [false, true]) {
     if (dark) await page.getByRole('button', { name: 'Use dark theme' }).click();
     const result = await new AxeBuilder({ page })
@@ -307,7 +307,7 @@ test('all views remain usable on a narrow screen without page overflow', async (
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   for (const label of [
-    'Overview',
+    'Workspace',
     'Work',
     'Activity',
     'Memory',
@@ -325,7 +325,7 @@ test('all views remain usable on a narrow screen without page overflow', async (
   }
   await page.getByRole('button', { name: 'Toggle navigation' }).click();
   await page.getByTitle('Explore the isolated demo workspace').click();
-  await expect(page.getByRole('heading', { name: 'Work in motion' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Recent work' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
   );
@@ -488,12 +488,28 @@ test('native activity discovers profiles, preserves observations after reload an
   await expect(detail.getByText('Stored session; live state unknown')).toBeVisible();
   await detail.getByRole('button', { name: 'Close dialog' }).click();
   await page.reload();
+  await expect(page.locator('main h1')).toHaveText('Activity');
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'Workspace', exact: true })
+    .click();
   await expect(
-    page.getByRole('heading', { name: '1 native chat · 2 schedule records' }),
+    page.getByRole('button', { name: 'Existing native fixture chat', exact: true }),
   ).toBeVisible();
-  await page.getByRole('button', { name: 'View native activity', exact: true }).click();
-  await expect(page.getByText('Existing native fixture chat', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: /^Schedules / }).click();
+  await page.getByRole('button', { name: 'Existing native fixture chat', exact: true }).click();
+  await expect(detail.getByText('fixture-observed-thread', { exact: true })).toBeVisible();
+  await detail.getByRole('button', { name: 'Close dialog' }).click();
+  await page.keyboard.press('Control+k');
+  const palette = page.getByRole('dialog', { name: 'Commands', exact: true });
+  await palette.getByLabel('Search commands and work').fill('Existing native fixture chat');
+  await page.keyboard.press('Enter');
+  await expect(detail.getByText('fixture-observed-thread', { exact: true })).toBeVisible();
+  await detail.getByRole('button', { name: 'Close dialog' }).click();
+  await page.getByRole('button', { name: '2 schedules', exact: true }).click();
+  await expect(page.getByRole('button', { name: /^Schedules / })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   await expect(page.getByRole('heading', { name: 'Native morning review' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Native Hermes check' })).toBeVisible();
   await expect(page.getByText('excluded native instructions')).not.toBeVisible();
@@ -582,7 +598,7 @@ test('native memory is selected by section, pinned to a persistent profile and r
       ).memorySourceIds.length;
     })
     .toBe(1);
-  await page.getByRole('heading', { name: 'Same identity. Persistent memory.' }).click();
+  await page.getByRole('heading', { name: 'Memory', level: 1 }).click();
   for (const dark of [false, true]) {
     if (dark) await page.getByRole('button', { name: 'Use dark theme' }).click();
     expect(
@@ -601,6 +617,7 @@ test('native memory is selected by section, pinned to a persistent profile and r
   await page
     .getByLabel('Goal', { exact: true })
     .fill('Review selected native memory before running.');
+  await page.getByText('Additional context and options', { exact: true }).click();
   await page.getByLabel('Persistent profile').selectOption({ label: 'Portable browser profile' });
   await page
     .getByRole('combobox', { name: 'Account', exact: true })
@@ -918,5 +935,108 @@ test('private HTTPS mobile approval uses the same native request and records its
     expect(replay.status()).toBe(409);
   } finally {
     await context.close();
+  }
+});
+
+test('workspace commands, progressive setup and browser navigation preserve real work', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const before = await (await page.request.get('/api/snapshot')).json();
+  await page.keyboard.press('Control+k');
+  const commands = page.getByRole('dialog', { name: 'Commands', exact: true });
+  const query = commands.getByRole('combobox', { name: 'Search commands and work' });
+  await expect(query).toBeFocused();
+  await page.keyboard.type('> new work');
+  await expect(commands.getByRole('option')).toHaveCount(2);
+  await expect(commands.getByRole('option').first()).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Enter');
+  const create = page.getByRole('dialog', { name: 'New work', exact: true });
+  await expect(create).toBeVisible();
+  await expect(create.getByLabel('Work title')).toBeFocused();
+  await create.screenshot({ path: 'artifacts/forge-new-work-light.png' });
+  await expect(create.getByLabel('Goal', { exact: true })).toBeVisible();
+  await expect(create.getByLabel('Acceptance criteria')).not.toBeVisible();
+  await create.getByLabel('Work title').fill('Keyboard workspace continuity');
+  await create
+    .getByLabel('Goal', { exact: true })
+    .fill('Find this record quickly and retain optional context.');
+  await create.getByText('Additional context and options', { exact: true }).click();
+  await create
+    .getByLabel('Context to carry forward')
+    .fill('Keep this optional native continuation context.');
+  await create
+    .getByLabel('Acceptance criteria')
+    .fill('Context survives the folded form and reload.');
+  await create.getByText('Additional context and options', { exact: true }).click();
+  await create.getByRole('button', { name: 'Create work', exact: true }).click();
+  const work = page.getByRole('dialog', { name: 'Keyboard workspace continuity', exact: true });
+  await expect(work).toBeVisible();
+  await work.getByRole('button', { name: 'Close dialog' }).click();
+  const saved = await (await page.request.get('/api/snapshot')).json();
+  expect(saved.work).toHaveLength(before.work.length + 1);
+  const record = saved.work.find(
+    (item: { title: string }) => item.title === 'Keyboard workspace continuity',
+  );
+  const stored = await (await page.request.get(`/api/work/${record.id}`)).json();
+  expect(stored.work.context).toBe('Keep this optional native continuation context.');
+  expect(stored.work.acceptance).toBe('Context survives the folded form and reload.');
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'Resources', exact: true })
+    .click();
+  await page.getByRole('navigation').getByRole('button', { name: 'Memory', exact: true }).click();
+  await page.reload();
+  await expect(page.locator('main h1')).toHaveText('Memory');
+  await page.goBack();
+  await expect(page.locator('main h1')).toHaveText('Resources');
+  await page.goForward();
+  await expect(page.locator('main h1')).toHaveText('Memory');
+  await page.keyboard.press('Control+k');
+  await query.fill('Keyboard workspace continuity');
+  await expect(commands.getByRole('option')).toHaveCount(1);
+  await page.keyboard.press('ArrowUp');
+  await expect(commands.getByRole('option')).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Enter');
+  await expect(work).toBeVisible();
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Control+k');
+  await query.fill('>');
+  const options = commands.getByRole('option');
+  await page.keyboard.press('ArrowDown');
+  await expect(options.nth(1)).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('ArrowUp');
+  await expect(options.nth(0)).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Escape');
+  await expect(commands).toHaveCount(0);
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'Workspace', exact: true })
+    .click();
+  await page.getByLabel('Filter workspace work').fill('Keyboard workspace continuity');
+  await expect(
+    page.getByRole('button', { name: 'Keyboard workspace continuity', exact: true }),
+  ).toBeVisible();
+  await page.getByLabel('Filter workspace work').fill('');
+  await page.getByRole('heading', { name: 'Workspace', level: 1 }).click();
+  for (const dark of [false, true]) {
+    if (dark) await page.getByRole('button', { name: 'Use dark theme' }).click();
+    for (const mobile of [false, true]) {
+      await page.setViewportSize(
+        mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 },
+      );
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+        true,
+      );
+      expect(
+        (
+          await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()
+        ).violations.map((violation) => violation.id),
+      ).toEqual([]);
+      await page.screenshot({
+        path: `artifacts/forge-workspace-${mobile ? 'mobile' : 'desktop'}-${dark ? 'dark' : 'light'}.png`,
+        fullPage: true,
+      });
+    }
   }
 });

@@ -1,5 +1,15 @@
 # Build log
 
+## 2026-10-17 · forge-v0.14.0
+
+Reworked the workspace around the user's explicit preference for minimal, efficient daily agent operation. Primary-source review of T3 Code, OpenCode, Superset and cmux is recorded in docs/UI_EXPERIENCE.md. Workspace now shows managed work and saved native chats together, with text/type filters, bounded row rendering, direct metadata details, exact pending decisions and direct schedule navigation. Compact resource and saved-usage evidence replaces the home summary cards. Daily views and configuration are grouped; marketing headings and the sidebar slogan were removed. Existing theme tokens and native ownership boundaries remain intact.
+
+Expanded the existing search dialog into a keyboard command/work palette with Arrow Up/Down, Enter, Escape, an actions-only prefix and native metadata results. Native details are shared with Activity. Creation retains title, goal, binding and project directory up front, with additional context/profile/project/priority/acceptance fields folded until needed. Values survive collapsing and saving. Navigation survives reload and browser Back/Forward. Live in-app-browser QA caught the close button stealing initial modal focus; explicit input focus now runs after native showModal, with a regression that types directly after Ctrl/Cmd K. No UI dependency, native tool loop, terminal, editor or scheduler was added.
+
+Validation: formatting, TypeScript and production build; 124 functional checks, three package checks and sixteen browser flows with axe. Browser coverage includes saved optional context, immediate keyboard input and selection, native observations from Workspace and Commands, direct schedules, browser history, both themes and narrow layouts. Four workspace captures and the short work form were visually reviewed. Private state retains one profile, three memory references, four sources, 114 native chats, 13 schedules and zero configured execution accounts; foreground local service remains on port 4710. No private work, account credential, native schedule or startup item was changed.
+
+This is a workflow checkpoint for an early framework. T3 execution adoption, automatic eligible-account routing, always-on companion interchangeability, general extensions, reconciled budget admission, robust recovery and whole-stack resource evidence remain open. No completion percentage is inferred from UI or test counts. Checkpoint reference: the commit containing this entry; durable tag `forge-v0.14.0`.
+
 ## 2026-10-17 · forge-v0.13.0
 
 Added an optional native T3 Code activity connection, reusing its own MCP/OAuth interface and official MIT MCP SDK 1.32.1. Activity accepts a local address or copied MCP URL, uses the native sign-in page and accepts exactly a read-only grant. Fixed native project/thread tools produce bounded observations; no generic tool proxy, transcript/database parser, scheduler or T3 launcher was added. Native provider-instance IDs stay separate from harness/account identity, and unread schedules do not appear as a measured zero. Existing T3 work retains its owner and controls.

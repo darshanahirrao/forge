@@ -6,11 +6,11 @@ import {
   type Approval,
   type Work,
   type WorkEvent,
+  type NativeSession,
 } from '../shared/types';
 import { type View, nav } from './navigation';
 import { request, download } from './api';
 import {
-  ChevronDown,
   ArrowRight,
   CircleHelp,
   Menu,
@@ -46,6 +46,12 @@ import { ApprovalDialog } from './components/ApprovalDialog';
 import { LaunchDialog } from './components/LaunchDialog';
 import { HandoffDialog } from './components/HandoffDialog';
 import { SearchDialog } from './components/SearchDialog';
+import { NativeSessionDialog } from './components/NativeSessionDialog';
+
+function currentView(): View {
+  const value = window.location.hash.slice(1);
+  return nav.find((item) => item.id === value)?.id ?? 'overview';
+}
 
 export function App() {
   const t3Result = new URLSearchParams(window.location.search).get('t3');
@@ -53,7 +59,8 @@ export function App() {
   const [mode, setMode] = useState<WorkspaceMode>(() =>
     !returnedFromT3 && localStorage.getItem('forge.workspace') === 'demo' ? 'demo' : 'local',
   );
-  const [view, setView] = useState<View>(returnedFromT3 ? 'activity' : 'overview');
+  const [view, setView] = useState<View>(returnedFromT3 ? 'activity' : currentView);
+  const [activityTab, setActivityTab] = useState<'chats' | 'schedules'>('chats');
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [networkError, setNetworkError] = useState('');
   const [toast, setToast] = useState(
@@ -70,6 +77,7 @@ export function App() {
   const [newWork, setNewWork] = useState(false);
   const [newAccount, setNewAccount] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  const [nativeSelected, setNativeSelected] = useState<NativeSession | null>(null);
   const [detail, setDetail] = useState<{ work: Work; events: WorkEvent[] } | null>(null);
   const [approval, setApproval] = useState<Approval | null>(null);
   const [launch, setLaunch] = useState<Work | null>(null);
@@ -98,6 +106,7 @@ export function App() {
   useEffect(() => {
     setSnapshot(null);
     setSelected(null);
+    setNativeSelected(null);
     setApproval(null);
     setLaunch(null);
     setHandoff(false);
@@ -123,6 +132,18 @@ export function App() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
   useEffect(() => {
+    const restore = () => {
+      setView(currentView());
+      setMobileNav(false);
+    };
+    window.addEventListener('popstate', restore);
+    window.addEventListener('hashchange', restore);
+    return () => {
+      window.removeEventListener('popstate', restore);
+      window.removeEventListener('hashchange', restore);
+    };
+  }, []);
+  useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(''), 5000);
     return () => clearTimeout(timer);
@@ -131,10 +152,14 @@ export function App() {
     localStorage.setItem('forge.workspace', next);
     setSnapshot(null);
     setMode(next);
-    setView('overview');
+    navigate('overview');
+    setNewWork(false);
+    setNewAccount(false);
+    setSearchOpen(false);
     setMobileNav(false);
   }
   function navigate(next: View) {
+    if (window.location.hash !== `#${next}`) window.history.pushState(null, '', `#${next}`);
     setView(next);
     setMobileNav(false);
   }
@@ -182,7 +207,14 @@ export function App() {
   const selectedWork = detail?.work.id === selected ? detail.work : null;
   return (
     <div className="app-shell">
-      <a className="skip-link" href="#main">
+      <a
+        className="skip-link"
+        href="#main"
+        onClick={(event) => {
+          event.preventDefault();
+          document.getElementById('main')?.focus();
+        }}
+      >
         Skip to workspace
       </a>
       {mobileNav && (
@@ -215,49 +247,48 @@ export function App() {
               : 'Return to your local workspace'
           }
         >
-          <span className="workspace-monogram">{mode === 'local' ? 'P' : 'D'}</span>
+          <span className="workspace-monogram">{mode === 'local' ? 'L' : 'D'}</span>
           <span>
-            <strong>{mode === 'local' ? 'Personal' : 'Demo workspace'}</strong>
-            <small>{mode === 'local' ? 'On this machine' : 'Fictional examples'}</small>
+            <strong>{mode === 'local' ? 'Local workspace' : 'Demo workspace'}</strong>
+            <small>{mode === 'local' ? 'Switch to demo' : 'Return to local'}</small>
           </span>
-          <ChevronDown size={14} />
+          <ArrowRight size={14} />
         </button>
-        <span className="nav-label">WORKSPACE</span>
         <nav>
-          {nav.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => navigate(item.id)}
-              className={`nav-item ${view === item.id ? 'selected' : ''}`}
-              aria-current={view === item.id ? 'page' : undefined}
-            >
-              <item.icon size={18} strokeWidth={1.6} />
-              <span>{item.label}</span>
-              {item.id === 'approvals' && pending.length > 0 && (
-                <span className="nav-count">{pending.length}</span>
+          {nav.map((item, index) => (
+            <div key={item.id}>
+              {(index === 0 || item.id === 'memory') && (
+                <span className="nav-label">{index === 0 ? 'WORKSPACE' : 'CONFIGURATION'}</span>
               )}
-            </button>
+              <button
+                onClick={() => navigate(item.id)}
+                className={`nav-item ${view === item.id ? 'selected' : ''}`}
+                aria-current={view === item.id ? 'page' : undefined}
+              >
+                <item.icon size={18} strokeWidth={1.6} />
+                <span>{item.label}</span>
+                {item.id === 'approvals' && pending.length > 0 && (
+                  <span className="nav-count">{pending.length}</span>
+                )}
+              </button>
+            </div>
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="sidebar-note">
-            <span className="eyebrow">PERSISTENT AGENCY</span>
-            <p>
-              Your work survives
-              <br />
-              your tools.
-            </p>
-            <button className="text-button" onClick={() => setHelp(true)}>
-              How Forge works <ArrowRight size={14} />
-            </button>
-          </div>
+          <button className="nav-item" onClick={() => setSearchOpen(true)}>
+            <Command size={18} strokeWidth={1.6} />
+            <span>Commands</span>
+            <span className="nav-shortcut" title="Ctrl/Cmd K">
+              K
+            </span>
+          </button>
           <button className="nav-item" onClick={() => setHelp(true)}>
             <CircleHelp size={18} strokeWidth={1.6} />
-            <span>Getting started</span>
+            <span>Help</span>
           </button>
           <div className="local-indicator">
             <span className="status-dot" />
-            <span>Local workspace</span>
+            <span>Local service</span>
             <span className="mono">v{snapshot?.version ?? version}</span>
           </div>
         </div>
@@ -279,7 +310,7 @@ export function App() {
               onClick={() => setSearchOpen(true)}
             >
               <Search size={16} />
-              <span>Find anything</span>
+              <span>Commands</span>
               <kbd>
                 <Command size={10} /> K
               </kbd>
@@ -350,13 +381,16 @@ export function App() {
                 <Overview
                   data={snapshot}
                   onWork={setSelected}
+                  onNative={setNativeSelected}
                   onApproval={setApproval}
-                  onNewWork={() => setNewWork(true)}
                   onAccounts={() => navigate('accounts')}
+                  onLinkAccount={() => setNewAccount(true)}
                   onResources={() => navigate('resources')}
-                  onConnections={() => navigate('connections')}
                   onActivity={() => navigate('activity')}
-                  onDemo={() => switchMode('demo')}
+                  onSchedules={() => {
+                    setActivityTab('schedules');
+                    navigate('activity');
+                  }}
                   onQuiet={() =>
                     void act('quiet', () =>
                       mutate('/settings', 'PATCH', { quietMode: !snapshot.settings.quietMode }),
@@ -368,7 +402,14 @@ export function App() {
               {view === 'work' && (
                 <WorkPage data={snapshot} onWork={setSelected} onNewWork={() => setNewWork(true)} />
               )}
-              {view === 'activity' && <ActivityPage data={snapshot} mutate={mutate} />}
+              {view === 'activity' && (
+                <ActivityPage
+                  data={snapshot}
+                  mutate={mutate}
+                  tab={activityTab}
+                  setTab={setActivityTab}
+                />
+              )}
               {view === 'memory' && (
                 <MemoryPage
                   data={snapshot}
@@ -438,10 +479,10 @@ export function App() {
                   <span className="status-dot" />
                   {snapshot.access?.kind === 'tailscale'
                     ? `Private access · ${snapshot.access.identity}`
-                    : 'Saved locally. Your native tools stay in charge.'}
+                    : `Local service · ${snapshot.service?.mode === 'launchd' ? 'Background service' : 'Foreground process'}`}
                 </span>
                 <button onClick={() => setHelp(true)}>
-                  Early access <ArrowRight size={12} />
+                  Help <ArrowRight size={12} />
                 </button>
               </footer>
             </>
@@ -485,6 +526,13 @@ export function App() {
             setNewAccount(false);
             setToast('Account slot saved. Native sign-in stays with the harness.');
           }}
+        />
+      )}
+      {snapshot && nativeSelected && (
+        <NativeSessionDialog
+          session={nativeSelected}
+          sources={snapshot.nativeSources}
+          onClose={() => setNativeSelected(null)}
         />
       )}
       {snapshot && selectedWork && (
@@ -554,7 +602,7 @@ export function App() {
           onResources={() => {
             setLaunch(null);
             setSelected(null);
-            setView('resources');
+            navigate('resources');
           }}
           mutate={mutate}
           onClose={() => setLaunch(null)}
@@ -567,6 +615,49 @@ export function App() {
       {searchOpen && (
         <SearchDialog
           work={snapshot?.work ?? []}
+          nativeSessions={snapshot?.nativeSessions ?? []}
+          nativeSources={snapshot?.nativeSources ?? []}
+          commands={
+            snapshot
+              ? [
+                  {
+                    id: 'new-work',
+                    label: 'New work',
+                    detail: 'Create a work record',
+                    icon: FileText,
+                    run: () => setNewWork(true),
+                  },
+                  {
+                    id: 'link-account',
+                    label: 'Link account',
+                    detail: 'Use an existing native sign-in',
+                    icon: UsersRound,
+                    run: () => setNewAccount(true),
+                  },
+                  ...(pending.length
+                    ? [
+                        {
+                          id: 'review-next',
+                          label: 'Review next approval',
+                          detail: `${pending.length} pending`,
+                          icon: ShieldCheck,
+                          run: () => setApproval(pending[0]),
+                        },
+                      ]
+                    : []),
+                  {
+                    id: 'quiet',
+                    label: snapshot.settings.quietMode ? 'Resume new work' : 'Pause new work',
+                    detail: 'Existing workers continue',
+                    icon: Terminal,
+                    run: () =>
+                      void act('quiet', () =>
+                        mutate('/settings', 'PATCH', { quietMode: !snapshot.settings.quietMode }),
+                      ),
+                  },
+                ]
+              : []
+          }
           onClose={() => setSearchOpen(false)}
           onView={(next) => {
             navigate(next);
@@ -576,18 +667,19 @@ export function App() {
             setSelected(workId);
             setSearchOpen(false);
           }}
+          onNative={(session) => {
+            setNativeSelected(session);
+            setSearchOpen(false);
+          }}
         />
       )}
       {help && (
-        <Dialog
-          title="A place for work to continue"
-          subtitle="WELCOME TO FORGE"
-          onClose={() => setHelp(false)}
-        >
+        <Dialog title="Using Forge" onClose={() => setHelp(false)}>
           <div className="dialog-body help-copy">
             <p>
-              Forge keeps a durable work record around your native tools. Start with a goal, connect
-              a native account, then follow progress and supported permission requests here.
+              Workspace brings saved work and native activity into one list. Open Commands with
+              Ctrl/Cmd K to find work, change views or open setup. Prefix a search with &gt; for
+              actions.
             </p>
             <div className="help-item">
               <UsersRound size={20} />
@@ -604,8 +696,9 @@ export function App() {
               <div>
                 <h3>Use the native harness</h3>
                 <p>
-                  This release manages Codex turns and routes supported command and file-change
-                  approvals. Other harnesses can be tracked, with managed adapters still to come.
+                  Managed adapters support Codex, Claude API, OpenCode, Hermes and OpenClaw. Tools,
+                  browser use and native memory remain in the selected harness. Account setup and
+                  compatibility requirements are shown before launch.
                 </p>
               </div>
             </div>
@@ -623,8 +716,9 @@ export function App() {
             <div className="notice">
               <ShieldCheck size={18} />
               <p>
-                Phone approval delivery, automatic account fallback, and hard resource limits are
-                planned capabilities. This first release is a local workspace with native controls.
+                This is an early framework. Automatic account fallback, general extensions and full
+                companion interchangeability remain unfinished. A foreground service stops when its
+                process exits; background setup is available in Connections.
               </p>
             </div>
             <button

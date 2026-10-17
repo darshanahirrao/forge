@@ -1,339 +1,298 @@
-import { type Snapshot, type Approval } from '../../shared/types';
+import { useState } from 'react';
+import type { Snapshot, Approval, NativeSession, WorkSummary, Harness } from '../../shared/types';
 import { usageSummary } from '../../shared/usage';
 import {
-  Layers3,
-  ShieldCheck,
-  Gauge,
   ArrowRight,
-  Plus,
-  Activity,
-  Check,
-  Cpu,
-  HardDrive,
+  ChevronRight,
+  Search,
+  ShieldCheck,
   Pause,
-  MoreHorizontal,
-  UsersRound,
-  Network,
+  Cpu,
+  MessageSquare,
+  FileText,
 } from 'lucide-react';
-import { currency, compact, age, gb } from '../lib/format';
-import { WorkTable } from '../components/WorkTable';
-import { Empty, IconButton, HarnessMark } from '../components/primitives';
+import { currency, compact, age, gb, names } from '../lib/format';
+import { Status } from '../components/primitives';
+
+type Entry =
+  | { key: string; kind: 'managed'; value: WorkSummary }
+  | { key: string; kind: 'native'; value: NativeSession };
 
 export function Overview({
   data,
   onWork,
+  onNative,
   onApproval,
-  onNewWork,
   onAccounts,
+  onLinkAccount,
   onResources,
-  onConnections,
   onActivity,
-  onDemo,
+  onSchedules,
   onQuiet,
   busy,
 }: {
   data: Snapshot;
   onWork: (id: string) => void;
-  onApproval: (a: Approval) => void;
-  onNewWork: () => void;
+  onNative: (session: NativeSession) => void;
+  onApproval: (approval: Approval) => void;
   onAccounts: () => void;
+  onLinkAccount: () => void;
   onResources: () => void;
-  onConnections: () => void;
   onActivity: () => void;
-  onDemo: () => void;
+  onSchedules: () => void;
   onQuiet: () => void;
   busy: string;
 }) {
-  const pending = data.approvals.filter((a) => a.status === 'pending');
-  const ongoing = data.work.filter((w) => !['completed'].includes(w.status));
+  const [filter, setFilter] = useState<'all' | 'managed' | 'native'>('all');
+  const [query, setQuery] = useState('');
+  const [limit, setLimit] = useState(20);
+  const pending = data.approvals.filter((approval) => approval.status === 'pending');
+  const active = data.work.filter((work) => work.activeRunId).length;
+  const sourceErrors = data.nativeSources.filter((source) => source.state === 'error').length;
+  const sources = new Map(data.nativeSources.map((source) => [source.id, source.label]));
   const usage = usageSummary(data.usage);
-  const nativeObserved =
-    data.nativeSessions.length > 0 ||
-    data.nativeSchedules.length > 0 ||
-    data.nativeSources.some((source) => source.checkedAt);
+  const entries: Entry[] = [
+    ...data.work.map((value) => ({ key: `work:${value.id}`, kind: 'managed' as const, value })),
+    ...data.nativeSessions.map((value) => ({
+      key: `native:${value.sourceId ?? value.source}:${value.id}`,
+      kind: 'native' as const,
+      value,
+    })),
+  ];
+  const matches = entries
+    .filter((entry) => {
+      const value = entry.value;
+      const account =
+        entry.kind === 'managed'
+          ? (data.accounts.find((item) => item.id === entry.value.accountId)?.label ?? '')
+          : (sources.get(entry.value.sourceId ?? '') ?? '');
+      return (
+        (filter === 'all' || filter === entry.kind) &&
+        `${value.title} ${value.project} ${value.cwd ?? ''} ${value.harness} ${account}`
+          .toLowerCase()
+          .includes(query.trim().toLowerCase())
+      );
+    })
+    .sort((a, b) => {
+      const running = (entry: Entry) =>
+        entry.kind === 'managed' && entry.value.activeRunId ? 1 : 0;
+      return (
+        running(b) - running(a) ||
+        (Date.parse(b.value.updatedAt ?? '') || 0) - (Date.parse(a.value.updatedAt ?? '') || 0)
+      );
+    });
+  const pressure = data.machine.memoryPressure?.state ?? 'unknown';
   return (
-    <>
-      <div className="metrics-row">
-        <div className="metric">
+    <div className="workspace-content">
+      <section className="workspace-status" aria-label="Workspace status">
+        <button onClick={onResources} title="Inspect owned native workers and machine usage">
+          <Cpu size={15} />
           <span>
-            Work in progress <Layers3 size={16} />
+            <strong>{active}</strong> active {active === 1 ? 'attempt' : 'attempts'}
           </span>
-          <strong>{ongoing.length.toString().padStart(2, '0')}</strong>
-          <small>
-            {data.work.length
-              ? `${data.work.length} work records in this workspace`
-              : 'A durable place for your next task'}
-          </small>
-        </div>
-        <div className="metric">
+          <span className="muted">
+            CPU{' '}
+            {data.machine.cpuPercent === null
+              ? 'sampling'
+              : `${Math.round(data.machine.cpuPercent)}%`}
+          </span>
+        </button>
+        <button
+          onClick={onResources}
+          title="OS memory includes reclaimable cache. Pressure is reported separately."
+        >
           <span>
-            Needs your attention <ShieldCheck size={16} />
+            {gb(data.machine.totalMemory - data.machine.freeMemory)} /{' '}
+            {gb(data.machine.totalMemory)} OS memory
           </span>
-          <strong>{pending.length.toString().padStart(2, '0')}</strong>
-          <small>
-            {pending.length
-              ? 'Native decisions waiting for review'
-              : 'No permission requests waiting'}
-          </small>
-        </div>
-        <div className="metric">
+          <span className={`pressure-text pressure-${pressure}`}>Pressure {pressure}</span>
+        </button>
+        <button
+          onClick={onAccounts}
+          title="Saved usage reports, with unknown costs excluded. Estimates are not invoices."
+        >
           <span>
-            Reported cost estimate <Gauge size={16} />
+            {usage.estimatedUsd === null
+              ? 'Cost not reported'
+              : `${currency(usage.estimatedUsd)} estimated`}
           </span>
-          <strong>
-            {usage.estimatedUsd !== null ? (
-              currency(usage.estimatedUsd)
-            ) : (
-              <span className="metric-unknown">Not reported</span>
-            )}
-          </strong>
-          <small>
-            {data.usage.length
-              ? `${compact(usage.totalTokens)} reported tokens${usage.incomplete ? ' · Cost coverage incomplete' : ' · Estimates, not invoices'}`
-              : 'Usage appears after native reporting'}
-          </small>
-        </div>
-      </div>
-      {usage.excludedAggregates.length > 0 && (
-        <div className="notice">
-          <Gauge size={18} />
+          <span className="muted">
+            {compact(usage.totalTokens)} reported tokens{usage.incomplete ? ' · partial' : ''}
+          </span>
+        </button>
+        <button
+          className={`workspace-quiet ${data.settings.quietMode ? 'is-paused' : ''}`}
+          role="switch"
+          aria-checked={data.settings.quietMode}
+          aria-label="Quiet mode"
+          disabled={busy === 'quiet'}
+          onClick={onQuiet}
+          title="Pause admission of new managed work. Existing workers continue."
+        >
+          <Pause size={14} />
+          {data.settings.quietMode ? 'New work paused' : 'Pause new work'}
+        </button>
+      </section>
+      {pending.length > 0 && (
+        <section className="workspace-attention" aria-label="Needs your attention">
+          <h2>
+            <ShieldCheck size={16} />
+            Needs your attention <span>{pending.length}</span>
+          </h2>
+          {pending.map((approval) => (
+            <button
+              key={approval.id}
+              className="attention-row"
+              onClick={() => onApproval(approval)}
+            >
+              <span>
+                <strong>{approval.title}</strong>
+                <small>
+                  {data.work.find((work) => work.id === approval.workId)?.title ??
+                    'Native permission request'}
+                </small>
+              </span>
+              <span>
+                Review request <ChevronRight size={15} />
+              </span>
+            </button>
+          ))}
+        </section>
+      )}
+      {data.mode === 'local' && data.accounts.length === 0 && (
+        <div className="setup-inline">
           <p>
-            Imported daily reports can overlap native session reports. This total uses session
-            reports for that harness; daily imports are retained separately.
+            <strong>
+              {data.connections.filter((connection) => connection.installed).length} tools detected.
+            </strong>{' '}
+            Link an existing account to run work from Forge.
           </p>
+          <button className="text-button" onClick={onLinkAccount}>
+            Link account <ArrowRight size={14} />
+          </button>
         </div>
       )}
-      <div className="overview-grid">
-        <div className="overview-main">
-          {data.mode === 'local' && (
-            <section className="native-overview-link">
-              <Network size={21} />
-              <div>
-                <h2>
-                  {nativeObserved
-                    ? `${data.nativeSessions.length} native chat${data.nativeSessions.length === 1 ? '' : 's'} · ${data.nativeSchedules.length} schedule record${data.nativeSchedules.length === 1 ? '' : 's'}`
-                    : 'Bring your existing work into view.'}
-                </h2>
-                <p>
-                  {nativeObserved
-                    ? 'Source observations stay separate from managed work. Check their freshness in Activity.'
-                    : 'Connect native chats, heartbeats and schedules from your existing profiles.'}
-                </p>
-              </div>
-              <button className="text-button" onClick={onActivity}>
-                View native activity <ArrowRight size={14} />
-              </button>
-            </section>
-          )}
-          {pending.length > 0 && (
-            <section className="attention-strip">
-              <div className="attention-icon">
-                <ShieldCheck size={21} />
-              </div>
-              <div>
-                <h2>
-                  {pending.length === 1
-                    ? 'One decision is waiting for you.'
-                    : `${pending.length} decisions are waiting for you.`}
-                </h2>
-                <p>
-                  {data.work.find((w) => w.id === pending[0].workId)?.title ??
-                    'A native attempt needs review.'}
-                </p>
-              </div>
-              <button className="button secondary" onClick={() => onApproval(pending[0])}>
-                Review request <ArrowRight size={16} />
-              </button>
-            </section>
-          )}
-          <section className="panel work-panel">
-            <div className="section-heading">
-              <div>
-                <h2>Work in motion</h2>
-                <p>Context stays with the task.</p>
-              </div>
-              <span className="count-label">{data.work.length} records</span>
-            </div>
-            {data.work.length ? (
-              <WorkTable
-                work={data.work.slice(0, 6)}
-                accounts={data.accounts}
-                usage={data.usage}
-                onWork={onWork}
-              />
-            ) : (
-              <Empty
-                title="Give your next task a place to live."
-                action={
-                  <div className="empty-actions">
-                    <button className="button primary" onClick={onNewWork}>
-                      <Plus size={16} />
-                      Create your first work record
-                    </button>
-                    <button className="text-button" onClick={onDemo}>
-                      Explore a demo <ArrowRight size={14} />
-                    </button>
-                  </div>
-                }
-              >
-                Save the goal and context once. Connect an account when you are ready to use the
-                native harness.
-              </Empty>
-            )}
-          </section>
-          <section className="panel activity-panel">
-            <div className="section-heading">
-              <div>
-                <h2>Recent activity</h2>
-                <p>A factual record of what changed.</p>
-              </div>
-              <Activity size={18} />
-            </div>
-            {data.events.length ? (
-              <ol className="activity-list" role="list">
-                {data.events.slice(0, 4).map((event) => (
-                  <li key={event.id}>
-                    <span className={`event-mark event-${event.kind}`} aria-hidden="true">
-                      {event.kind === 'checkpoint' ? <Check size={13} /> : <span />}
-                    </span>
-                    <div>
-                      <button onClick={() => onWork(event.workId)}>{event.title}</button>
-                      <p>{data.work.find((w) => w.id === event.workId)?.title}</p>
-                    </div>
-                    <time dateTime={event.createdAt}>{age(event.createdAt)}</time>
-                  </li>
-                ))}
-              </ol>
-            ) : (
-              <div className="quiet-empty">
-                <Activity size={18} />
-                <p>Work, checkpoints, and native decisions will appear here.</p>
-              </div>
-            )}
-          </section>
+      <section className="workspace-list" aria-label="Recent work">
+        <div className="workspace-list-heading">
+          <h2>
+            Recent work <span>{entries.length}</span>
+          </h2>
+          <button className="text-button" onClick={onSchedules}>
+            {data.nativeSchedules.length} schedules <ArrowRight size={14} />
+          </button>
         </div>
-        <aside className="overview-rail" aria-label="Capacity and connections">
-          <section className="panel capacity-panel">
-            <div className="section-heading">
-              <h2>Machine headroom</h2>
-              <span className="live-label">
-                <span className="status-dot" />
-                Live
-              </span>
-            </div>
-            <div className="capacity-value">
-              <Cpu size={19} />
-              <span>CPU in use</span>
-              <strong>
-                {data.machine.cpuPercent === null
-                  ? 'Sampling'
-                  : `${Math.round(data.machine.cpuPercent)}%`}
-              </strong>
-            </div>
-            <progress
-              className="meter"
-              max={100}
-              value={data.machine.cpuPercent ?? 0}
-              aria-label="CPU in use"
-            />
-            <div className="capacity-value">
-              <HardDrive size={19} />
-              <span>OS memory in use</span>
-              <strong>{gb(data.machine.totalMemory - data.machine.freeMemory)}</strong>
-            </div>
-            <progress
-              className="meter"
-              max={data.machine.totalMemory}
-              value={data.machine.totalMemory - data.machine.freeMemory}
-              aria-label="OS memory in use, including reclaimable cache"
-            />
-            <p className="source-note">
-              Of {gb(data.machine.totalMemory)}. Includes reclaimable cache; this is not a
-              memory-pressure score.
-            </p>
-            <button className="text-button" onClick={onResources}>
-              Inspect resources <ArrowRight size={14} />
-            </button>
-            <div className="quiet-mode">
-              <div>
-                <Pause size={16} />
-                <span>
-                  Quiet mode
-                  <small>
-                    {data.settings.quietMode
-                      ? 'New managed work is paused'
-                      : 'Keep new work under your control'}
-                  </small>
-                </span>
-              </div>
+        <div className="workspace-filter">
+          <div className="segmented" role="group" aria-label="Workspace work type">
+            {(['all', 'managed', 'native'] as const).map((kind) => (
               <button
-                className={`switch ${data.settings.quietMode ? 'switch-on' : ''}`}
-                role="switch"
-                aria-checked={data.settings.quietMode}
-                aria-label="Quiet mode"
-                disabled={busy === 'quiet'}
-                onClick={onQuiet}
+                key={kind}
+                aria-pressed={filter === kind}
+                onClick={() => {
+                  setFilter(kind);
+                  setLimit(20);
+                }}
               >
-                <span />
+                {kind === 'all' ? 'All' : kind === 'managed' ? 'Managed' : 'Native'}
               </button>
-            </div>
-          </section>
-          <section className="panel">
-            <div className="section-heading">
-              <h2>Account capacity</h2>
-              <IconButton label="Open accounts" onClick={onAccounts}>
-                <MoreHorizontal size={18} />
-              </IconButton>
-            </div>
-            {data.accounts.length ? (
-              <div className="mini-account-list">
-                {data.accounts.slice(0, 3).map((account) => (
-                  <div className="mini-account" key={account.id}>
-                    <div>
-                      <HarnessMark harness={account.harness} />
-                      <span>
-                        <strong>{account.label}</strong>
-                        <small>
-                          {account.quotas[0]
-                            ? `${account.quotas[0].usedPercent}% used · ${account.quotas[0].source === 'example' ? 'Example' : 'Native report'}`
-                            : 'Allowance not reported'}
-                        </small>
-                      </span>
-                    </div>
-                    {account.quotas[0] && (
-                      <progress
-                        className={`meter ${account.quotas[0].usedPercent > 75 ? 'meter-warning' : ''}`}
-                        max={100}
-                        value={account.quotas[0].usedPercent}
-                        aria-label={`${account.label} reported allowance used`}
-                      />
+            ))}
+          </div>
+          <label className="inline-search">
+            <Search size={15} />
+            <span className="sr-only">Filter workspace work</span>
+            <input
+              placeholder="Filter work..."
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setLimit(20);
+              }}
+            />
+          </label>
+        </div>
+        {matches.length > 0 ? (
+          <ul className="workspace-entries" role="list">
+            {matches.slice(0, limit).map((entry) => {
+              const value = entry.value;
+              const harness = names[value.harness as Harness] ?? value.harness;
+              const account =
+                entry.kind === 'managed'
+                  ? (data.accounts.find((item) => item.id === entry.value.accountId)?.label ??
+                    'No account')
+                  : (sources.get(entry.value.sourceId ?? '') ?? entry.value.source);
+              return (
+                <li key={entry.key}>
+                  <button
+                    className="workspace-entry"
+                    aria-label={value.title || 'Untitled native session'}
+                    onClick={() =>
+                      entry.kind === 'managed' ? onWork(entry.value.id) : onNative(entry.value)
+                    }
+                  >
+                    {entry.kind === 'managed' ? (
+                      <FileText size={17} />
+                    ) : (
+                      <MessageSquare size={17} />
                     )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="rail-empty">
-                <UsersRound size={22} />
-                <p>Connect native account slots to see identity and reported limits.</p>
-                <button className="text-button" onClick={onAccounts}>
-                  Add your accounts <ArrowRight size={14} />
-                </button>
-              </div>
-            )}
-          </section>
-          <section className="continuity-note">
-            <Network size={24} strokeWidth={1.3} />
-            <h2>Built around your tools.</h2>
+                    <span className="workspace-entry-main">
+                      <strong>{value.title || 'Untitled native session'}</strong>
+                      <small>
+                        {value.project || value.cwd || 'No project'} · {harness} · {account}
+                      </small>
+                    </span>
+                    <span className="workspace-entry-state">
+                      {entry.kind === 'managed' ? (
+                        <Status value={entry.value.status} />
+                      ) : (
+                        <span>Native observation</span>
+                      )}
+                    </span>
+                    <time className="workspace-entry-time" dateTime={value.updatedAt ?? undefined}>
+                      {value.updatedAt ? age(value.updatedAt) : 'Time unknown'}
+                    </time>
+                    <ChevronRight size={15} />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <div className="workspace-empty">
+            <h3>{query || filter !== 'all' ? 'No matching work' : 'No work yet'}</h3>
             <p>
-              {data.connections.filter((c) => c.installed).length} native tools detected. Connect
-              what you use; keep the rest asleep.
+              {query || filter !== 'all'
+                ? 'Change the filter or search another title, project or harness.'
+                : 'Create a work record, or connect your existing native chats.'}
             </p>
-            <button className="text-button" onClick={onConnections}>
-              Explore connections <ArrowRight size={14} />
+            {!entries.length && (
+              <button className="text-button" onClick={onActivity}>
+                Connect existing activity <ArrowRight size={14} />
+              </button>
+            )}
+          </div>
+        )}
+        <div className="workspace-list-footer">
+          <span>
+            {matches.length
+              ? `${Math.min(limit, matches.length)} of ${matches.length}`
+              : '0 results'}
+          </span>
+          {matches.length > limit && (
+            <button className="text-button" onClick={() => setLimit(limit + 30)}>
+              Show more work
             </button>
-          </section>
-        </aside>
-      </div>
-    </>
+          )}
+          {sourceErrors > 0 && (
+            <button className="text-button source-error-link" onClick={onActivity}>
+              {sourceErrors} source {sourceErrors === 1 ? 'connection needs' : 'connections need'}{' '}
+              attention
+            </button>
+          )}
+        </div>
+      </section>
+      <p className="workspace-coverage">
+        Native entries are saved metadata, refreshed on demand. Their execution and approvals stay
+        in the native client. Active attempts above are managed by Forge.
+      </p>
+    </div>
   );
 }

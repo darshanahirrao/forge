@@ -1,7 +1,7 @@
 import {
   Activity,
   Layers3,
-  LayoutDashboard,
+  PanelsTopLeft,
   Plug,
   ShieldCheck,
   UsersRound,
@@ -18,12 +18,12 @@ export type View =
   | 'resources'
   | 'connections';
 export const nav = [
-  { id: 'overview', label: 'Overview', icon: LayoutDashboard },
+  { id: 'overview', label: 'Workspace', icon: PanelsTopLeft },
   { id: 'work', label: 'Work', icon: Layers3 },
-  { id: 'activity', label: 'Activity', icon: Radio },
-  { id: 'memory', label: 'Memory', icon: BookOpen },
   { id: 'approvals', label: 'Approvals', icon: ShieldCheck },
-  { id: 'accounts', label: 'Accounts', icon: UsersRound },
+  { id: 'activity', label: 'Activity', icon: Radio },
   { id: 'resources', label: 'Resources', icon: Activity },
+  { id: 'memory', label: 'Memory', icon: BookOpen },
+  { id: 'accounts', label: 'Accounts', icon: UsersRound },
   { id: 'connections', label: 'Connections', icon: Plug },
 ] as const;

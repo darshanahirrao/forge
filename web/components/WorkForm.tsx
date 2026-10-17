@@ -65,11 +65,7 @@ export function WorkForm({
     }
   }
   return (
-    <Dialog
-      title={initial ? 'Keep the context current.' : 'What would you like to move forward?'}
-      subtitle={initial ? 'EDIT WORK' : 'NEW WORK'}
-      onClose={onClose}
-    >
+    <Dialog title={initial ? 'Edit work' : 'New work'} onClose={onClose}>
       <form onSubmit={save} className="dialog-body form-stack">
         <label>
           Work title
@@ -80,39 +76,8 @@ export function WorkForm({
             maxLength={140}
             required
             autoFocus
+            data-autofocus=""
           />
-        </label>
-        <div className="form-grid">
-          <label>
-            Project
-            <input
-              name="project"
-              defaultValue={initial?.project ?? 'Personal'}
-              maxLength={80}
-              required
-            />
-          </label>
-          <label>
-            Priority
-            <select name="priority" defaultValue={initial?.priority ?? 'normal'}>
-              <option value="normal">Normal</option>
-              <option value="high">High</option>
-            </select>
-          </label>
-        </div>
-        <label>
-          Persistent profile
-          <select name="profileId" defaultValue={initial?.profileId ?? defaultProfileId}>
-            {profiles.map((profile) => (
-              <option key={profile.id} value={profile.id}>
-                {profile.name}
-              </option>
-            ))}
-          </select>
-          <small>
-            Its selected memory is reviewed before launch. Changing remembered context starts a
-            fresh native session.
-          </small>
         </label>
         <label>
           Goal
@@ -123,16 +88,6 @@ export function WorkForm({
             placeholder="What should be true when this work is finished?"
             maxLength={20000}
             required
-          />
-        </label>
-        <label>
-          Acceptance criteria <span className="optional">Optional</span>
-          <textarea
-            name="acceptance"
-            rows={2}
-            defaultValue={initial?.acceptance}
-            placeholder="How will you know it worked?"
-            maxLength={10000}
           />
         </label>
         <div className="form-grid">
@@ -182,19 +137,66 @@ export function WorkForm({
           <small>
             {mode === 'demo'
               ? 'Demo work never accesses this path.'
-              : 'Managed turns support Codex and Claude API accounts. Other harnesses can keep a tracked work record.'}
+              : 'Select the native account and an existing directory before launching. Saving work starts no worker.'}
           </small>
         </label>
-        <label>
-          Context to carry forward <span className="optional">Optional</span>
-          <textarea
-            name="context"
-            rows={4}
-            defaultValue={initial?.context}
-            placeholder="Decisions, useful sources, constraints, and where to pick up."
-            maxLength={50000}
-          />
-        </label>
+        <details className="form-options" open={initial ? true : undefined}>
+          <summary>Additional context and options</summary>
+          <div className="form-stack">
+            <div className="form-grid">
+              <label>
+                Project
+                <input
+                  name="project"
+                  defaultValue={initial?.project ?? 'Personal'}
+                  maxLength={80}
+                  required
+                />
+              </label>
+              <label>
+                Priority
+                <select name="priority" defaultValue={initial?.priority ?? 'normal'}>
+                  <option value="normal">Normal</option>
+                  <option value="high">High</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              Persistent profile
+              <select name="profileId" defaultValue={initial?.profileId ?? defaultProfileId}>
+                {profiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>
+                    {profile.name}
+                  </option>
+                ))}
+              </select>
+              <small>
+                Its selected memory is reviewed before launch. Changing remembered context starts a
+                fresh native session.
+              </small>
+            </label>
+            <label>
+              Acceptance criteria <span className="optional">Optional</span>
+              <textarea
+                name="acceptance"
+                rows={2}
+                defaultValue={initial?.acceptance}
+                placeholder="How will you know it worked?"
+                maxLength={10000}
+              />
+            </label>
+            <label>
+              Context to carry forward <span className="optional">Optional</span>
+              <textarea
+                name="context"
+                rows={4}
+                defaultValue={initial?.context}
+                placeholder="Decisions, useful sources, constraints, and where to pick up."
+                maxLength={50000}
+              />
+            </label>
+          </div>
+        </details>
         <FormError error={error} />
         <div className="form-footer">
           <button type="button" className="button secondary" onClick={onClose}>

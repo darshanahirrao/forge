@@ -1,4 +1,6 @@
-# Forge v0.13.0
+# Forge v0.14.0
+
+The v0.14 workspace puts existing activity first: one searchable managed/native list, inline attention, compact resource and usage evidence, keyboard commands, shorter work setup and browser history. Native observations retain their native controls. Read [the experience plan](UI_EXPERIENCE.md) for interaction references and scope.
 
 The latest addition is an optional [native T3 Code connection](T3_CODE.md): supported SDK OAuth/PKCE, a strictly read-only grant, bounded project/thread observations and private restart-persistent credentials. Stable T3 v0.1.0 passes isolated authentication, metadata, mutation-denial and revocation checks. The source retains T3's ownership; account execution, quota, approval and schedule controls are not imported. Whole-product adoption remains open.
 

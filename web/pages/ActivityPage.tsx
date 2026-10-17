@@ -14,6 +14,7 @@ import type { NativeSession, NativeSource, NativeSourceKind, Snapshot } from '..
 import type { Mutate } from '../api';
 import { Dialog, Empty, FormError, IconButton } from '../components/primitives';
 import { age, names } from '../lib/format';
+import { NativeSessionDialog } from '../components/NativeSessionDialog';
 
 const sourceNames: Record<NativeSourceKind, string> = {
   codex: 'Codex chats',
@@ -28,8 +29,17 @@ const nativeDate = (value: string | null) =>
   value ? new Date(value).toLocaleString() : 'Not reported';
 const quantity = (count: number, name: string) => `${count} ${name}${count === 1 ? '' : 's'}`;
 
-export function ActivityPage({ data, mutate }: { data: Snapshot; mutate: Mutate }) {
-  const [tab, setTab] = useState<'chats' | 'schedules'>('chats');
+export function ActivityPage({
+  data,
+  mutate,
+  tab,
+  setTab,
+}: {
+  data: Snapshot;
+  mutate: Mutate;
+  tab: 'chats' | 'schedules';
+  setTab: (tab: 'chats' | 'schedules') => void;
+}) {
   const [query, setQuery] = useState('');
   const [sourceId, setSourceId] = useState('all');
   const [adding, setAdding] = useState<NativeSource | true | null>(null);
@@ -387,50 +397,11 @@ export function ActivityPage({ data, mutate }: { data: Snapshot; mutate: Mutate 
         />
       )}
       {selected && (
-        <Dialog
-          title={selected.title || 'Native session'}
-          subtitle="NATIVE OBSERVATION"
+        <NativeSessionDialog
+          session={selected}
+          sources={data.nativeSources}
           onClose={() => setSelected(null)}
-        >
-          <div className="dialog-body form-stack">
-            <dl className="native-facts">
-              <div>
-                <dt>Owner</dt>
-                <dd>{label(selected.sourceId)}</dd>
-              </div>
-              {selected.providerInstanceId && (
-                <div>
-                  <dt>Native provider instance</dt>
-                  <dd className="mono">{selected.providerInstanceId}</dd>
-                </div>
-              )}
-              <div>
-                <dt>Native state</dt>
-                <dd>{selected.status}</dd>
-              </div>
-              <div>
-                <dt>Updated</dt>
-                <dd>{nativeDate(selected.updatedAt ?? null)}</dd>
-              </div>
-              <div>
-                <dt>Observed</dt>
-                <dd>{nativeDate(selected.observedAt ?? null)}</dd>
-              </div>
-              <div>
-                <dt>Project</dt>
-                <dd className="mono">{selected.cwd || selected.project}</dd>
-              </div>
-              <div>
-                <dt>Native session</dt>
-                <dd className="mono">{selected.id}</dd>
-              </div>
-            </dl>
-            <p className="source-note">
-              This is a metadata reference. Continue and inspect approvals in the native client. A
-              saved session does not establish current process ownership.
-            </p>
-          </div>
-        </Dialog>
+        />
       )}
     </div>
   );

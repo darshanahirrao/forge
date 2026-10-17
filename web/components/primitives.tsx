@@ -55,6 +55,8 @@ export function Dialog({
   useEffect(() => {
     const dialog = ref.current!;
     dialog.showModal();
+    // React autofocus runs before the modal opens. Apply the chosen focus after showModal.
+    dialog.querySelector<HTMLElement>('[data-autofocus]')?.focus();
     return () => dialog.close();
   }, []);
   return (

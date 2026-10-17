@@ -46,11 +46,10 @@ export function AccountForm({
     }
   }
   return (
-    <Dialog title="Bring a native account." subtitle="ACCOUNT SLOT" onClose={onClose}>
+    <Dialog title="Link account" onClose={onClose}>
       <form className="dialog-body form-stack" onSubmit={save}>
         <p className="form-intro">
-          Give an existing native sign-in a place in Forge. Account slots store references;
-          credentials remain in the harness.
+          Use an existing native sign-in. Credentials stay in the harness.
         </p>
         <label>
           Account label
@@ -60,6 +59,7 @@ export function AccountForm({
             maxLength={80}
             required
             autoFocus
+            data-autofocus=""
           />
         </label>
         <label>
