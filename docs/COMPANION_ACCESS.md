@@ -1,5 +1,7 @@
 # Native companion access
 
+For reviewed replacement, stable allowances/operation receipts and native readiness, read [companion handoffs](COMPANION_HANDOFF.md). The existing connection contract below remains available.
+
 Forge contract 1 connects an existing Hermes, OpenClaw or compatible MCP client to a stable profile and project. The client keeps its model loop, tools, channels, memory engine and scheduler. Forge supplies durable work, selected context, native execution admission and receipts. Changing clients does not change Forge profile or work IDs.
 
 ```mermaid
@@ -27,12 +29,12 @@ Granting access creates no worker or model process. MCP modules load on demand, 
 
 ## Capabilities
 
-| Scope | Tools | Effect |
-| --- | --- | --- |
-| `work:read` | `forge_workspace`, `forge_work` | Read bounded work and receipts in the granted profile/project |
-| `context:read` | `forge_context` | Read selected native memory, source hashes and a revision-bound context digest |
-| `work:write` | `forge_create_work`, `forge_checkpoint` | Save work or append attributed reference notes; no automatic launch or native memory rewrite |
-| `work:dispatch` | `forge_start_work`, `forge_interrupt_work` | Start one admitted native attempt or request a stop of a run started by this grant |
+| Scope           | Tools                                      | Effect                                                                                       |
+| --------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------- |
+| `work:read`     | `forge_workspace`, `forge_work`            | Read bounded work and receipts in the granted profile/project                                |
+| `context:read`  | `forge_context`                            | Read selected native memory, source hashes and a revision-bound context digest               |
+| `work:write`    | `forge_create_work`, `forge_checkpoint`    | Save work or append attributed reference notes; no automatic launch or native memory rewrite |
+| `work:dispatch` | `forge_start_work`, `forge_interrupt_work` | Start one admitted native attempt or request a stop of a run started by this grant           |
 
 Dispatch is a separate explicit choice. It needs selected account bindings, context access, a finite limit of 1 to 1000 runs and a billing choice. Disabling metered usage retains native verified-allowance requirements. Native identity/permission checks, quiet mode, fresh pressure admission, context review, one managed execution slot and unsettled-run guards still apply. Revocation is rechecked after asynchronous preparation and before native construction. Changed account/model/home/credential bindings need new access.
 
@@ -46,7 +48,7 @@ Created work, launches and checkpoints retain companion attribution through cont
 
 Local human setup uses `POST /api/companions` with `label`, `profileId`, `root`, `scopes`, optional `accountIds`, `dispatch` and `expiresInDays` (1 to 90, default 30). Dispatch contains `allowMetered` and `maxRuns`. The response includes the public grant, endpoint and one-time bearer. `GET /api/companions` and snapshots return public metadata. `DELETE /api/companions/:id` revokes future access. Active grants prevent deletion of their profile.
 
-This is additive state version 4. Older runtimes do not expose companion MCP. Grants are excluded from shareable blueprints. A native client runs with its own OS permissions: the grant constrains these MCP tools and does not sandbox the native runtime or other local processes.
+The original access contract used state version 4. State 8 now protects replacement lifecycle and lineage semantics; older readers refuse the upgraded workspace. Grants are excluded from shareable blueprints. A native client runs with its own OS permissions: the grant constrains these MCP tools and does not sandbox the native runtime or other local processes.
 
 ## Evidence and remaining work
 

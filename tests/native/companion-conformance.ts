@@ -125,74 +125,150 @@ try {
   assert.equal(native.tools, 5);
   assert.equal(app.local.checkpoints(work.id).length, 1);
   assert.equal(app.local.all('work').length, 2);
-  const second = await app.companions.create({ ...settings, label: 'Replacement MCP client' });
-  app.companions.revoke(grant.grant.id);
+  const handoff = await app.companionHandoffs.prepare({
+    grantId: grant.grant.id,
+    label: process.env.FORGE_OPENCLAW_BINARY
+      ? 'Native OpenClaw replacement'
+      : 'Native compatible replacement',
+  });
+  const staged = await app.companionHandoffs.stage(handoff.id, handoff.digest, { kind: 'local' });
+  assert(staged.token);
+  const second = { grant: staged.grant, token: staged.token };
+  await assert.rejects(
+    app.companions.checkpoint(grant.grant.id, {
+      requestId: 'old-after-stage',
+      workId: work.id,
+      expectedRevision: app.local.work(work.id).revision,
+      note: 'Must stay held.',
+    }),
+    /replacement/,
+  );
   let openclaw: Record<string, unknown> | null = null;
   if (process.env.FORGE_OPENCLAW_BINARY) {
     const native = await openClawInstallation({ PATH: process.env.PATH });
     const openclawHome = join(root, 'openclaw');
     await mkdir(openclawHome);
-    child = spawn(
-      native.node,
-      [fileURLToPath(new URL('./openclaw-companion.mjs', import.meta.url))],
-      {
-        cwd: project,
-        env: {
-          HOME: openclawHome,
-          OPENCLAW_HOME: openclawHome,
-          OPENCLAW_STATE_DIR: openclawHome,
-          OPENCLAW_CONFIG_PATH: join(openclawHome, 'openclaw.json'),
-          PATH: dirname(native.node) + ':/usr/bin:/bin',
-          TMPDIR: root,
-          LANG: 'en_US.UTF-8',
-          DO_NOT_TRACK: '1',
-          OPENCLAW_NO_RESPAWN: '1',
+    for (const phase of ['prepare', 'continue']) {
+      child = spawn(
+        native.node,
+        [fileURLToPath(new URL('./openclaw-companion.mjs', import.meta.url))],
+        {
+          cwd: project,
+          env: {
+            HOME: openclawHome,
+            OPENCLAW_HOME: openclawHome,
+            OPENCLAW_STATE_DIR: openclawHome,
+            OPENCLAW_CONFIG_PATH: join(openclawHome, 'openclaw.json'),
+            PATH: dirname(native.node) + ':/usr/bin:/bin',
+            TMPDIR: root,
+            LANG: 'en_US.UTF-8',
+            DO_NOT_TRACK: '1',
+            OPENCLAW_NO_RESPAWN: '1',
+          },
+          stdio: ['pipe', 'pipe', 'pipe'],
         },
-        stdio: ['pipe', 'pipe', 'pipe'],
+      );
+      let output = '',
+        error = '';
+      child.stdout!.on('data', (chunk: Buffer) => {
+        output += chunk.toString();
+        assert(output.length < 65536);
+      });
+      child.stderr!.on('data', (chunk: Buffer) => {
+        error = (error + chunk.toString()).slice(-16384);
+      });
+      child.stdin!.end(
+        JSON.stringify({
+          token: second.token,
+          expectedTools: 6,
+          ...(phase === 'prepare'
+            ? { handoff: { handoffId: handoff.id, digest: handoff.digest } }
+            : {}),
+          endpoint,
+          workId: work.id,
+          profileId: profile.id,
+          project,
+          home: openclawHome,
+          packageRoot: dirname(native.binary),
+        }),
+      );
+      const status = await new Promise<number | null>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          child!.kill('SIGKILL');
+          reject(new Error('Native OpenClaw MCP conformance timed out.'));
+        }, 45000);
+        child!.once('error', (error) => {
+          clearTimeout(timer);
+          reject(error);
+        });
+        child!.once('exit', (code) => {
+          clearTimeout(timer);
+          resolve(code);
+        });
+      });
+      if (status !== 0) await writeFile(join(root, 'openclaw.log'), error, { mode: 0o600 });
+      assert.equal(
+        status,
+        0,
+        'Native OpenClaw MCP failed; its isolated diagnostic file was retained.',
+      );
+      const result = JSON.parse(output.trim().split('\n').at(-1)!);
+      if (phase === 'prepare') {
+        assert.equal(result.ready, true);
+        const ready = app.companionHandoffs.list()[0];
+        await app.companionHandoffs.activate(ready.id, ready.digest, ready.revision);
+      } else openclaw = result;
+    }
+    assert.equal(app.local.checkpoints(work.id).length, 2);
+  }
+  if (!process.env.FORGE_OPENCLAW_BINARY) {
+    // The installed Hermes client also acknowledges the replacement boundary.
+    child = spawn(python, [fileURLToPath(new URL('./hermes-companion.py', import.meta.url))], {
+      cwd: project,
+      env: {
+        HOME: home,
+        HERMES_HOME: home,
+        PATH: dirname(python) + ':/usr/bin:/bin',
+        TMPDIR: root,
+        LANG: 'en_US.UTF-8',
+        DO_NOT_TRACK: '1',
+        HERMES_TELEMETRY_ENABLED: 'false',
       },
-    );
-    let output = '',
-      error = '';
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    let prepared = '';
     child.stdout!.on('data', (chunk: Buffer) => {
-      output += chunk.toString();
-      assert(output.length < 65536);
+      prepared += chunk.toString();
+      assert(prepared.length < 65536);
     });
-    child.stderr!.on('data', (chunk: Buffer) => {
-      error = (error + chunk.toString()).slice(-16384);
-    });
+    child.stderr!.resume();
     child.stdin!.end(
       JSON.stringify({
         token: second.token,
         endpoint,
         workId: work.id,
         profileId: profile.id,
-        project,
-        home: openclawHome,
-        packageRoot: dirname(native.binary),
+        handoff: { handoffId: handoff.id, digest: handoff.digest },
       }),
     );
-    const status = await new Promise<number | null>((resolve, reject) => {
+    const code = await new Promise<number | null>((resolve, reject) => {
       const timer = setTimeout(() => {
         child!.kill('SIGKILL');
-        reject(new Error('Native OpenClaw MCP conformance timed out.'));
+        reject(new Error('Native readiness timeout.'));
       }, 45000);
-      child!.once('error', (error) => {
-        clearTimeout(timer);
-        reject(error);
-      });
       child!.once('exit', (code) => {
         clearTimeout(timer);
         resolve(code);
       });
+      child!.once('error', (error) => {
+        clearTimeout(timer);
+        reject(error);
+      });
     });
-    if (status !== 0) await writeFile(join(root, 'openclaw.log'), error, { mode: 0o600 });
-    assert.equal(
-      status,
-      0,
-      'Native OpenClaw MCP failed; its isolated diagnostic file was retained.',
-    );
-    openclaw = JSON.parse(output.trim().split('\n').at(-1)!);
-    assert.equal(app.local.checkpoints(work.id).length, 2);
+    assert.equal(code, 0);
+    assert.equal(JSON.parse(prepared.trim().split('\n').at(-1)!).ready, true);
+    const ready = app.companionHandoffs.list()[0];
+    await app.companionHandoffs.activate(ready.id, ready.digest, ready.revision);
   }
   await replacement.connect(
     new StreamableHTTPClientTransport(new URL(endpoint), {
@@ -224,6 +300,8 @@ try {
       sameWorkAndProfile: true,
       memoryBytesUnchanged: true,
       oldAccessRevoked: true,
+      nativeReplacementReadiness: true,
+      retainedOperationNamespace: true,
       extraAgentLoop: false,
       portableSelectedMemory: portable,
       originalPathRemoved: portable,

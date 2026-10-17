@@ -688,3 +688,93 @@ test('the approval inbox honors a shorter native deadline and refuses invalid de
     store.close();
   }
 });
+
+test('shutdown waits for the admitted workspace checkpoint and rejects new checkpoint work', async () => {
+  const store = new Store(':memory:');
+  const controller = new ExecutionController(store, () => new FixtureDriver('codex'));
+  let release: () => void = () => {},
+    closed = false;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const pending = controller.atWorkspaceCheckpoint('companion-readiness', async () => {
+    await held;
+    store.put('config', 'checkpoint-drain-proof', { kept: true });
+  });
+  const closing = controller.close().then(() => {
+    closed = true;
+  });
+  await Promise.resolve();
+  assert.equal(closed, false);
+  await assert.rejects(
+    controller.atWorkspaceCheckpoint('late-checkpoint', async () => {}),
+    /Wait for managed/,
+  );
+  release();
+  await pending;
+  await closing;
+  assert.deepEqual(store.get('config', 'checkpoint-drain-proof'), { kept: true });
+  assert.equal(closed, true);
+  store.close();
+});
+
+test('shutdown drains an admitted native reconciliation before canonical storage closes', async () => {
+  const store = new Store(':memory:');
+  const { work, account } = prepared(store, 'codex');
+  const reference = {
+    kind: 'delegated-run' as const,
+    backendId: 'backend',
+    threadId: 'thread',
+    messageId: 'message',
+    runId: null,
+    state: 'running',
+    confirmed: false,
+    observedAt: now(),
+  };
+  store.put('runs', 'held-reconciliation', {
+    id: 'held-reconciliation',
+    workId: work.id,
+    accountId: account.id,
+    generation: 1,
+    status: 'interrupted',
+    startedAt: now(),
+    endedAt: now(),
+    settlement: reference,
+  });
+  const controller = new ExecutionController(store, () => new FixtureDriver('codex'));
+  let release: () => void = () => {},
+    closed = false;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const pending = controller.reconcileDelegated('held-reconciliation', async () => {
+    await held;
+    return { ...reference, state: 'interrupted', confirmed: true };
+  });
+  const closing = controller.close().then(() => {
+    closed = true;
+  });
+  try {
+    await Promise.resolve();
+    assert.equal(closed, false);
+    await assert.rejects(
+      controller.atWorkspaceCheckpoint('late-handoff', async () => {}),
+      /Wait for managed/,
+    );
+    release();
+    await pending;
+    await closing;
+    assert.equal(closed, true);
+    assert.equal(
+      store.get<import('../shared/types.js').Run>('runs', 'held-reconciliation')?.settlement
+        ?.confirmed,
+      true,
+    );
+    assert.equal(store.all('runs').length, 1);
+  } finally {
+    release();
+    await pending;
+    await closing;
+    store.close();
+  }
+});

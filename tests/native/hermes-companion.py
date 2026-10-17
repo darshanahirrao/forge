@@ -33,7 +33,7 @@ try:
         "sampling": {"enabled": False},
         "elicitation": {"enabled": False},
     }})
-    assert len(names) == 5
+    assert len(names) == (6 if fixture.get("handoff") else 5)
     assert not any("approv" in name or "start_work" in name for name in names)
     workspace = call("forge_workspace", {})
     assert workspace["profile"]["id"] == fixture["profileId"]
@@ -41,6 +41,11 @@ try:
     context = call("forge_context", {"workId": fixture["workId"]})
     assert "native-selected-copper" in json.dumps(context)
     assert "native-excluded-violet" not in json.dumps(context)
+    if fixture.get("handoff"):
+        ready = call("forge_companion_ready", fixture["handoff"])
+        assert ready["state"] == "ready"
+        print(json.dumps({"native": "Hermes MCP client", "ready": True, "tools": len(names), "paidModelCalls": 0}))
+        sys.exit(0)
     work = call("forge_work", {"workId": fixture["workId"]})["work"]
     note = {
         "requestId": "native-hermes-note", "workId": work["id"],

@@ -2,10 +2,12 @@ import { useState, type FormEvent } from 'react';
 import type { CompanionGrant, CompanionScope, Snapshot } from '../../shared/types';
 import type { Mutate } from '../api';
 import { Dialog, FormError } from './primitives';
+import { CompanionHandoffList, CompanionReplacement } from './CompanionHandoffPanel';
 
 type Credential = { grant: CompanionGrant; token: string; endpoint: string };
 export function CompanionsPanel({ data, mutate }: { data: Snapshot; mutate: Mutate }) {
   const [adding, setAdding] = useState(false);
+  const [replacing, setReplacing] = useState<CompanionGrant | null>(null);
   const [credential, setCredential] = useState<Credential | null>(null);
   const [label, setLabel] = useState('Hermes');
   const [root, setRoot] = useState('');
@@ -125,17 +127,37 @@ export function CompanionsPanel({ data, mutate }: { data: Snapshot; mutate: Muta
                     : `Expires ${new Date(grant.expiresAt).toLocaleDateString()}`}
                 </p>
               </div>
-              <button
-                className="button secondary small"
-                disabled={disabled || inactive}
-                onClick={() => void revoke(grant.id)}
-                aria-label={`Revoke ${grant.label}`}
-              >
-                Revoke
-              </button>
+              <div className="companion-grant-actions">
+                <button
+                  className="text-button"
+                  disabled={
+                    disabled ||
+                    inactive ||
+                    data.access?.kind === 'tailscale' ||
+                    Boolean(grant.lifecycle && grant.lifecycle !== 'active')
+                  }
+                  onClick={() => setReplacing(grant)}
+                  aria-label={`Replace ${grant.label}`}
+                >
+                  Replace
+                </button>
+                <button
+                  className="button secondary small"
+                  disabled={disabled || inactive}
+                  onClick={() => void revoke(grant.id)}
+                  aria-label={`Revoke ${grant.label}`}
+                >
+                  Revoke
+                </button>
+              </div>
             </div>
             <p className="companion-root">{grant.root}</p>
             <p className="source-note">
+              {grant.lifecycle === 'staged'
+                ? 'Replacement is read-only until activated. '
+                : grant.lifecycle === 'draining'
+                  ? 'Original writes paused for handoff. '
+                  : ''}
               {grant.dispatch
                 ? `${grant.runsStarted} of ${grant.dispatch.maxRuns} native runs · ${grant.dispatch.allowMetered ? 'Metered usage allowed' : 'Verified allowance required'}`
                 : grant.scopes.includes('work:write')
@@ -150,6 +172,18 @@ export function CompanionsPanel({ data, mutate }: { data: Snapshot; mutate: Muta
           Native tools, channels and schedules stay in your companion. Its connection can change
           while Forge keeps the work and memory references.
         </p>
+      )}
+      <CompanionHandoffList handoffs={data.companionHandoffs} mutate={mutate} disabled={disabled} />
+      {replacing && (
+        <CompanionReplacement
+          grant={replacing}
+          mutate={mutate}
+          onClose={() => setReplacing(null)}
+          onCredential={(value) => {
+            setCredential(value);
+            setFormat('json');
+          }}
+        />
       )}
       {!adding && <FormError error={error} />}
       {adding && (

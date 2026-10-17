@@ -3530,6 +3530,36 @@ label small,
   max-width: 80ch;
   line-height: 1.6;
 }
+.companion-handoff-detail pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  background: var(--soft);
+  font-size: 12px;
+}
+.companion-handoff-detail p,
+.companion-handoffs .source-note {
+  overflow-wrap: anywhere;
+}
+.companion-handoffs .inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.companion-panel .backend-instance .section-heading {
+  flex-wrap: wrap;
+}
+.companion-panel .backend-instance .section-heading > div:first-child {
+  min-width: 0;
+}
+.companion-panel .section-heading > .companion-grant-actions {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
 .native-worker-work strong {
   display: block;
   overflow-wrap: anywhere;

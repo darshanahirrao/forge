@@ -51,6 +51,8 @@ import { T3Connections, t3Endpoint } from './t3.js';
 import { T3Backends } from './backends/t3-backend.js';
 import { T3Driver } from './backends/t3-driver.js';
 import { Companions } from './companions.js';
+import { registerWorkspaceChanges } from './changes.js';
+import { CompanionHandoffs, handoffDecisionSchema } from './companion-handoff.js';
 import { registerCompanionMcp } from './companion-mcp.js';
 import { Blueprints, blueprintSchema } from './blueprints.js';
 import { AccountRouting, routePrepareSchema } from './routing.js';
@@ -180,6 +182,17 @@ export async function createApp(options: AppOptions) {
   const profiles: Profiles = new Profiles(local, () => controller.activeCount > 0);
   const demoProfiles = new Profiles(demo);
   const companions = new Companions(local, profiles, controller);
+  const companionHandoffs = new CompanionHandoffs(local, companions, profiles, controller, () => {
+    assert(
+      !nativeSources.isReading &&
+        probing.size === 0 &&
+        !connectors.isChecking &&
+        !availability.isBusy &&
+        !memoryPacks.isBusy,
+      409,
+      'Wait for native reads and workspace setup before replacing a companion.',
+    );
+  });
   const machine = new MachineMonitor(options.memoryPressureReader);
   const continuity = new Continuity(local, controller);
   const routing = new AccountRouting(local, controller, continuity);
@@ -359,7 +372,8 @@ export async function createApp(options: AppOptions) {
         return reply.code(415).send({ error: 'Send workspace changes as JSON.' });
       assert(
         (!availability.isBusy || request.url.split('?')[0] === '/api/availability/activate') &&
-          (!memoryPacks.isBusy || request.url.split('?')[0] === '/api/memory/packs/apply'),
+          (!memoryPacks.isBusy || request.url.split('?')[0] === '/api/memory/packs/apply') &&
+          !companionHandoffs.isBusy,
         409,
         'Wait for the reviewed workspace availability operation to finish.',
       );
@@ -417,6 +431,7 @@ export async function createApp(options: AppOptions) {
       .user_version,
   }));
   registerCompanionMcp(app, companions);
+  registerWorkspaceChanges(app, local);
   app.get('/api/availability', async (request) => {
     assert(mode(request) === 'local', 409, 'Demo has no background service installation.');
     return availability.snapshot();
@@ -461,6 +476,49 @@ export async function createApp(options: AppOptions) {
   app.get('/api/companions', async (request) =>
     mode(request) === 'demo' ? [] : companions.list(),
   );
+  const localCompanionSetup = (request: { headers: IncomingHttpHeaders }) =>
+    assert(
+      mode(request) === 'local' &&
+        bridgeActor(request.headers, options.phoneBridge).kind === 'local',
+      403,
+      'Replace companion access from the local Forge host.',
+    );
+  app.post('/api/companions/handoffs/prepare', async (request) => {
+    localCompanionSetup(request);
+    return companionHandoffs.prepare(request.body);
+  });
+  app.post('/api/companions/handoffs/stage', async (request, reply) => {
+    localCompanionSetup(request);
+    const body = z
+      .object({ id: z.string().uuid(), digest: z.string().regex(/^[a-f0-9]{64}$/) })
+      .strict()
+      .parse(request.body);
+    const result = await companionHandoffs.stage(
+      body.id,
+      body.digest,
+      bridgeActor(request.headers, options.phoneBridge),
+    );
+    return reply
+      .code(201)
+      .send({ ...result, endpoint: `http://${request.headers.host}/mcp/companions` });
+  });
+  for (const action of ['refresh', 'activate', 'abort'] as const)
+    app.post(`/api/companions/handoffs/:id/${action}`, async (request) => {
+      assert(mode(request) === 'local', 409, 'Demo has no native companion handoff.');
+      const body =
+        action === 'activate'
+          ? z
+              .object({ ...handoffDecisionSchema.shape, nativeActivityReviewed: z.literal(true) })
+              .strict()
+              .parse(request.body)
+          : handoffDecisionSchema.parse(request.body);
+      return companionHandoffs[action](
+        (request.params as { id: string }).id,
+        body.digest,
+        body.revision,
+        bridgeActor(request.headers, options.phoneBridge),
+      );
+    });
   app.post('/api/companions', async (request, reply) => {
     assert(
       mode(request) === 'local' &&
@@ -529,6 +587,7 @@ export async function createApp(options: AppOptions) {
       }),
       accounts: db.all<Account>('accounts'),
       companionGrants: mode(request) === 'demo' ? [] : companions.list(),
+      companionHandoffs: mode(request) === 'demo' ? [] : companionHandoffs.list(),
       backends: mode(request) === 'demo' ? [] : backends.list(),
       approvals: db.all<Approval>('approvals'),
       events: db
@@ -1666,6 +1725,7 @@ export async function createApp(options: AppOptions) {
     controller,
     csrf,
     companions,
+    companionHandoffs,
     blueprints,
     routing,
     notifications,

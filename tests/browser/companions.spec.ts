@@ -66,3 +66,154 @@ test('companion access offers scoped finite dispatch, native setup formats and r
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByLabel('MCP connection configuration')).toHaveCount(0);
 });
+
+test('native companion replacement preserves work, stages read-only access and needs a fresh authenticated readiness acknowledgement', async ({
+  page,
+}) => {
+  const { Client } = await import('@modelcontextprotocol/sdk/client/index.js');
+  const { StreamableHTTPClientTransport } =
+    await import('@modelcontextprotocol/sdk/client/streamableHttp.js');
+  const snapshot = await (await page.request.get('/api/snapshot')).json();
+  const paths = await (await page.request.get('/api/fixture/memory')).json();
+  const headers = { 'x-forge-csrf': snapshot.csrf };
+  const old = await (
+    await page.request.post('/api/companions', {
+      headers,
+      data: {
+        label: 'Browser Hermes lifecycle',
+        profileId: snapshot.defaultProfileId,
+        root: paths.project,
+        scopes: ['work:read', 'context:read', 'work:write'],
+      },
+    })
+  ).json();
+  const saved = await page.request.post('/api/work', {
+    headers,
+    data: {
+      title: 'Companion lifecycle retained work',
+      project: 'Companion handoff',
+      goal: 'Keep identity across native client replacement.',
+      harness: 'codex',
+      cwd: paths.project,
+      profileId: snapshot.defaultProfileId,
+    },
+  });
+  expect(saved.ok(), await saved.text()).toBe(true);
+  const work = await saved.json();
+  await page.goto('/#connections');
+  const panel = page.getByRole('region', { name: 'Companion access' });
+  await panel
+    .getByRole('button', { name: 'Replace Browser Hermes lifecycle', exact: true })
+    .click();
+  const dialog = page.getByRole('dialog', { name: 'Replace companion', exact: true });
+  await dialog.getByLabel('Replacement name').fill('Browser OpenClaw lifecycle');
+  await dialog.getByRole('button', { name: 'Review replacement', exact: true }).click();
+  await expect(
+    dialog.getByRole('region', { name: 'Companion replacement boundary' }),
+  ).toBeVisible();
+  for (const dark of [false, true]) {
+    await page.evaluate(
+      (dark) => (document.documentElement.dataset.theme = dark ? 'dark' : 'light'),
+      dark,
+    );
+    await page.setViewportSize(dark ? { width: 390, height: 844 } : { width: 1440, height: 1000 });
+    expect(
+      (
+        await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()
+      ).violations.map((v) => v.id),
+    ).toEqual([]);
+    expect(
+      await dialog.evaluate((element) =>
+        Array.from(element.querySelectorAll('*')).every(
+          (child) => child.scrollWidth <= child.clientWidth + 1,
+        ),
+      ),
+    ).toBe(true);
+    const bounds = await dialog
+      .getByRole('button', { name: 'Stage replacement', exact: true })
+      .boundingBox();
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(dark ? 844 : 1000);
+    await dialog.screenshot({
+      path: `artifacts/forge-companion-replacement-${dark ? 'mobile-dark' : 'desktop-light'}.png`,
+    });
+  }
+  await dialog.getByRole('button', { name: 'Stage replacement', exact: true }).click();
+  const setup = page.getByRole('dialog', { name: 'Add Forge to your native client' });
+  const config = JSON.parse(await setup.getByLabel('MCP connection configuration').inputValue());
+  const token = config.mcpServers.forge.headers.Authorization;
+  await setup.getByRole('button', { name: 'Done', exact: true }).click();
+  const row = panel.getByRole('article', {
+    name: 'Handoff to Browser OpenClaw lifecycle',
+    exact: true,
+  });
+  await expect(row.getByText('Waiting for the replacement client', { exact: true })).toBeVisible();
+  await expect(
+    row.getByRole('button', { name: 'Activate replacement', exact: true }),
+  ).toBeDisabled();
+  await page.reload();
+  await expect(row).toBeVisible();
+  expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain('forgec_');
+  const client = new Client({ name: 'browser-replacement-native-compatible-client', version: '1' });
+  try {
+    await client.connect(
+      new StreamableHTTPClientTransport(new URL(config.mcpServers.forge.url), {
+        requestInit: { headers: { Authorization: token } },
+      }),
+    );
+    const observed = await client.callTool({ name: 'forge_workspace', arguments: {} });
+    const native = observed.structuredContent as any;
+    expect(native.grant.lifecycle).toBe('staged');
+    expect(native.work.some((value: { id: string }) => value.id === work.id)).toBe(true);
+    const held = await client.callTool({
+      name: 'forge_checkpoint',
+      arguments: {
+        requestId: 'held-before-human-activation',
+        workId: work.id,
+        expectedRevision: work.revision,
+        note: 'No staged write.',
+      },
+    });
+    expect(held.isError).toBe(true);
+    const ready = await client.callTool({
+      name: 'forge_companion_ready',
+      arguments: { handoffId: native.handoff.id, digest: native.handoff.digest },
+    });
+    expect(ready.isError).toBeFalsy();
+    await expect(
+      row.getByText('Replacement acknowledged the context boundary', { exact: true }),
+    ).toBeVisible();
+    await row
+      .getByLabel(
+        'I reviewed native planners, schedules and external work before changing the active Forge connection.',
+      )
+      .check();
+    await row.getByRole('button', { name: 'Activate replacement', exact: true }).click();
+    await expect(
+      row.getByText('Replacement activated; original access revoked', { exact: true }),
+    ).toBeVisible();
+    const final = await client.callTool({
+      name: 'forge_checkpoint',
+      arguments: {
+        requestId: 'native-after-handoff',
+        workId: work.id,
+        expectedRevision: work.revision,
+        note: 'Same work and profile after replacement.',
+      },
+    });
+    expect(final.isError).toBeFalsy();
+    const after = await (await page.request.get('/api/snapshot')).json();
+    expect(
+      after.companionGrants.find((grant: { id: string }) => grant.id === old.grant.id).revokedAt,
+    ).toBeTruthy();
+    const retained = await (await page.request.get(`/api/work/${work.id}`)).json();
+    expect(retained.work.profileId).toBe(work.profileId);
+    expect(
+      retained.events.some(
+        (event: { detail: string }) => event.detail === 'Same work and profile after replacement.',
+      ),
+    ).toBe(true);
+    expect(JSON.stringify(after)).not.toContain(token);
+  } finally {
+    await client.close();
+  }
+});

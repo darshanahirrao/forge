@@ -98,6 +98,7 @@ export interface WorkEvent {
   };
 }
 export interface CompanionActor {
+  lineageId?: string;
   kind: 'companion';
   grantId: string;
   label: string;
@@ -105,6 +106,9 @@ export interface CompanionActor {
 }
 export type CompanionScope = 'work:read' | 'context:read' | 'work:write' | 'work:dispatch';
 export interface CompanionGrant {
+  lineageId?: string;
+  lifecycle?: 'active' | 'draining' | 'staged';
+  handoffId?: string;
   contractVersion: 1;
   id: string;
   label: string;
@@ -429,6 +433,7 @@ export interface BackgroundRuntime {
   definitionDirectory?: string;
 }
 export interface Snapshot {
+  companionHandoffs?: import('./companion-handoff.js').CompanionHandoff[];
   recovery?: import('./recovery.js').NativeRecoverySnapshot;
   resources?: import('./resources.js').ResourceObservation;
   memoryPacks?: import('./memory-packs.js').MemoryPackReceipt[];

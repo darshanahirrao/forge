@@ -63,6 +63,7 @@ export function App() {
   const [view, setView] = useState<View>(returnedFromT3 ? 'activity' : currentView);
   const [activityTab, setActivityTab] = useState<'chats' | 'schedules'>('chats');
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
+  const loadSequence = useRef(0);
   const [networkError, setNetworkError] = useState('');
   const [toast, setToast] = useState(
     t3Result === 'connected'
@@ -96,14 +97,16 @@ export function App() {
       window.history.replaceState(null, '', window.location.pathname + window.location.hash);
   }, []);
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current;
     try {
       const data = await request<Snapshot>('/snapshot', mode);
-      if (activeMode.current === mode) {
+      if (activeMode.current === mode && sequence === loadSequence.current) {
         setSnapshot(data);
         setNetworkError('');
       }
     } catch (error) {
-      if (activeMode.current === mode) setNetworkError((error as Error).message);
+      if (activeMode.current === mode && sequence === loadSequence.current)
+        setNetworkError((error as Error).message);
     }
   }, [mode]);
   useEffect(() => {
@@ -120,6 +123,29 @@ export function App() {
     }, 5000);
     return () => clearInterval(timer);
   }, [load]);
+  useEffect(() => {
+    if (mode !== 'local') return;
+    const source = new EventSource('/api/changes');
+    let pending: ReturnType<typeof setTimeout> | undefined;
+    const refresh = () => {
+      if (document.hidden || pending) return;
+      pending = setTimeout(() => {
+        pending = undefined;
+        void load();
+      }, 250);
+    };
+    source.addEventListener('workspace-change', refresh);
+    source.addEventListener('open', refresh);
+    const visible = () => {
+      if (!document.hidden) refresh();
+    };
+    document.addEventListener('visibilitychange', visible);
+    return () => {
+      source.close();
+      clearTimeout(pending);
+      document.removeEventListener('visibilitychange', visible);
+    };
+  }, [mode, load]);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem('forge.theme', theme);

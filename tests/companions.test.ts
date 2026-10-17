@@ -54,6 +54,7 @@ async function fixture(
     pressure?: () =>
       ReturnType<typeof unknownPressure> | Promise<ReturnType<typeof unknownPressure>>;
     disk?: boolean;
+    phoneBridge?: { origin: string; proof: string };
   } = {},
 ) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'forge-companion-')));
@@ -67,6 +68,7 @@ async function fixture(
     port: 0,
     test: true,
     memoryPressureReader: options.pressure ?? unknownPressure,
+    phoneBridge: options.phoneBridge,
     driverFactory: () => {
       const driver = new Driver();
       drivers.push(driver);
@@ -621,6 +623,400 @@ test('grant revocation during preparation prevents native dispatch, and changed 
   } finally {
     gated = false;
     release?.();
+    await f.close();
+  }
+});
+
+test('companion handoff stages read-only native access, requires target acknowledgement and preserves context, operations and shared allowance', async () => {
+  const f = await fixture();
+  try {
+    const old = await f.grant(true),
+      work = await f.createWork(old.grant.id);
+    const context = await f.companions.context(old.grant.id, work.id);
+    const input = {
+      requestId: 'native-once-before-switch',
+      workId: work.id,
+      expectedRevision: context.revision,
+      contextDigest: context.reviewDigest,
+    };
+    const run = await f.companions.start(old.grant.id, input);
+    await assert.rejects(
+      f.companionHandoffs.prepare({ grantId: old.grant.id, label: 'OpenClaw' }),
+      /native|workers/,
+    );
+    f.drivers[0].sink.ended('completed', 'Native fixture complete', 'No external effects.');
+    await wait(() => f.controller.activeCount === 0);
+    const plan = await f.companionHandoffs.prepare({ grantId: old.grant.id, label: 'OpenClaw' });
+    const staged = await f.companionHandoffs.stage(plan.id, plan.digest, { kind: 'local' });
+    assert(staged.token);
+    assert.equal(staged.grant.lineageId, old.grant.id);
+    assert.equal(staged.grant.expiresAt, old.grant.expiresAt);
+    assert.equal(staged.grant.runsStarted, 1);
+    await assert.rejects(f.createWork(old.grant.id, 'old-after-stage'), /replacement/);
+    await assert.rejects(f.createWork(staged.grant.id, 'new-before-activate'), /replacement/);
+    assert.equal(f.companions.work(staged.grant.id, work.id).work.profileId, work.profileId);
+    const target = await f.client(staged.token);
+    const tools = (await target.listTools()).tools.map((tool) => tool.name);
+    assert(tools.includes('forge_companion_ready'));
+    assert(tools.includes('forge_start_work') && tools.includes('forge_create_work'));
+    assert(
+      (
+        await target.callTool({
+          name: 'forge_create_work',
+          arguments: {
+            requestId: 'held-staged-native-call',
+            title: 'Held',
+            goal: 'No staged write.',
+          },
+        })
+      ).isError,
+    );
+    await assert.rejects(f.companionHandoffs.activate(plan.id, plan.digest, 0), /acknowledge/);
+    const wrong = await target.callTool({
+      name: 'forge_companion_ready',
+      arguments: { handoffId: plan.id, digest: '0'.repeat(64) },
+    });
+    assert(wrong.isError);
+    const ready = await target.callTool({
+      name: 'forge_companion_ready',
+      arguments: { handoffId: plan.id, digest: plan.digest },
+    });
+    assert(!ready.isError, JSON.stringify(ready));
+    const receipt = f.companionHandoffs.list()[0];
+    assert.equal(receipt.state, 'ready');
+    const activated = await f.companionHandoffs.activate(
+      receipt.id,
+      receipt.digest,
+      receipt.revision,
+    );
+    assert.equal(activated.state, 'activated');
+    assert.deepEqual(
+      await f.companionHandoffs.activate(receipt.id, receipt.digest, receipt.revision),
+      activated,
+    );
+    assert.throws(() => f.companions.authenticate(`Bearer ${old.token}`), /revoked/);
+    // The same lost operation response survives a change of native runtime.
+    const continued = await target.callTool({
+      name: 'forge_create_work',
+      arguments: {
+        requestId: 'create-work',
+        title: 'Persistent work',
+        goal: 'Use the same profile and work across native companions.',
+        accountId: f.account.id,
+      },
+    });
+    assert(!continued.isError, JSON.stringify(continued));
+    assert.equal((continued.structuredContent as unknown as Work).id, work.id);
+    assert.equal((await f.companions.start(staged.grant.id, input)).id, run.id);
+    const next = await f.companions.context(staged.grant.id, work.id);
+    await assert.rejects(
+      f.companions.start(staged.grant.id, {
+        ...input,
+        requestId: 'cannot-reset-allowance',
+        expectedRevision: next.revision,
+        contextDigest: next.reviewDigest,
+      }),
+      /finite native run limit/,
+    );
+    assert.equal(f.drivers.length, 1);
+    assert.equal(f.local.all('work').length, 1);
+    assert.equal(f.local.work(work.id).profileId, work.profileId);
+    assert.equal(
+      (await f.companionHandoffs.stage(plan.id, plan.digest, { kind: 'local' })).token,
+      null,
+    );
+    const snapshot = (await f.human('GET', '/api/snapshot')).body;
+    assert(
+      !snapshot.includes(staged.token) &&
+        !snapshot.includes(old.token) &&
+        !snapshot.includes('tokenHash'),
+    );
+  } finally {
+    await f.close();
+  }
+});
+
+test('changed memory and work invalidate replacement readiness; explicit refresh requires a new target acknowledgement', async () => {
+  const f = await fixture();
+  try {
+    const file = join(f.root, 'handoff-memory.md');
+    await writeFile(file, '# Selected\nfirst fact\n# Private\nnot selected\n');
+    const selected = await inspectMemory(file, ['Selected']);
+    const source = await f.profiles.addSource(
+      {
+        label: 'Selected handoff fact',
+        owner: 'markdown',
+        path: file,
+        section: ['Selected'],
+        scope: { kind: 'global' },
+      },
+      selected.sha256,
+      selected.selectionSha256,
+    );
+    const profile = f.profiles.profile();
+    f.profiles.update(profile.id, profile.revision, { ...profile, memorySourceIds: [source.id] });
+    const old = await f.grant(),
+      work = await f.createWork(old.grant.id);
+    const stale = await f.companionHandoffs.prepare({
+      grantId: old.grant.id,
+      label: 'Another MCP runtime',
+    });
+    f.local.updateWork(work.id, { title: 'Changed during review' });
+    await assert.rejects(
+      f.companionHandoffs.stage(stale.id, stale.digest, { kind: 'local' }),
+      /Context changed/,
+    );
+    const plan = await f.companionHandoffs.prepare({
+      grantId: old.grant.id,
+      label: 'Another MCP runtime',
+    });
+    const staged = await f.companionHandoffs.stage(plan.id, plan.digest, { kind: 'local' });
+    await f.companionHandoffs.ready(staged.grant.id, plan.id, plan.digest);
+    let row = f.companionHandoffs.list()[0];
+    f.local.put('memory_sources', source.id, {
+      ...source,
+      revision: source.revision + 1,
+      scope: { kind: 'project', root: f.project },
+    });
+    await assert.rejects(
+      f.companionHandoffs.activate(row.id, row.digest, row.revision),
+      /Context changed/,
+    );
+    row = await f.companionHandoffs.refresh(row.id, row.digest, row.revision);
+    await f.companionHandoffs.ready(staged.grant.id, row.id, row.digest);
+    row = f.companionHandoffs.list()[0];
+    await writeFile(file, '# Selected\ncorrected fact\n# Private\nnot selected\n');
+    await assert.rejects(
+      f.companionHandoffs.activate(row.id, row.digest, row.revision),
+      /Context changed/,
+    );
+    row = await f.companionHandoffs.refresh(row.id, row.digest, row.revision);
+    assert.equal(row.state, 'staged');
+    assert.notEqual(row.digest, plan.digest);
+    await assert.rejects(
+      f.companionHandoffs.ready(staged.grant.id, plan.id, plan.digest),
+      /does not match/,
+    );
+    await f.companionHandoffs.ready(staged.grant.id, row.id, row.digest);
+    row = f.companionHandoffs.list()[0];
+    await f.companionHandoffs.activate(row.id, row.digest, row.revision);
+    const context = await f.companions.context(staged.grant.id, work.id);
+    assert(context.memories[0].content.includes('corrected fact'));
+    assert(!JSON.stringify(context).includes('not selected'));
+    assert.equal(f.local.all('work').length, 1);
+  } finally {
+    await f.close();
+  }
+});
+
+test('abort revokes staged credentials without resurrecting manually revoked access, and setup remains local human only', async () => {
+  const f = await fixture();
+  try {
+    const old = await f.grant(),
+      input = { grantId: old.grant.id, label: 'Replacement' };
+    const deniedHeaders: Record<string, string>[] = [
+      { 'x-forge-workspace': 'demo' },
+      { authorization: `Bearer ${old.token}` },
+      { 'x-forge-csrf': 'invalid' },
+    ];
+    for (const extra of deniedHeaders)
+      assert.equal(
+        (await f.human('POST', '/api/companions/handoffs/prepare', input, extra)).statusCode,
+        403,
+      );
+    const prepared = await f.human('POST', '/api/companions/handoffs/prepare', input);
+    assert.equal(prepared.statusCode, 200, prepared.body);
+    const plan = prepared.json();
+    const stage = await f.human('POST', '/api/companions/handoffs/stage', {
+      id: plan.id,
+      digest: plan.digest,
+    });
+    assert.equal(stage.statusCode, 201, stage.body);
+    const staged = stage.json();
+    f.companions.revoke(old.grant.id);
+    const cancelled = await f.companionHandoffs.abort(
+      staged.handoff.id,
+      staged.handoff.digest,
+      staged.handoff.revision,
+    );
+    assert.equal(cancelled.state, 'aborted');
+    assert.throws(() => f.companions.authenticate(`Bearer ${old.token}`), /revoked/);
+    assert.throws(() => f.companions.authenticate(`Bearer ${staged.token}`), /revoked/);
+    assert.deepEqual(
+      await f.companionHandoffs.abort(cancelled.id, cancelled.digest, cancelled.revision - 1),
+      cancelled,
+    );
+    assert.equal(
+      (await f.human('GET', '/api/snapshot', undefined, { 'x-forge-workspace': 'demo' })).json()
+        .companionHandoffs.length,
+      0,
+    );
+  } finally {
+    await f.close();
+  }
+});
+
+test('restart retains staged handoff and read-only fences without returning a credential or automatically activating', async () => {
+  const f = await fixture({ disk: true });
+  let reopened: Awaited<ReturnType<typeof createApp>> | undefined;
+  try {
+    const old = await f.grant(),
+      work = await f.createWork(old.grant.id);
+    const plan = await f.companionHandoffs.prepare({
+      grantId: old.grant.id,
+      label: 'Restarted runtime',
+    });
+    const stage = await f.companionHandoffs.stage(plan.id, plan.digest, { kind: 'local' });
+    await f.app.close();
+    reopened = await createApp({
+      filename: join(f.root, 'workspace.sqlite'),
+      port: 0,
+      test: true,
+      memoryPressureReader: unknownPressure,
+    });
+    const row = reopened.companionHandoffs.list()[0];
+    assert.equal(row.state, 'staged');
+    assert.equal(reopened.companions.work(stage.grant.id, work.id).work.id, work.id);
+    await assert.rejects(
+      reopened.companions.createWork(stage.grant.id, {
+        requestId: 'before-ready',
+        title: 'Held',
+        goal: 'No automatic activation.',
+      }),
+      /replacement/,
+    );
+    assert.equal(
+      (await reopened.companionHandoffs.stage(plan.id, plan.digest, { kind: 'local' })).token,
+      null,
+    );
+    await reopened.companionHandoffs.abort(row.id, row.digest, row.revision);
+    assert.equal(reopened.companions.authenticate(`Bearer ${old.token}`).id, old.grant.id);
+    assert.throws(() => reopened!.companions.authenticate(`Bearer ${stage.token}`), /revoked/);
+    assert.equal(reopened.local.all('work').length, 1);
+  } finally {
+    await reopened?.app.close();
+    await f.close();
+  }
+});
+
+test('failed metadata staging rolls back both access states and exposes no replacement credential', async () => {
+  const f = await fixture();
+  try {
+    const old = await f.grant(),
+      plan = await f.companionHandoffs.prepare({
+        grantId: old.grant.id,
+        label: 'Atomic replacement',
+      });
+    const put = f.local.put.bind(f.local);
+    f.local.put = (collection, key, value) => {
+      if (collection === 'companion_handoffs')
+        throw new Error('Injected checkpoint write failure.');
+      return put(collection, key, value);
+    };
+    await assert.rejects(
+      f.companionHandoffs.stage(plan.id, plan.digest, { kind: 'local' }),
+      /Injected/,
+    );
+    f.local.put = put;
+    assert.equal(f.companions.list().length, 1);
+    assert.equal(f.companions.authenticate(`Bearer ${old.token}`).id, old.grant.id);
+    assert.equal(f.companionHandoffs.list().length, 0);
+    const staged = await f.companionHandoffs.stage(plan.id, plan.digest, { kind: 'local' });
+    assert(staged.token);
+    assert.equal(f.companions.list().length, 2);
+    assert.equal(f.companionHandoffs.list().length, 1);
+  } finally {
+    await f.close();
+  }
+});
+
+test('a human-started unconfirmed native attempt in the project cannot be bypassed through companion replacement', async () => {
+  const f = await fixture();
+  try {
+    const old = await f.grant(),
+      work = await f.createWork(old.grant.id);
+    f.local.put('runs', 'unconfirmed-human-run', {
+      id: 'unconfirmed-human-run',
+      workId: work.id,
+      accountId: f.account.id,
+      harness: 'codex',
+      generation: 1,
+      status: 'interrupted',
+      nativeSessionId: null,
+      nativeTurnId: null,
+      startedAt: new Date().toISOString(),
+      endedAt: new Date().toISOString(),
+      exitConfirmed: false,
+    });
+    await assert.rejects(
+      f.companionHandoffs.prepare({ grantId: old.grant.id, label: 'Must wait for native exit' }),
+      /Reconcile.*native attempts/,
+    );
+    assert.equal(f.companions.list().length, 1);
+    assert.equal(f.companionHandoffs.list().length, 0);
+    assert.equal(f.companions.authenticate(`Bearer ${old.token}`).id, old.grant.id);
+  } finally {
+    await f.close();
+  }
+});
+
+test('the private phone reviewer can activate an already staged native replacement without provisioning a secret', async () => {
+  const bridge = {
+    origin: 'https://forge-handoff.fixture.invalid',
+    proof: 'owned-phone-handoff-proof',
+  };
+  const f = await fixture({ phoneBridge: bridge });
+  const remote = {
+    origin: bridge.origin,
+    'x-forge-bridge-proof': bridge.proof,
+    'x-forge-bridge-identity': 'reviewer@example.invalid',
+  };
+  try {
+    const old = await f.grant();
+    assert.equal(
+      (
+        await f.human(
+          'POST',
+          '/api/companions/handoffs/prepare',
+          { grantId: old.grant.id, label: 'Phone cannot provision' },
+          remote,
+        )
+      ).statusCode,
+      403,
+    );
+    const plan = await f.companionHandoffs.prepare({
+      grantId: old.grant.id,
+      label: 'Phone reviewed replacement',
+    });
+    const staged = await f.companionHandoffs.stage(plan.id, plan.digest, { kind: 'local' });
+    await f.companionHandoffs.ready(staged.grant.id, plan.id, plan.digest);
+    const row = f.companionHandoffs.list()[0];
+    assert.equal(
+      (
+        await f.human(
+          'POST',
+          `/api/companions/handoffs/${row.id}/activate`,
+          { digest: row.digest, revision: row.revision },
+          remote,
+        )
+      ).statusCode,
+      400,
+    );
+    const activated = await f.human(
+      'POST',
+      `/api/companions/handoffs/${row.id}/activate`,
+      { digest: row.digest, revision: row.revision, nativeActivityReviewed: true },
+      remote,
+    );
+    assert.equal(activated.statusCode, 200, activated.body);
+    assert.deepEqual(activated.json().reviewedBy, {
+      kind: 'tailscale',
+      identity: 'reviewer@example.invalid',
+    });
+    assert(!activated.body.includes(staged.token!));
+    assert.throws(() => f.companions.authenticate(`Bearer ${old.token}`), /revoked/);
+    assert.equal(f.companions.authenticate(`Bearer ${staged.token}`).id, staged.grant.id);
+  } finally {
     await f.close();
   }
 });

@@ -76,11 +76,12 @@ export const companionStartInput = z
 export const companionInterruptInput = z
   .object({ requestId: companionRequestId, workId: companionIdentifier })
   .strict();
-interface StoredGrant extends Omit<CompanionGrant, 'runsStarted'> {
+export interface StoredGrant extends Omit<CompanionGrant, 'runsStarted'> {
   tokenHash: string;
   bindings: Record<string, string>;
 }
 interface Operation {
+  lineageId?: string;
   grantId: string;
   requestId: string;
   tool: string;
@@ -96,27 +97,33 @@ interface Operation {
 
 /** Native MCP clients keep their own agent loop. This grants only explicit Forge operations. */
 export class Companions {
+  writeFence?: () => boolean;
+  handoffForGrant?: (grantId: string) => unknown;
+  acknowledgeHandoff?: (grantId: string, handoffId: string, digest: string) => Promise<unknown>;
   constructor(
     private store: Store,
     private profiles: Profiles,
     private controller: ExecutionController,
   ) {}
-  private public(grant: StoredGrant): CompanionGrant {
+  public(grant: StoredGrant): CompanionGrant {
     const { tokenHash: _secret, bindings: _bindings, ...value } = grant;
     const count = this.store.db
       .prepare(
-        "SELECT COUNT(*) AS total FROM records WHERE collection='runs' AND json_extract(data,'$.requestedBy.grantId')=?",
+        "SELECT COUNT(*) AS total FROM records WHERE collection='runs' AND (json_extract(data,'$.requestedBy.lineageId')=? OR json_extract(data,'$.requestedBy.grantId')=?)",
       )
-      .get(grant.id) as { total: number };
+      .get(grant.lineageId ?? grant.id, grant.lineageId ?? grant.id) as { total: number };
     return {
       ...value,
       runsStarted: count.total,
     };
   }
   list() {
-    return this.store
-      .all<StoredGrant>('companion_grants')
-      .slice(0, 100)
+    return this.store.db
+      .prepare(
+        "SELECT data FROM records WHERE collection='companion_grants' ORDER BY rowid DESC LIMIT 100",
+      )
+      .all()
+      .map((row) => JSON.parse(String(row.data)) as StoredGrant)
       .map((grant) => this.public(grant));
   }
   async create(value: unknown) {
@@ -196,6 +203,34 @@ export class Companions {
       }),
     );
   }
+  /** Internal metadata-only stage; caller owns the atomic transaction. */
+  stageReplacement(grantId: string, label: string, handoffId: string) {
+    const previous = this.store.get<StoredGrant>('companion_grants', grantId);
+    assert(
+      previous &&
+        !previous.revokedAt &&
+        previous.expiresAt > now() &&
+        (!previous.lifecycle || previous.lifecycle === 'active'),
+      409,
+      'This companion is no longer active.',
+    );
+    const grantIdNew = id(),
+      token = `forgec_${grantIdNew}.${randomBytes(32).toString('base64url')}`;
+    const grant: StoredGrant = {
+      ...previous,
+      id: grantIdNew,
+      label,
+      lineageId: previous.lineageId ?? previous.id,
+      handoffId,
+      lifecycle: 'staged',
+      createdAt: now(),
+      lastUsedAt: null,
+      tokenHash: digest(token),
+    };
+    this.store.put('companion_grants', previous.id, { ...previous, lifecycle: 'draining' });
+    this.store.put('companion_grants', grant.id, grant);
+    return { grant: this.public(grant), token };
+  }
   authenticate(header: string | undefined) {
     const match = /^Bearer (forgec_([0-9a-f-]{36})\.[A-Za-z0-9_-]{43})$/.exec(header ?? '');
     const grant = match ? this.store.get<StoredGrant>('companion_grants', match[2]) : null;
@@ -211,6 +246,11 @@ export class Companions {
     return this.public(grant);
   }
   private authorize(grantId: string, scope: CompanionScope, workId?: string) {
+    assert(
+      ['work:read', 'context:read'].includes(scope) || !this.writeFence?.(),
+      409,
+      'A companion handoff is being sealed. Inspect current work before another write.',
+    );
     const grant = this.store.get<StoredGrant>('companion_grants', grantId);
     assert(
       grant && !grant.revokedAt && grant.expiresAt > now(),
@@ -221,6 +261,13 @@ export class Companions {
       grant.scopes.includes(scope),
       403,
       'This companion grant does not allow that operation.',
+    );
+    assert(
+      !grant.lifecycle ||
+        grant.lifecycle === 'active' ||
+        ['work:read', 'context:read'].includes(scope),
+      409,
+      'This companion is preparing a replacement. Only context and work reads are available until handoff is resolved.',
     );
     this.profiles.profile(grant.profileId);
     if (workId) {
@@ -271,6 +318,7 @@ export class Companions {
       contractVersion: 1,
       grant: this.public(grant),
       profile: { id: grant.profileId, name: this.profiles.profile(grant.profileId).name },
+      handoff: this.handoffForGrant?.(grantId),
       work: all.slice(0, 100),
       total: all.length,
       truncated: all.length > 100,
@@ -355,7 +403,13 @@ export class Companions {
     };
   }
   private actor(grant: StoredGrant, requestId: string): CompanionActor {
-    return { kind: 'companion', grantId: grant.id, label: grant.label, requestId };
+    return {
+      kind: 'companion',
+      grantId: grant.id,
+      lineageId: grant.lineageId ?? grant.id,
+      label: grant.label,
+      requestId,
+    };
   }
   private async operation<T>(
     grantId: string,
@@ -366,7 +420,8 @@ export class Companions {
   ): Promise<T> {
     const grant = this.authorize(grantId, scope, input.workId);
     companionRequestId.parse(input.requestId);
-    const key = `${grantId}:${input.requestId}`,
+    const lineageId = grant.lineageId ?? grant.id;
+    const key = `${lineageId}:${input.requestId}`,
       inputHash = digest({ tool, input });
     const previous = this.store.get<Operation>('companion_operations', key);
     if (previous) {
@@ -400,9 +455,9 @@ export class Companions {
         tool === 'forge_start_work'
           ? this.store.db
               .prepare(
-                "SELECT data FROM records WHERE collection='runs' AND json_extract(data,'$.requestedBy.grantId')=? AND json_extract(data,'$.requestedBy.requestId')=? LIMIT 1",
+                "SELECT data FROM records WHERE collection='runs' AND (json_extract(data,'$.requestedBy.lineageId')=? OR json_extract(data,'$.requestedBy.grantId')=?) AND json_extract(data,'$.requestedBy.requestId')=? LIMIT 1",
               )
-              .get(grantId, input.requestId)
+              .get(lineageId, lineageId, input.requestId)
           : null;
       const run = row ? (JSON.parse(String(row.data)) as Run) : null;
       if (run) return run as T;
@@ -413,15 +468,16 @@ export class Companions {
     }
     const count = this.store.db
       .prepare(
-        "SELECT COUNT(*) AS total FROM records WHERE collection='companion_operations' AND json_extract(data,'$.grantId')=?",
+        "SELECT COUNT(*) AS total FROM records WHERE collection='companion_operations' AND (json_extract(data,'$.lineageId')=? OR json_extract(data,'$.grantId')=?)",
       )
-      .get(grantId) as { total: number };
+      .get(lineageId, lineageId) as { total: number };
     assert(
       count.total < 2048,
       409,
       'This companion grant reached its operation limit. Create a new grant to continue.',
     );
     const receipt: Operation = {
+      lineageId,
       grantId,
       requestId: input.requestId,
       tool,

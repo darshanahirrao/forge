@@ -46,6 +46,7 @@ export class ExecutionController {
   private active = new Map<string, Active>();
   private closing = false;
   private checkpointOwner: string | null = null;
+  private checkpointDone: Promise<void> | null = null;
   private preparing: { workId: string; done: Promise<void> } | null = null;
   constructor(
     private store: Store,
@@ -69,6 +70,28 @@ export class ExecutionController {
       [...this.active.values()].some((active) => !active.ending),
     );
   }
+  async atWorkspaceCheckpoint<T>(name: string, action: () => Promise<T>): Promise<T> {
+    assert(
+      !this.closing && this.active.size === 0 && !this.checkpointOwner && !this.preparing,
+      409,
+      'Wait for managed workers and other checkpoint operations to finish.',
+    );
+    return this.holdCheckpoint(`workspace:${name}`, action);
+  }
+  private async holdCheckpoint<T>(owner: string, action: () => Promise<T>): Promise<T> {
+    this.checkpointOwner = owner;
+    let settled: () => void = () => {};
+    this.checkpointDone = new Promise<void>((resolve) => {
+      settled = resolve;
+    });
+    try {
+      return await action();
+    } finally {
+      this.checkpointOwner = null;
+      this.checkpointDone = null;
+      settled();
+    }
+  }
   async atCheckpoint<T>(
     workId: string,
     revision: number,
@@ -85,12 +108,7 @@ export class ExecutionController {
       409,
       'This work changed. Review its current state before preparing a handoff.',
     );
-    this.checkpointOwner = workId;
-    try {
-      return await action(work);
-    } finally {
-      this.checkpointOwner = null;
-    }
+    return this.holdCheckpoint(workId, () => action(work));
   }
   async launch(
     workId: string,
@@ -786,8 +804,7 @@ export class ExecutionController {
       409,
       'Wait for active native execution before reconciling this run.',
     );
-    this.checkpointOwner = saved.workId;
-    try {
+    return this.holdCheckpoint(saved.workId, async () => {
       await active?.finishing;
       const run = this.store.get<Run>('runs', runId)!;
       const work = this.store.work(run.workId);
@@ -836,9 +853,7 @@ export class ExecutionController {
       active?.credentials?.dispose();
       this.active.delete(work.id);
       return receipt;
-    } finally {
-      this.checkpointOwner = null;
-    }
+    });
   }
   async reconcileDelegated(
     runId: string,
@@ -850,6 +865,7 @@ export class ExecutionController {
       409,
       'This run does not need delegated reconciliation.',
     );
+    const expected = run.settlement;
     const active = this.active.get(run.workId);
     assert(
       !this.closing &&
@@ -859,16 +875,15 @@ export class ExecutionController {
       409,
       'Wait for active native execution before reconciling this run.',
     );
-    this.checkpointOwner = run.workId;
-    try {
+    return this.holdCheckpoint(run.workId, async () => {
       await active?.finishing;
       const receipt = await inspect(run);
       assert(
         receipt.confirmed &&
-          receipt.backendId === run.settlement.backendId &&
-          receipt.threadId === run.settlement.threadId &&
-          receipt.messageId === run.settlement.messageId &&
-          (!run.settlement.runId || receipt.runId === run.settlement.runId),
+          receipt.backendId === expected.backendId &&
+          receipt.threadId === expected.threadId &&
+          receipt.messageId === expected.messageId &&
+          (!expected.runId || receipt.runId === expected.runId),
         409,
         'Native reconciliation did not match this exact run.',
       );
@@ -896,9 +911,7 @@ export class ExecutionController {
       this.active.get(run.workId)?.credentials?.dispose();
       this.active.delete(run.workId);
       return receipt;
-    } finally {
-      this.checkpointOwner = null;
-    }
+    });
   }
   interrupt(workId: string) {
     const active = this.active.get(workId);
@@ -923,6 +936,7 @@ export class ExecutionController {
   async close() {
     this.closing = true;
     await this.preparing?.done;
+    await this.checkpointDone;
     await Promise.all(
       [...this.active.values()].map((active) =>
         this.finish(

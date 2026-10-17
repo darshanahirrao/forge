@@ -1,4 +1,6 @@
-# Forge v0.27.0
+# Forge v0.28.0
+
+Version 0.28 adds [reviewed companion replacement](COMPANION_HANDOFF.md), shared finite allowance/idempotency across replacements, authenticated native readiness, private-phone activation and payload-free live UI changes over the existing HTTP service. Native planners, tools, memory engines and schedule owners stay native. State 8 forward-gates the new access states and lineage. Full native planner/scheduler lifecycle, memory-provider migration and the other framework gates remain open.
 
 Version 0.27 adds [signed native worker recovery](NATIVE_RECOVERY.md). Supported native child owners retain actual wait authority across a Forge crash, sign native/stdio closure and fence explicit profiles durably. Human digest/revision review releases only the original worker reservation; old approvals, prompts and unknown costs are never replayed or silently cleared. A killed child owner or unsupported legacy exit keeps unrelated admission held. All five actual harness adapters produce signed close evidence, and compiled actual Codex crash/restart passes after an approved effect and before an unapproved command. The idle workspace has no child owners. State 7 creates a private before-v7 backup and refuses older readers. Foreign/detached/external-effect recovery and hard limits remain open.
 
@@ -124,7 +126,9 @@ The macOS pressure check also passed against the real native flag 2 (warning), h
 
 ## State version and rollback
 
-Current state is 7. Native recovery upgrades from earlier file states create a mode-0600 `workspace.sqlite.before-v7.UUID.sqlite` copy before advancing. The previous compiled state-6 reader refuses state 7. Preserve private native profiles/proofs separately; restoring old application/state files does not establish native settlement. [Recovery compatibility](NATIVE_RECOVERY.md) describes the ownership boundary. The following version-3 note records the earlier migration milestone.
+Current state is 8. State-7 upgrades create a private before-v8 copy and the previous compiled reader refuses state 8. Connection handoffs cannot safely be rolled back by serving an old authorization snapshot without reconciling access and later native effects.
+
+The preceding recovery milestone used state 7. Native recovery upgrades from earlier file states create a mode-0600 `workspace.sqlite.before-v7.UUID.sqlite` copy before advancing. The previous compiled state-6 reader refuses state 7. Preserve private native profiles/proofs separately; restoring old application/state files does not establish native settlement. [Recovery compatibility](NATIVE_RECOVERY.md) describes the ownership boundary. The following version-3 note records the earlier migration milestone.
 
 This checkpoint upgrades private state to version 3 so older applications cannot silently bypass profile/memory semantics. A version-1 or version-2 file workspace receives an automatic native SQLite rollback copy named `workspace.sqlite.before-v3.UUID.sqlite` in its existing private data directory before the version changes. The copy uses private file permissions. Work and history remain in the active database. Stop Forge before restoring a copy; retain the current state separately and use a separate data directory when inspecting an older checkpoint. Never combine the old snapshot with current SQLite sidecars.
 

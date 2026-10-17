@@ -38,30 +38,43 @@ async function call(name, input) {
 }
 try {
   const catalog = await runtime.getCatalog();
-  assert.equal(catalog.tools.length, 5);
+  assert.equal(catalog.tools.length, fixture.expectedTools ?? 5);
   const work = (await call('forge_work', { workId: fixture.workId })).work;
   assert.equal(work.profileId, fixture.profileId);
   const context = await call('forge_context', { workId: work.id });
   assert(JSON.stringify(context).includes('native-selected-copper'));
   assert(!JSON.stringify(context).includes('native-excluded-violet'));
-  const input = {
-    requestId: 'native-openclaw-note',
-    workId: work.id,
-    expectedRevision: work.revision,
-    note: 'Native OpenClaw MCP continued the same Forge work after Hermes.',
-  };
-  const note = await call('forge_checkpoint', input);
-  assert.equal((await call('forge_checkpoint', input)).id, note.id);
-  console.log(
-    JSON.stringify({
-      native: 'OpenClaw MCP runtime',
-      tools: catalog.tools.length,
-      sameWorkAndProfile: true,
-      selectedMemory: true,
-      idempotentCheckpoint: true,
-      paidModelCalls: 0,
-    }),
-  );
+  if (fixture.handoff) {
+    const ready = await call('forge_companion_ready', fixture.handoff);
+    assert.equal(ready.state, 'ready');
+    console.log(
+      JSON.stringify({
+        native: 'OpenClaw MCP runtime',
+        ready: true,
+        tools: catalog.tools.length,
+        paidModelCalls: 0,
+      }),
+    );
+  } else {
+    const input = {
+      requestId: 'native-openclaw-note',
+      workId: work.id,
+      expectedRevision: work.revision,
+      note: 'Native OpenClaw MCP continued the same Forge work after Hermes.',
+    };
+    const note = await call('forge_checkpoint', input);
+    assert.equal((await call('forge_checkpoint', input)).id, note.id);
+    console.log(
+      JSON.stringify({
+        native: 'OpenClaw MCP runtime',
+        tools: catalog.tools.length,
+        sameWorkAndProfile: true,
+        selectedMemory: true,
+        idempotentCheckpoint: true,
+        paidModelCalls: 0,
+      }),
+    );
+  }
 } finally {
   await runtime.dispose();
   await runtime.joinCleanup();

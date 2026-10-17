@@ -1,5 +1,7 @@
 # Native tool conformance
 
+The companion and portable-memory checks now stage a replacement grant, obtain readiness through the actual native MCP client and activate the same profile/project without resetting allowance or request identity. Run with existing OpenClaw overrides for the Hermes-to-OpenClaw path, or without them for the native Hermes replacement path. [Handoff contract](../../docs/COMPANION_HANDOFF.md).
+
 Build first, then run `npm run test:native:recovery` for compiled Forge crash/restart around an approved actual Codex external effect and a second pending native approval. Exact signed-close reconciliation must produce no extra provider request or unapproved artifact. The six-run handoff also requires signed native-close receipts for every harness. See [native recovery evidence and limits](../../docs/NATIVE_RECOVERY.md).
 
 `npm run test:native:connector` checks registered generic ACP execution with a compatible native OpenCode binary. Set `FORGE_CONNECTOR_CONFORMANCE_BINARY` for an isolated version comparison. Native 2.0.31 passes model/approval/artifact/context/private-reference evidence; installed 2.0.6 is explicitly checked with `-- --expect-model-hold` to prove no input or provider request. See [connector contracts and setup](../../docs/NATIVE_CONNECTORS.md).
