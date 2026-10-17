@@ -28,7 +28,7 @@ An exit signal alone does not identify its cause or prove detached/external effe
 
 Policy configuration uses canonical private state. State 10 prevents older readers from ignoring these reservations and receipts. Upgrading an earlier file workspace creates a private `before-v10` rollback copy. Retain native profiles/proofs separately; a database rollback does not undo native effects. Setup blueprints do not transfer this host-bound policy or its active authority.
 
-The private OpenClaw profile marker records confirmed ownership closure, independently of whether the native outcome was successful. Admission rejected before any child exists restores only that attempt’s preparation marker. With supervision, the original signing evidence must validate before a live parent marks the profile closed. A killed signing owner or unavailable evidence retains the hold. Cold/legacy SDK marker recovery remains an open gate; restoring native defaults does not clear unknown ownership.
+The private OpenClaw profile marker records confirmed ownership closure, independently of whether the native outcome was successful. Admission rejected before any child exists restores only that attempt’s preparation marker. With supervision, the original signing evidence must validate before a live parent marks the profile closed. A killed signing owner or unavailable evidence retains the hold. Version 0.32 also recovers a captured version-2 SDK marker after parent loss by verifying that exact original signature and retaining the same device identity. Unbound legacy markers stay held; restoring native defaults does not clear unknown ownership. [Recovery and private format migration](OPENCLAW.md).
 
 ## Verification
 

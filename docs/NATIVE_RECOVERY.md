@@ -28,6 +28,12 @@ For an explicitly selected native home, the child owner commits an armed row to 
 
 This is cooperative fencing among compatible Forge workers using the same explicit profile. It cannot control foreign native clients, older Forge binaries or implicit global profiles. Do not delete ownership files or change saved statuses to bypass a hold. Proof files must remain available while their profile fence needs them.
 
+## Captured OpenClaw SDK ownership
+
+Version 0.32 binds the private OpenClaw transport marker to its exact armed signing descriptor before original supervision sends native bootstrap. The unclean marker, attempt ID, canonical profile path and device identity are saved together with private file/directory durability. Parent loss after that write cannot strand a known closed Gateway behind a legacy boolean alone; the next managed start verifies only its captured original signature and retains the same device keys. A crash before the write cannot start native code under this supervision contract. Older/custom spawners retain conservative pre-spawn markers.
+
+This profile check does not release canonical run or spending reservations. Human digest/revision reconciliation remains required for interrupted managed work. No model request, prompt, decision or external effect is replayed. Unbound legacy markers, a changed path/device/attempt, a missing/corrupt proof or a killed signing owner remain held. A generic older closed profile-fence row cannot authorize the current SDK marker. Clean version-1 identities retain a private before-v2 copy during upgrade; the prior version-1 reader refuses version 2 before starting native code. [OpenClaw ownership and rollback](OPENCLAW.md).
+
 ## Storage, rollback and limits
 
 File-backed workspaces enable supervision by default. Owned in-memory fixtures opt in with an explicit private worker directory. Windows supervision is unsupported. New native launches remain possible through the preexisting driver contract there, but durable native-close recovery is unavailable. A custom driver must use `DriverContext.spawnNative` to obtain this evidence.
@@ -43,3 +49,5 @@ Native root and stdio closure do not prove detached tools, remote jobs, billing,
 Build first, then run `npm run test:native:recovery`. It starts the compiled Forge app with an isolated actual Codex profile and deterministic loopback inference. One approved native tool writes an artifact; Forge is killed at a second pending native command. Restart verifies original-owner closure, invalidates the stale decision and reconciles without another provider request or the unapproved artifact. It uses no personal credential or paid model call and retains a failed fixture for inspection.
 
 `npm run test:native:handoff` separately verifies signed native-close receipts across all six runs through actual Codex, two Claude API profiles, OpenCode, Hermes and OpenClaw, together with the existing artifacts, exact approvals, selected context and resource partitions. These checks do not establish live provider/device acceptance or full framework completion.
+
+`npm run test:native:openclaw-recovery` checks the compiled actual OpenClaw Gateway through owned-host SIGKILL, original signed closure, same-profile/device restart, retained old proof and unchanged native configuration with zero model requests. Functional checks also reject altered signatures and attempt/device/root bindings, preserve unknown legacy markers and prevent native bootstrap when marker persistence fails.

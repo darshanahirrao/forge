@@ -24,12 +24,20 @@ export interface SupervisedChild extends ChildProcessWithoutNullStreams {
   nativeStarted: Promise<number | null>;
   nativeExitConfirmed?: () => boolean;
 }
-export type NativeSpawn = (
+export type NativeSpawn = ((
   command: string,
   args: readonly string[],
   options: SpawnOptionsWithoutStdio,
-  policy?: { input?: 'pipe' | 'ignore'; graceMs?: number },
-) => SupervisedChild;
+  policy?: {
+    input?: 'pipe' | 'ignore';
+    graceMs?: number;
+    /** Persist an exact private SDK ownership marker before bootstrap can admit native code. */
+    onArmed?: (descriptor: WorkerProofDescriptor<object>) => void;
+  },
+) => SupervisedChild) & {
+  /** The original owner persists onArmed before sending any native bootstrap. */
+  readonly preparesSdkMarker?: true;
+};
 export interface OwnedNativeReceipt<Scope extends object> extends WorkerProofDescriptor<Scope> {
   phase: 'prepared' | 'armed' | 'committed';
   createdAt: string;
@@ -51,7 +59,7 @@ export class NativeStartRejected extends ForgeError {}
 export function ownedNativeSpawner<Scope extends object>(input: NativeOwner<Scope>): NativeSpawn {
   privateDirectory(input.directory);
   let used = false;
-  return (command, args, options, policy = {}) => {
+  const nativeSpawn: NativeSpawn = (command, args, options, policy = {}) => {
     assert(
       !used,
       409,
@@ -192,6 +200,13 @@ export function ownedNativeSpawner<Scope extends object>(input: NativeOwner<Scop
         graceMs: policy.graceMs ?? 3000,
         profileRoot,
       };
+      try {
+        policy.onArmed?.(structuredClone(record));
+      } catch {
+        // The native process cannot start without the marker. Bootstrap still
+        // lets this original owner sign its aborted, never-started closure.
+        child.kill('SIGTERM');
+      }
       send({
         type: 'bootstrap',
         descriptor: record,
@@ -202,4 +217,6 @@ export function ownedNativeSpawner<Scope extends object>(input: NativeOwner<Scop
     }
     return child;
   };
+  Object.defineProperty(nativeSpawn, 'preparesSdkMarker', { value: true });
+  return nativeSpawn;
 }

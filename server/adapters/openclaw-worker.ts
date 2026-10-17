@@ -1,15 +1,8 @@
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createServer } from 'node:net';
-import {
-  createHash,
-  createPublicKey,
-  generateKeyPairSync,
-  randomBytes,
-  randomUUID,
-  sign,
-} from 'node:crypto';
-import { readFile, realpath, lstat, writeFile, rename, rm } from 'node:fs/promises';
+import { randomBytes, randomUUID, sign } from 'node:crypto';
+import { readFile, realpath } from 'node:fs/promises';
 import { dirname, isAbsolute, join } from 'node:path';
 import type {
   GatewayClient,
@@ -17,7 +10,6 @@ import type {
   GatewayClientRequestOptions,
   DeviceIdentity,
 } from '@openclaw/gateway-client';
-import { z } from 'zod';
 import type { Account } from '../../shared/types.js';
 import { version } from '../../shared/version.js';
 import { assert } from '../errors.js';
@@ -25,6 +17,15 @@ import { NativeStartRejected } from '../owned-native.js';
 import { credentialValue, type CredentialMaterial } from '../credentials.js';
 import { findBinary } from './discovery.js';
 import { acquireProfileLease } from './profile-lease.js';
+import {
+  newOpenClawIdentity,
+  readOpenClawIdentity,
+  createOpenClawIdentity,
+  saveOpenClawIdentity,
+  armOpenClawIdentity,
+  rawPublicKey,
+} from './openclaw-identity.js';
+export { newOpenClawIdentity } from './openclaw-identity.js';
 
 const exec = promisify(execFile);
 function deferred<T>() {
@@ -193,73 +194,9 @@ export async function assertOpenClawExecutionProfile(
   );
 }
 
-const identitySchema = z.object({
-  version: z.literal(1),
-  cleanExit: z.boolean(),
-  device: z.object({
-    deviceId: z.string().regex(/^[a-f0-9]{64}$/),
-    publicKeyPem: z.string().max(2048),
-    privateKeyPem: z.string().max(4096),
-  }),
-});
-type ProfileIdentity = z.infer<typeof identitySchema>;
-function rawPublicKey(pem: string) {
-  const key = createPublicKey(pem);
-  assert(key.asymmetricKeyType === 'ed25519', 409, 'Invalid Forge OpenClaw device key.');
-  const raw = key.export({ format: 'jwk' }).x;
-  assert(raw, 409, 'Invalid Forge OpenClaw public key.');
-  return raw;
-}
-export function newOpenClawIdentity(): ProfileIdentity {
-  const keys = generateKeyPairSync('ed25519');
-  const publicKeyPem = keys.publicKey.export({ type: 'spki', format: 'pem' }).toString();
-  const privateKeyPem = keys.privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
-  const deviceId = createHash('sha256')
-    .update(Buffer.from(rawPublicKey(publicKeyPem), 'base64url'))
-    .digest('hex');
-  return { version: 1, cleanExit: true, device: { deviceId, publicKeyPem, privateKeyPem } };
-}
-function validateIdentity(value: unknown): ProfileIdentity {
-  const identity = identitySchema.parse(value);
-  const raw = rawPublicKey(identity.device.publicKeyPem);
-  assert(
-    rawPublicKey(identity.device.privateKeyPem) === raw &&
-      createHash('sha256').update(Buffer.from(raw, 'base64url')).digest('hex') ===
-        identity.device.deviceId,
-    409,
-    'The Forge OpenClaw device identity does not match its key pair.',
-  );
-  return identity;
-}
-async function saveIdentity(filename: string, identity: ProfileIdentity) {
-  const temporary = `${filename}.${randomUUID()}.tmp`;
-  try {
-    await writeFile(temporary, JSON.stringify(identity), { mode: 0o600, flag: 'wx' });
-    await rename(temporary, filename);
-  } finally {
-    await rm(temporary, { force: true });
-  }
-}
 async function profileIdentity(root: string, installation: Installation, env: NodeJS.ProcessEnv) {
-  const filename = join(root, '.forge-openclaw.json');
-  const stat = await lstat(filename).catch((error) => {
-    if (error.code === 'ENOENT') return null;
-    throw error;
-  });
-  if (stat) {
-    assert(
-      stat.isFile() && !stat.isSymbolicLink() && stat.size < 16384 && (stat.mode & 0o077) === 0,
-      409,
-      'Forge OpenClaw identity must be a private regular file.',
-    );
-    const identity = validateIdentity(JSON.parse(await readFile(filename, 'utf8')));
-    assert(
-      identity.cleanExit,
-      409,
-      'This OpenClaw profile has an unconfirmed native exit. Reconcile native work before resetting the Forge ownership receipt.',
-    );
-    return { filename, identity };
-  }
+  const existing = await readOpenClawIdentity(root);
+  if (existing) return existing;
   const sessions = (await nativeJson(installation, env, [
     'sessions',
     '--all-agents',
@@ -272,8 +209,8 @@ async function profileIdentity(root: string, installation: Installation, env: No
     'Initial managed OpenClaw attachment requires an empty dedicated native session profile. Existing native sessions retain their original owner.',
   );
   const identity = newOpenClawIdentity();
-  await writeFile(filename, JSON.stringify(identity), { mode: 0o600, flag: 'wx' });
-  return { filename, identity };
+  await createOpenClawIdentity(root, identity);
+  return identity;
 }
 async function unusedPort(): Promise<number> {
   const listener = createServer();
@@ -301,13 +238,18 @@ export async function openClawWorker(
   let handedOff = false;
   try {
     await assertOpenClawExecutionProfile(installation, env);
-    const { identity, filename } = await profileIdentity(account.nativeHome, installation, env);
+    const identity = await profileIdentity(account.nativeHome, installation, env);
     const port = await unusedPort();
     const token = randomBytes(32).toString('hex');
     const { GatewayClient, isGatewayProtocolResponseError } =
       await import('@openclaw/gateway-client');
     identity.cleanExit = false;
-    await saveIdentity(filename, identity);
+    identity.attemptId = randomUUID();
+    delete identity.closure;
+    // Original supervision writes the unclean marker and its exact proof binding
+    // together before bootstrap. A crash before that write cannot start native code.
+    // Older/custom spawners retain the conservative pre-spawn marker instead.
+    if (!spawnNative?.preparesSdkMarker) saveOpenClawIdentity(account.nativeHome, identity);
     const nativeSpawn =
       spawnNative ??
       ((command, args, options) =>
@@ -334,12 +276,16 @@ export async function openClawWorker(
           env: { ...env, OPENCLAW_GATEWAY_TOKEN: token },
           windowsHide: true,
         },
-        { input: 'ignore', graceMs: 335000 },
+        {
+          input: 'ignore',
+          graceMs: 335000,
+          onArmed: (record) => armOpenClawIdentity(account.nativeHome, identity, record),
+        },
       );
     } catch (error) {
       if (error instanceof NativeStartRejected) {
         identity.cleanExit = true;
-        await saveIdentity(filename, identity);
+        saveOpenClawIdentity(account.nativeHome, identity);
       }
       throw error;
     }
@@ -387,7 +333,7 @@ export async function openClawWorker(
                 (child as import('../owned-native.js').SupervisedChild).nativeExitConfirmed?.(),
               )
             : true;
-          await saveIdentity(filename, identity);
+          saveOpenClawIdentity(account.nativeHome, identity);
           assert(
             identity.cleanExit,
             409,
