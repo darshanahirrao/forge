@@ -419,6 +419,7 @@ export interface BackgroundRuntime {
   scope?: 'user-login';
 }
 export interface Snapshot {
+  notifications?: import('./notifications.js').NotificationSnapshot;
   spending?: import('./spending.js').SpendingSnapshot;
   outcomes?: import('./spending.js').WorkOutcome[];
   companionGrants?: CompanionGrant[];

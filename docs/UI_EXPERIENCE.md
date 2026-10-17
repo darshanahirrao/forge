@@ -35,3 +35,8 @@ Content order: operational status, exact pending decisions, setup only when need
 - Navigation survives reload and browser back/forward. A workspace change closes transient work and approval dialogs.
 - Both themes, keyboard access, empty/error states and narrow layouts are verified with the existing browser suite and rendered captures.
 - This is a workflow improvement to an early framework. Automatic account routing, arbitrary native-state portability, complete companion interchangeability and full recovery/performance gates remain open in [COMPLETION_AUDIT.md](COMPLETION_AUDIT.md).
+
+
+## Notification controls, v0.20
+
+The job is to configure an existing destination and resolve delivery problems. Reuse the established cool paper `#f3f7f7`, panel white `#ffffff`, ink `#18343e`, teal action `#12665f` and warning `#80501b`, with the existing dark-theme tokens. Avenir/system type carries controls and explanations; existing monospace remains for native data. No new font, UI dependency or decorative surface is added. A compact Connections section owns setup and receipts; the primary workspace attention list links directly to delivery problems. Private setup uses one scrollable column and a fixed action footer. Unreviewed failures are ordered before recent accepted receipts. Both themes, desktop/mobile action reach, credential clearing and axe are validated. The existing Commands control now derives its accessible name from its visible text.

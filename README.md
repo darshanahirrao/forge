@@ -6,7 +6,7 @@ Forge is an open-source local workspace for people who work across AI runtimes a
 
 We call the product concept **Persistent Agency**: your agent profile, memory, workspace, work history, shared connections, schedules, and policies remain in Forge while you change a compatible execution harness at a verified checkpoint.
 
-**Status: early local application, v0.17.0.** Persistent work/profiles, scoped native memory, account slots, native activity, machine telemetry and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic quota fallback, always-on companion planning/control, background approval notifications, native schedule controls, full memory-provider migration and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md).
+**Status: early local application, v0.20.0.** Persistent work/profiles, scoped native memory, reviewed setup blueprints, account routing, spending admission, native activity, machine telemetry, optional ntfy alerts and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic continuation after uncertain effects, always-on companion lifecycle, native schedule controls, full memory-provider migration, live device/provider acceptance and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md) and [full completion audit](docs/COMPLETION_AUDIT.md).
 
 The workspace now starts with your managed work and existing native chats, compact resource/usage status and exact pending approvals. Ctrl/Cmd K searches work and commands; optional creation fields stay folded until needed. See [the experience decisions and upstream references](docs/UI_EXPERIENCE.md).
 
@@ -36,6 +36,8 @@ Existing Hermes, OpenClaw and other MCP clients can use [scoped companion access
 
 For phone review, the opt-in private gateway reuses Tailscale Serve and an explicit owner allowlist. [Phone setup and evidence](docs/PHONE_ACCESS.md) describe the authenticated route and the remaining live-device verification. The default service remains local.
 
+[Notifications](docs/NOTIFICATIONS.md) reuse your existing ntfy destination for generic approval and attempt alerts. Private credentials stay outside SQLite/exports; uncertain deliveries are visible and never automatically retried. The native request still requires authenticated review in Forge.
+
 To see existing work, open **Activity**, discover profile references, then read the sources you want. Codex and Claude session catalogs, Codex and Hermes schedule definitions, and existing Hermes/OpenClaw session APIs retain their native owners. [Native activity coverage and setup](docs/NATIVE_ACTIVITY.md) explain the limits and private metadata handling.
 
 T3 Code can supply an optional [native execution backend](docs/NATIVE_BACKENDS.md), with native provider instances/models, exact approvals, delegated run receipts and explicit context coverage. Its separate [read-only activity source](docs/T3_CODE.md) keeps its original scope. The two-instance artifact and credential proof passes; full native-history preservation and whole-stack adoption remain open.
@@ -48,12 +50,14 @@ Private state is stored outside this repository. On macOS, the default is `~/Lib
 
 - Persistent work, goals, context, checkpoints, revision conflict checks, user-selected context exports, and verified [Work Capsules and native handoff](docs/CONTINUITY.md).
 - Stable profiles and native memory references, project/work scopes, reviewed input fingerprints, corrected-context isolation and selected-memory continuity across supported harnesses/accounts.
-- Multiple account slots per supported harness choice, native Codex/Claude authentication status checks, and native Codex quota evidence when exposed.
+- Multiple account slots and reviewed ordered routing scoped to the project/profile, with fresh native identity/quota evidence, shared-limit handling and explicit billing choices.
+- Managed monthly/work spending admission, atomic attempt reservations, native counter deltas, unknown-cost holds and separate operator acceptance. Estimates remain distinct from invoices.
 - A shared execution coordinator for experimental Codex app-server, Claude Agent SDK API, OpenCode v2, Hermes ACP and OpenClaw Gateway turns, with one managed worker, supported exact approvals, cancellation, native session continuation, usage snapshots, and recovery receipts.
 - Real CPU, OS memory, process RSS and service-memory visibility, with [managed native worker attribution](docs/RESOURCES.md) and direct review of owning work. A fresh native macOS pressure check holds new managed launches at reported warning/critical pressure; explicit observe-only mode and quiet mode remain available.
 - Native activity across profile/account homes: Codex and Claude chats, byte-preserving Codex/Hermes schedule inventory, and capability-aware Hermes/OpenClaw session API observations.
 - Optional Agent Deck session inventory and ccusage daily Claude reports through their installed native CLIs.
 - Optional macOS user service with verified native installation ownership, start/status/stop/restart/removal and no automatic task replay after a crash.
+- Optional generic ntfy alerts with private setup, durable delivery evidence, current-request checks and no uncertain-delivery retry.
 - Responsive light/dark views, keyboard search, sanitized setup-blueprint export, and opt-in private phone access to the same workspace/inbox with recorded reviewer identity.
 
 Native adapters have protocol/callback fixtures plus [repeatable native tool conformance checks](tests/native/README.md). Actual Codex, Claude, OpenCode, Hermes and OpenClaw native workers passed an approval, tool execution, exact artifact verification and usage reporting against local deterministic providers, with zero paid model calls. A native Codex-to-Claude-to-second-Claude-profile-to-OpenCode-to-Hermes-to-OpenClaw chain retains one work/profile identity, selected memory, its goal/checkpoint, six verified artifacts, six account usage scopes and six OS-checked native worker roots. A separate native check switches between two OpenCode profiles with distinct synthetic credentials and a verified artifact read. Inference is deterministic and local; live subscription/account isolation and real model quality remain unverified. Native limits, permissions, and compatibility still apply.
@@ -82,6 +86,7 @@ The defining demonstration is a real task checkpointed in one harness, continued
 - [Background operation and macOS service setup](docs/BACKGROUND_SERVICE.md)
 - [Native resource ownership and observation limits](docs/RESOURCES.md)
 - [Private phone access and native approval review](docs/PHONE_ACCESS.md)
+- [Optional ntfy alerts, private setup and delivery evidence](docs/NOTIFICATIONS.md)
 - [Native OpenClaw execution, profile setup and conformance](docs/OPENCLAW.md)
 - [Native Hermes execution, memory and conformance](docs/HERMES.md)
 - [Native OpenCode profile setup and conformance](docs/OPENCODE.md)

@@ -16,6 +16,7 @@ import { compact, currency } from '../lib/format';
 import { BackendsPanel } from '../components/BackendsPanel';
 import { CompanionsPanel } from '../components/CompanionsPanel';
 import { BlueprintsPanel } from '../components/BlueprintsPanel';
+import { NotificationsPanel } from '../components/NotificationsPanel';
 
 export function ConnectionsPage({
   data,
@@ -54,6 +55,7 @@ export function ConnectionsPage({
     <div className="page-stack">
       <BackendsPanel data={data} mutate={mutate} />
       <CompanionsPanel data={data} mutate={mutate} />
+      <NotificationsPanel data={data} mutate={mutate} />
       <section className="panel resource-controls" aria-label="Workspace availability">
         <div>
           <span className="eyebrow">WORKSPACE AVAILABILITY</span>

@@ -37,6 +37,42 @@
   flex-wrap: wrap;
   gap: 16px;
 }
+.notification-kinds {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--structure);
+  border-radius: 6px;
+  padding: 12px 16px;
+}
+.notification-kinds legend {
+  padding-inline: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.notification-receipts {
+  display: grid;
+  gap: 16px;
+  padding: 0;
+  list-style: none;
+  max-height: 400px;
+  overflow-y: auto;
+}
+.notification-receipts li {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+.notification-receipts li > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.notification-receipts li span {
+  color: var(--muted);
+}
+.notification-warning {
+  color: var(--warning);
+}
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;

@@ -26,6 +26,7 @@ type Collection =
   | 'spend_counters'
   | 'work_outcomes'
   | 'account_routes'
+  | 'notifications'
   | 'settings'
   | 'config';
 export const now = () => new Date().toISOString();
@@ -33,6 +34,8 @@ export const id = () => randomUUID();
 
 // SQLite is the source of truth. Every mutation and its receipt share a transaction.
 export class Store {
+  private changes: Set<Collection> | null = null;
+  private listeners = new Set<(collections: ReadonlySet<Collection>) => void>();
   readonly db: DatabaseSync;
   readonly migrationBackup: string | null;
   constructor(filename: string) {
@@ -59,6 +62,7 @@ export class Store {
       CREATE INDEX IF NOT EXISTS usage_by_work ON records(json_extract(data,'$.workId')) WHERE collection='usage';
       CREATE INDEX IF NOT EXISTS spend_by_work ON records(json_extract(data,'$.workId')) WHERE collection='spend_attempts';
       CREATE INDEX IF NOT EXISTS companion_operations_by_grant ON records(json_extract(data,'$.grantId')) WHERE collection='companion_operations';
+      CREATE INDEX IF NOT EXISTS notifications_by_state ON records(json_extract(data,'$.state')) WHERE collection='notifications';
       `);
       let backup: string | null = null;
       if (version.user_version > 0 && version.user_version < 5 && filename !== ':memory:') {
@@ -137,6 +141,7 @@ export class Store {
           "INSERT INTO records(collection,id,data) VALUES('work',?,?),('work_summaries',?,?) ON CONFLICT(collection,id) DO UPDATE SET data=excluded.data",
         )
         .run(key, JSON.stringify(data), key, JSON.stringify(summary));
+      this.changed(collection);
       return data;
     }
     this.db
@@ -144,19 +149,46 @@ export class Store {
         'INSERT INTO records(collection,id,data) VALUES(?,?,?) ON CONFLICT(collection,id) DO UPDATE SET data=excluded.data',
       )
       .run(collection, key, JSON.stringify(data));
+    this.changed(collection);
     return data;
   }
   remove(collection: Collection, key: string) {
     this.db.prepare('DELETE FROM records WHERE collection = ? AND id = ?').run(collection, key);
+    this.changed(collection);
+  }
+  onChange(listener: (collections: ReadonlySet<Collection>) => void) {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+  private changed(collection: Collection) {
+    if (this.changes) this.changes.add(collection);
+    else this.publish(new Set([collection]));
+  }
+  private publish(changes: ReadonlySet<Collection>) {
+    // Observational listeners cannot roll back an already committed native receipt.
+    for (const listener of this.listeners) {
+      try {
+        listener(changes);
+      } catch {
+        /* The observer owns its delivery status. */
+      }
+    }
   }
   transaction<T>(fn: () => T): T {
     this.db.exec('BEGIN IMMEDIATE');
+    this.changes = new Set();
     try {
       const result = fn();
       this.db.exec('COMMIT');
+      const changes = this.changes;
+      this.changes = null;
+      this.publish(changes);
       return result;
     } catch (error) {
       this.db.exec('ROLLBACK');
+      this.changes = null;
       throw error;
     }
   }

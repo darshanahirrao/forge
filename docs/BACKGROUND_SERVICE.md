@@ -4,7 +4,7 @@ The optional [T3 Code observation connection](T3_CODE.md) reuses its private rea
 
 Forge can run outside Codex and start at login through the native macOS user service manager, launchd. It runs the same local application, private SQLite workspace and optional phone gateway. No model loop, native scheduler or new process supervisor is added.
 
-This is an opt-in user login service. The Mac must be awake and you must be logged in. It does not keep a sleeping laptop online or provide mobile push notifications. Linux and Windows use the foreground application until their native service backends are implemented and verified.
+This is an opt-in user login service. The Mac must be awake and you must be logged in. It does not keep a sleeping laptop online. Optional [ntfy notifications](NOTIFICATIONS.md) use the same private destination/reference in foreground and background operation; physical device delivery remains separate acceptance. Linux and Windows use the foreground application until their native service backends are implemented and verified.
 
 ## Install and start
 

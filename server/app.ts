@@ -53,6 +53,7 @@ import { Companions } from './companions.js';
 import { registerCompanionMcp } from './companion-mcp.js';
 import { Blueprints, blueprintSchema } from './blueprints.js';
 import { AccountRouting, routePrepareSchema } from './routing.js';
+import { Notifications } from './notifications.js';
 
 const builtinHarness = z.enum(['codex', 'claude', 'opencode', 'hermes', 'openclaw']);
 const harness = z.string().regex(/^[a-zA-Z][a-zA-Z0-9._-]{0,79}$/);
@@ -84,6 +85,8 @@ const accountSchema = z
   })
   .strict();
 export interface AppOptions {
+  notificationFetch?: typeof fetch;
+  notificationTimeoutMs?: number;
   filename: string;
   background?: Snapshot['service'];
   memoryPressureReader?: () =>
@@ -146,6 +149,12 @@ export async function createApp(options: AppOptions) {
   const machine = new MachineMonitor(options.memoryPressureReader);
   const continuity = new Continuity(local, controller);
   const routing = new AccountRouting(local, controller, continuity);
+  const notifications = new Notifications(
+    local,
+    options.filename === ':memory:' ? undefined : dirname(options.filename),
+    options.phoneBridge?.origin ?? `http://127.0.0.1:${options.port ?? 4710}`,
+    { fetch: options.notificationFetch, timeoutMs: options.notificationTimeoutMs },
+  );
   const probing = new Set<string>();
   const t3 = new T3Connections(
     local,
@@ -302,6 +311,35 @@ export async function createApp(options: AppOptions) {
     assert(mode(request) === 'local', 409, 'Demo companions have no access grant.');
     return companions.revoke((request.params as { id: string }).id);
   });
+  app.get('/api/notifications', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo has no notification destination.');
+    return notifications.snapshot();
+  });
+  app.post('/api/notifications/connect', async (request) => {
+    assert(
+      mode(request) === 'local' &&
+        bridgeActor(request.headers, options.phoneBridge).kind === 'local',
+      403,
+      'Configure notification credentials from the local Forge host.',
+    );
+    return notifications.configure(request.body);
+  });
+  app.delete('/api/notifications', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo has no notification destination.');
+    const input = z
+      .object({ expectedRevision: z.number().int().nonnegative() })
+      .strict()
+      .parse(request.body);
+    return notifications.disconnect(input.expectedRevision);
+  });
+  app.post('/api/notifications/test', async (request, reply) => {
+    assert(mode(request) === 'local', 409, 'Demo never sends notifications.');
+    return reply.code(202).send(notifications.test());
+  });
+  app.post('/api/notifications/:id/acknowledge', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo has no native delivery receipts.');
+    return notifications.acknowledge((request.params as { id: string }).id);
+  });
   app.get('/api/snapshot', async (request) => {
     const db = store(request);
     const result: Snapshot = {
@@ -309,6 +347,7 @@ export async function createApp(options: AppOptions) {
       access: bridgeActor(request.headers, options.phoneBridge),
       mode: mode(request),
       spending: mode(request) === 'demo' ? undefined : controller.spending.snapshot(),
+      notifications: mode(request) === 'demo' ? undefined : notifications.snapshot(),
       outcomes: mode(request) === 'demo' ? [] : controller.spending.outcomes(),
       version,
       csrf,
@@ -1228,8 +1267,9 @@ export async function createApp(options: AppOptions) {
   app.addHook('onClose', async () => {
     await t3.close();
     await controller.close();
+    await notifications.close();
     local.close();
     demo.close();
   });
-  return { app, local, demo, controller, csrf, companions, blueprints, routing };
+  return { app, local, demo, controller, csrf, companions, blueprints, routing, notifications };
 }

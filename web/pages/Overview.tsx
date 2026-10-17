@@ -28,6 +28,7 @@ export function Overview({
   onResources,
   onActivity,
   onSchedules,
+  onConnections,
   onQuiet,
   busy,
 }: {
@@ -40,6 +41,7 @@ export function Overview({
   onResources: () => void;
   onActivity: () => void;
   onSchedules: () => void;
+  onConnections: () => void;
   onQuiet: () => void;
   busy: string;
 }) {
@@ -47,6 +49,7 @@ export function Overview({
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(20);
   const pending = data.approvals.filter((approval) => approval.status === 'pending');
+  const notificationIssues = data.notifications?.needsReview ?? 0;
   const active = data.work.filter((work) => work.activeRunId).length;
   const sourceErrors = data.nativeSources.filter((source) => source.state === 'error').length;
   const sources = new Map(data.nativeSources.map((source) => [source.id, source.label]));
@@ -133,11 +136,11 @@ export function Overview({
           {data.settings.quietMode ? 'New work paused' : 'Pause new work'}
         </button>
       </section>
-      {pending.length > 0 && (
+      {(pending.length > 0 || notificationIssues > 0) && (
         <section className="workspace-attention" aria-label="Needs your attention">
           <h2>
             <ShieldCheck size={16} />
-            Needs your attention <span>{pending.length}</span>
+            Needs your attention <span>{pending.length + notificationIssues}</span>
           </h2>
           {pending.map((approval) => (
             <button
@@ -157,6 +160,21 @@ export function Overview({
               </span>
             </button>
           ))}
+          {notificationIssues > 0 && (
+            <button className="attention-row" onClick={onConnections}>
+              <span>
+                <strong>Notification delivery needs review</strong>
+                <small>
+                  {notificationIssues} unreviewed{' '}
+                  {notificationIssues === 1 ? 'delivery' : 'deliveries'}. Nothing was automatically
+                  resent.
+                </small>
+              </span>
+              <span>
+                Review delivery <ChevronRight size={15} />
+              </span>
+            </button>
+          )}
         </section>
       )}
       {data.mode === 'local' && data.accounts.length === 0 && (

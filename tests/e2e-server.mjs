@@ -2,7 +2,7 @@ import { unknownPressure } from '../dist/server/memory-pressure.js';
 import { readFileSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { createServer as createHttpsServer } from 'node:https';
-import { request as proxyRequest } from 'node:http';
+import { request as proxyRequest, createServer } from 'node:http';
 import { execFileSync } from 'node:child_process';
 import { createPhoneGateway } from '../dist/server/phone.js';
 import { tmpdir } from 'node:os';
@@ -13,6 +13,21 @@ import { NativeRpc } from '../dist/server/adapters/rpc.js';
 import { readCodexAccount } from '../dist/server/adapters/accounts.js';
 import { t3Fixture } from './fixtures/t3-mcp.ts';
 const t3 = await t3Fixture();
+// Owned loopback sink only. Browser tests never publish to an external topic.
+const delivered = [];
+let notificationFailure = false;
+const notificationServer = createServer(async (request, response) => {
+  let body = '';
+  for await (const chunk of request) body += chunk;
+  delivered.push({ body, click: request.headers.click, actions: request.headers.actions });
+  if (notificationFailure) response.destroy();
+  else {
+    response.writeHead(200);
+    response.end('{"id":"fixture-browser-accepted"}');
+  }
+});
+await new Promise((resolve) => notificationServer.listen(0, '127.0.0.1', resolve));
+const notificationOrigin = `http://127.0.0.1:${notificationServer.address().port}`;
 const directory = mkdtempSync(join(tmpdir(), 'forge-browser-'));
 const nativeHome = join(directory, 'native-fixture');
 mkdirSync(join(nativeHome, 'automations', 'fixture-schedule'), { recursive: true });
@@ -83,6 +98,11 @@ const { app } = await createApp({
   rpcFactory: fixtureRpc,
 });
 app.get('/api/fixture/memory', async () => ({ path: memoryPath, project: memoryProject }));
+app.get('/api/fixture/notifications', async () => ({ origin: notificationOrigin, delivered }));
+app.post('/api/fixture/notifications', async (request) => {
+  notificationFailure = request.body.fail === true;
+  return { ok: true };
+});
 app.get('/api/test/t3', () => ({ endpoint: t3.origin }));
 app.post('/api/test/t3/revoke', () => {
   t3.settings.revoked = true;
@@ -158,6 +178,8 @@ for (const signal of ['SIGTERM', 'SIGINT'])
       await gateway.close();
       await app.close();
       await t3.close();
+      notificationServer.closeAllConnections();
+      await new Promise((resolve) => notificationServer.close(resolve));
     } finally {
       rmSync(directory, { recursive: true, force: true });
       process.exit(0);

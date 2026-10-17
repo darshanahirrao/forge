@@ -89,7 +89,7 @@ Stop now returns HTTP 202 after withdrawing controls. The interface shows pendin
 
 ## Background availability
 
-The opt-in native user service keeps the existing workspace available while logged in and awake. launchd owns restart policy; Forge adds no supervisor loop or scheduler. Actual compiled startup, graceful restart, abnormal-exit restart, retained idle work and native removal pass under an isolated test definition. Unconfirmed native work remains interrupted and requires its existing review. Linux/Windows service backends, secure provider-key references for background API slots, real next-login/logout behavior and push remain open. See [the full contract](BACKGROUND_SERVICE.md).
+The opt-in native user service keeps the existing workspace available while logged in and awake. launchd owns restart policy; Forge adds no supervisor loop or scheduler. Actual compiled startup, graceful restart, abnormal-exit restart, retained idle work and native removal pass under an isolated test definition. Unconfirmed native work remains interrupted and requires its existing review. Linux/Windows service backends, secure provider-key references for background API slots, real next-login/logout behavior and physical device acceptance remain open. Optional ntfy alerts now use a private persistent destination; see [notification delivery and recovery](NOTIFICATIONS.md). See [the full contract](BACKGROUND_SERVICE.md).
 
 ## Verification
 
@@ -107,7 +107,7 @@ The macOS pressure check also passed against the real native flag 2 (warning), h
 
 1. Extend conformance to missed events, cancellation near external effects, restart/process ownership, live account isolation and real model-backed tasks.
 2. Extend the existing-foundation evaluation before extending native descendant support and always-on companion planning/control. Preserve native tools, memory, and schedule owners.
-3. Verify the phone gateway through a real tailnet/device, add background notification delivery, native schedule operations/ticker evidence, and whole-stack resource measurements/enforcement. The opt-in macOS user service now runs outside Codex; extend native service/platform and secure credential-reference coverage, then verify real login/logout and background phone delivery. Inventory alone does not prove execution health.
+3. Verify the phone gateway through a real tailnet/device, verify optional ntfy device delivery, native schedule operations/ticker evidence, and whole-stack resource measurements/enforcement. The opt-in macOS user service now runs outside Codex; extend native service/platform and secure credential-reference coverage, then verify real login/logout and background phone delivery. Inventory alone does not prove execution health.
 4. Extend the tested selected-context handoff to additional native adapters and workspace/memory bindings. Preserve explicit coverage and native authority.
 
 ## State version and rollback
@@ -130,3 +130,8 @@ The existing version-1 setup format now has [reviewed local import and unused ro
 State version 5 prevents older Forge releases from opening a workspace and ignoring its spending or account-routing policies. A v1-v4 file workspace receives a mode-0600 native SQLite `workspace.sqlite.before-v5.UUID.sqlite` copy before upgrade. The active database retains native account/source references, grants, work, receipts, policies and observed activity. In-memory and new workspaces start directly at version 5. Future versions are rejected without rewriting their version.
 
 Stop Forge before restoring a rollback copy with its corresponding application checkpoint. Preserve the current database first, and keep its newer SQLite sidecars separate. A rollback is explicit recovery of earlier policy and work state, not authority to replay previously submitted native input.
+
+
+## Notifications at v0.20
+
+Optional ntfy publishing adds generic attention alerts over existing native subscriber apps. Committed native receipts feed a bounded-view SQLite outbox; pending approvals are rechecked before network delivery, and uncertainty is preserved across restart without retry. Local setup stores a private mode-0600 destination reference outside SQLite/exports. The workspace attention list surfaces delivery problems. HTTP acknowledgement does not establish device delivery, native approval, worker exit or work acceptance. Read [NOTIFICATIONS.md](NOTIFICATIONS.md); actual subscriber/tailnet verification remains open.

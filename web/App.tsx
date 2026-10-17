@@ -309,7 +309,7 @@ export function App() {
           <div className="topbar-actions">
             <button
               className="search-trigger"
-              aria-label="Search workspace"
+              title="Search work and commands"
               onClick={() => setSearchOpen(true)}
             >
               <Search size={16} />
@@ -389,6 +389,7 @@ export function App() {
                   onAccounts={() => navigate('accounts')}
                   onLinkAccount={() => setNewAccount(true)}
                   onResources={() => navigate('resources')}
+                  onConnections={() => navigate('connections')}
                   onActivity={() => navigate('activity')}
                   onSchedules={() => {
                     setActivityTab('schedules');
