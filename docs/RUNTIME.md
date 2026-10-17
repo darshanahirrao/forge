@@ -1,6 +1,6 @@
-# Forge v0.10.0
+# Forge v0.11.0
 
-Implementation checkpoint, 17 October 2026. Managed native work now has OS-checked resource attribution across Codex, Claude API, OpenCode v2, Hermes ACP and OpenClaw Gateway. Stable native UUID/routing-key bindings and asynchronous shutdown retain ownership through native cleanup. Private phone access still reuses native Tailscale Serve and the same workspace/inbox, with recorded reviewer identity. The full Persistent Agency architecture remains a delivery plan rather than a claim of completed interoperability.
+Implementation checkpoint, 17 October 2026. Opt-in macOS user-service operation now reuses native launchd, including actual graceful/crash restart evidence. Managed native work now has OS-checked resource attribution across Codex, Claude API, OpenCode v2, Hermes ACP and OpenClaw Gateway. Stable native UUID/routing-key bindings and asynchronous shutdown retain ownership through native cleanup. Private phone access still reuses native Tailscale Serve and the same workspace/inbox, with recorded reviewer identity. The full Persistent Agency architecture remains a delivery plan rather than a claim of completed interoperability.
 
 ## Start and develop
 
@@ -9,6 +9,8 @@ Node.js 24 or newer is required. Run `npm ci`, `npm run build`, and `npm start`,
 For development, `npm run dev` starts a watched TypeScript service on port 4710 and Vite on port 5173. Stop an existing production service before using the same API port. Run only one Forge service per state directory. Native SQLite exclusive ownership prevents a second service from modifying or recovering an active workspace.
 
 `node bin/forge.mjs --help` describes the local CLI. `--port` and `--data-dir` override the default port and private-state directory. The equivalent environment variables are `FORGE_PORT` and `FORGE_DATA_DIR`.
+
+`node bin/forge.mjs service install` prepares an opt-in macOS login service. Stop foreground Forge, then use `service start` and `service status`. Native job identity and the responding process must match; changed/foreign definitions receive no controls. Shutdown preserves configuration until the native job and SQLite owner settle. Provider-key environment values and shell profiles are not copied. Read [background service setup, credentials and evidence](BACKGROUND_SERVICE.md).
 
 ## Boundaries that are implemented
 
@@ -79,11 +81,15 @@ Native account checks are serialized with each other and excluded with managed l
 
 Stop now returns HTTP 202 after withdrawing controls. The interface shows pending native shutdown; work and capacity remain reserved through cleanup. The exact accepted OpenClaw run is cancelled before native shutdown. An older explicitly unconfirmed native exit blocks another attempt and a later checkpoint, so a later receipt cannot hide it. Automated recovery/reconciliation remains open.
 
+## Background availability
+
+The opt-in native user service keeps the existing workspace available while logged in and awake. launchd owns restart policy; Forge adds no supervisor loop or scheduler. Actual compiled startup, graceful restart, abnormal-exit restart, retained idle work and native removal pass under an isolated test definition. Unconfirmed native work remains interrupted and requires its existing review. Linux/Windows service backends, secure provider-key references for background API slots, real next-login/logout behavior and push remain open. See [the full contract](BACKGROUND_SERVICE.md).
+
 ## Verification
 
 The repository includes type checks, functional/API tests, Playwright user flows, and axe accessibility checks. Synthetic native protocol fixtures never run shell commands, call a model, or write project files. They cover request correlation, one-time decisions, stale generations, expiry, withdrawal, policy mismatch, cancellation/recovery, billing admission, usage deduplication, demo isolation, revision conflicts, atomic persistence, and lightweight projections. A synthetic Hermes server checks discovery against read-only endpoints.
 
-The installed Claude SDK passed a real stream-json transport check against a synthetic executable worker, including permission delivery, cumulative usage and native child exit. This is SDK conformance evidence, not a real upstream model run. There are 94 functional/API/continuity/driver/inventory/memory/gateway/resource checks, two compiled-package checks and twelve browser flows at this checkpoint. Type checks also cover the test and native-fixture sources.
+The installed Claude SDK passed a real stream-json transport check against a synthetic executable worker, including permission delivery, cumulative usage and native child exit. This is SDK conformance evidence, not a real upstream model run. There are 105 functional/API/continuity/driver/inventory/memory/gateway/resource/service checks, three compiled-package checks and thirteen browser flows at this checkpoint. Type checks also cover the test and native-fixture sources.
 
 The installed Codex CLI also passed a real initialization handshake. No account lookup, paid model turn, real command approval, account migration, or private native usage import was requested for that smoke check. Separate opt-in tests now exercise actual Codex 0.159.3 and the SDK native Claude Code 2.1.301 against local deterministic providers. Both passed native approval delivery, real tool execution, exact artifact verification, usage and process exit. The Claude test verifies that conflicting project credentials/routing cannot replace the selected host configuration. [Native conformance instructions](../tests/native/README.md) explain the isolated fixtures. The additional native handoff check now chains Codex to Claude API profile one, a second isolated Claude API profile, then OpenCode v2, Hermes ACP and OpenClaw Gateway. Each target receives the portable context, reads the preceding artifact and writes the next artifact with its native tools. All six workers also have live OS-checked resource roots before their exact approvals. One work/profile ID, selected memory, goal, user checkpoint and six usage scopes remain. A separate two-OpenCode-profile check verifies native artifact reads/writes and distinct selected synthetic credentials. These are synthetic model responses and selected fixture credentials; live subscription/account isolation and model quality remain unverified.
 
@@ -93,7 +99,7 @@ The separate opt-in existing-inventory check observed 89 Codex and 25 Claude cha
 
 1. Extend conformance to missed events, cancellation near external effects, restart/process ownership, live account isolation and real model-backed tasks.
 2. Extend the existing-foundation evaluation before extending native descendant support and always-on companion planning/control. Preserve native tools, memory, and schedule owners.
-3. Verify the phone gateway through a real tailnet/device, add background notification delivery, native schedule operations/ticker evidence, and whole-stack resource measurements/enforcement. Add opt-in OS background operation so availability does not depend on a foreground Codex terminal. Inventory alone does not prove execution health.
+3. Verify the phone gateway through a real tailnet/device, add background notification delivery, native schedule operations/ticker evidence, and whole-stack resource measurements/enforcement. The opt-in macOS user service now runs outside Codex; extend native service/platform and secure credential-reference coverage, then verify real login/logout and background phone delivery. Inventory alone does not prove execution health.
 4. Extend the tested selected-context handoff to additional native adapters and workspace/memory bindings. Preserve explicit coverage and native authority.
 
 ## State version and rollback

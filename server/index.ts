@@ -2,25 +2,20 @@ import { version } from '../shared/version.js';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { phoneConfig, createPhoneGateway } from './phone.js';
-import { homedir } from 'node:os';
 import { createApp } from './app.js';
+import { backgroundRuntime, defaultDataDirectory } from './background-service.js';
 
 const port = Number(process.env.FORGE_PORT ?? 4710);
 if (!Number.isInteger(port) || port < 1024 || port > 65535)
   throw new Error('FORGE_PORT must be an integer between 1024 and 65535.');
-const dataDirectory =
-  process.env.FORGE_DATA_DIR ??
-  (process.platform === 'darwin'
-    ? join(homedir(), 'Library', 'Application Support', 'Forge')
-    : process.platform === 'win32'
-      ? join(process.env.LOCALAPPDATA ?? homedir(), 'Forge')
-      : join(process.env.XDG_DATA_HOME ?? join(homedir(), '.local', 'share'), 'forge'));
+const dataDirectory = defaultDataDirectory();
 const phone = phoneConfig(process.env, port);
 const phoneBridge = phone
   ? { origin: phone.origin, proof: randomBytes(32).toString('hex') }
   : undefined;
 const { app } = await createApp({
   phoneBridge,
+  background: backgroundRuntime(),
   filename: join(dataDirectory, 'workspace.sqlite'),
   port,
   development: import.meta.url.endsWith('.ts'),

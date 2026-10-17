@@ -328,7 +328,14 @@ export interface MachineSnapshot {
   processCoverage: 'available' | 'unavailable';
   processes: { pid: number; parentPid: number; name: string; rss: number; cpuPercent: number }[];
 }
+export interface BackgroundRuntime {
+  mode: 'foreground' | 'launchd';
+  installationId?: string;
+  label?: string;
+  scope?: 'user-login';
+}
 export interface Snapshot {
+  service?: BackgroundRuntime;
   nativeWorkers?: NativeWorkerResources[];
   access?: ApprovalActor;
   mode: WorkspaceMode;

@@ -76,6 +76,7 @@ const accountSchema = z
   .strict();
 export interface AppOptions {
   filename: string;
+  background?: Snapshot['service'];
   port?: number;
   csrf?: string;
   phoneBridge?: PhoneBridge;
@@ -216,14 +217,17 @@ export async function createApp(options: AppOptions) {
     });
   });
   app.get('/api/health', async () => ({
+    processId: process.pid,
     status: 'ok',
     version,
+    service: options.background ?? { mode: 'foreground' },
     stateVersion: (local.db.prepare('PRAGMA user_version').get() as { user_version: number })
       .user_version,
   }));
   app.get('/api/snapshot', async (request) => {
     const db = store(request);
     const result: Snapshot = {
+      service: options.background ?? { mode: 'foreground' },
       access: bridgeActor(request.headers, options.phoneBridge),
       mode: mode(request),
       version,

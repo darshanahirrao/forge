@@ -3,10 +3,22 @@ import manifest from '../package.json' with { type: 'json' };
 const args = process.argv.slice(2);
 if (args.includes('--help') || args.includes('-h')) {
   console.log(
-    `Forge ${manifest.version}\n\nUsage: forge [start] [--port PORT] [--data-dir DIRECTORY]\n       [--phone-origin HTTPS_ORIGIN --phone-user LOGIN] [--phone-port PORT]\n\nA local workspace for native agents. Open the printed URL to begin.\nPhone access reuses Tailscale Serve and explicit approved identities. Repeat --phone-user for another approved owner.\nNative accounts connect explicitly. Read existing chats and schedules from Activity.`,
+    `Forge ${manifest.version}\n\nUsage: forge [start] [--port PORT] [--data-dir DIRECTORY]\n       [--phone-origin HTTPS_ORIGIN --phone-user LOGIN] [--phone-port PORT]\n       forge service install [--data-dir DIRECTORY] [--port PORT] [phone options]\n       forge service status|start|stop|restart|uninstall [--data-dir DIRECTORY]\n\nA local workspace for native agents. Open the printed URL to begin.\nThe opt-in macOS user service starts at login and runs outside Codex. Installation does not start it immediately. Native shutdown can remain pending; configuration is retained. Provider keys and shell profiles are not copied.\nPhone access reuses Tailscale Serve and explicit approved identities. Repeat --phone-user for another approved owner.\nNative accounts connect explicitly. Read existing chats and schedules from Activity.`,
   );
 } else if (args.includes('--version')) {
   console.log(manifest.version);
+} else if (args[0] === 'service') {
+  try {
+    const { runServiceCommand } = await import('../dist/server/background-service.js');
+    await runServiceCommand(args.slice(1));
+  } catch (error) {
+    console.error(
+      error.code === 'ERR_MODULE_NOT_FOUND'
+        ? 'Build Forge before using service commands: npm run build.'
+        : error.message,
+    );
+    process.exitCode = 1;
+  }
 } else {
   const phoneUsers = [];
   for (let i = 0; i < args.length; i++) {

@@ -16,7 +16,7 @@ PIDs are recyclable. The start marker is an observational correlation value with
 
 The resource view links to the work panel. A current managed attempt is stopped through its existing native driver and supervised child handle. There is no API accepting an arbitrary PID to kill. After restart, a live or missing old worker remains unconfirmed and requires native reconciliation; the resource display does not bypass that boundary. The Claude adapter also refuses an unexpected replacement root from a single SDK query instead of silently moving its process ownership record.
 
-Samples are collected on demand, coalesced and cached for five seconds. A newly recorded process can initially be absent from the latest sample. This is not a continuous resource meter, hard memory/CPU cap, OS memory-pressure signal, or complete resource-cleanup interface. Quiet mode and serialized native admission still gate new managed work, account probes and inventory reads. Background service support and full recovery/cleanup controls remain separate delivery gates.
+Samples are collected on demand, coalesced and cached for five seconds. A newly recorded process can initially be absent from the latest sample. This is not a continuous resource meter, hard memory/CPU cap, OS memory-pressure signal, or complete resource-cleanup interface. Quiet mode and serialized native admission still gate new managed work, account probes and inventory reads. The [opt-in macOS user service](BACKGROUND_SERVICE.md) supplies background availability separately. Other native service backends and full recovery/cleanup controls remain delivery gates.
 
 ## Validation
 

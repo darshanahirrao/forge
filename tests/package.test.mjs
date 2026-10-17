@@ -26,6 +26,33 @@ test('the packaged CLI reports the manifest version without starting the applica
   assert(help.includes(`Forge ${manifest.version}`));
   assert(help.includes('--phone-origin'));
   assert(help.includes('--phone-user'));
+  assert(help.includes('forge service install'));
+});
+
+test('compiled service status is explicit, platform-aware and does not install or create a workspace', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'forge-package-status-'));
+  const missing = join(directory, 'not-created');
+  try {
+    if (process.platform === 'darwin') {
+      const result = await exec(process.execPath, [
+        binary,
+        'service',
+        'status',
+        '--data-dir',
+        missing,
+      ]);
+      assert.deepEqual(JSON.parse(result.stdout), { state: 'not-installed' });
+    } else {
+      await assert.rejects(
+        exec(process.execPath, [binary, 'service', 'status', '--data-dir', missing]),
+        (error) => error.stderr.includes('macOS user login sessions'),
+      );
+    }
+    await assert.rejects(readFile(join(missing, 'workspace.sqlite')));
+    await assert.rejects(readFile(join(missing, '.forge-service.json')));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });
 
 test('the compiled service owns both private listeners and shuts them down together', async () => {

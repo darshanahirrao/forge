@@ -6,7 +6,7 @@ Forge is an open-source local workspace for people who work across AI runtimes a
 
 We call the product concept **Persistent Agency**: your agent profile, memory, workspace, work history, shared connections, schedules, and policies remain in Forge while you change a compatible execution harness at a verified checkpoint.
 
-**Status: early local application, v0.10.0.** Persistent work/profiles, scoped native memory, account slots, native activity, machine telemetry and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic quota fallback, always-on companion planning/control, background approval notifications, native schedule controls, full memory-provider migration and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md).
+**Status: early local application, v0.11.0.** Persistent work/profiles, scoped native memory, account slots, native activity, machine telemetry and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic quota fallback, always-on companion planning/control, background approval notifications, native schedule controls, full memory-provider migration and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md).
 
 ## Run Forge
 
@@ -34,7 +34,7 @@ To see existing work, open **Activity**, discover profile references, then read 
 
 Open **Memory** to create a persistent profile and pin scoped native Markdown files or sections. The launch dialog shows the current selection. Corrections invalidate stale reviews and start a fresh native conversation while retaining the work and earlier history. [Profile and memory setup](docs/MEMORY.md) explains scope, provenance and native ownership.
 
-Private state is stored outside this repository. On macOS, the default is `~/Library/Application Support/Forge/workspace.sqlite`. Use `FORGE_DATA_DIR` or `node bin/forge.mjs --data-dir DIRECTORY` to select another location. `FORGE_PORT` or `--port` changes the loopback port. Stop a foreground service with Ctrl+C. No startup agent, background schedule, or hosted service is installed.
+Private state is stored outside this repository. On macOS, the default is `~/Library/Application Support/Forge/workspace.sqlite`. Use `FORGE_DATA_DIR` or `node bin/forge.mjs --data-dir DIRECTORY` to select another location. `FORGE_PORT` or `--port` changes the loopback port. Stop a foreground service with Ctrl+C. [Opt-in macOS background operation](docs/BACKGROUND_SERVICE.md) reuses launchd for login startup and crash restart. Nothing installs a startup agent automatically; background schedules and native companion owners remain unchanged.
 
 ## What works today
 
@@ -45,6 +45,7 @@ Private state is stored outside this repository. On macOS, the default is `~/Lib
 - Real CPU, OS memory, process RSS and service-memory visibility, with [managed native worker attribution](docs/RESOURCES.md) and direct review of owning work. Quiet mode gates new managed work.
 - Native activity across profile/account homes: Codex and Claude chats, byte-preserving Codex/Hermes schedule inventory, and capability-aware Hermes/OpenClaw session API observations.
 - Optional Agent Deck session inventory and ccusage daily Claude reports through their installed native CLIs.
+- Optional macOS user service with verified native installation ownership, start/status/stop/restart/removal and no automatic task replay after a crash.
 - Responsive light/dark views, keyboard search, sanitized setup-blueprint export, and opt-in private phone access to the same workspace/inbox with recorded reviewer identity.
 
 Native adapters have protocol/callback fixtures plus [repeatable native tool conformance checks](tests/native/README.md). Actual Codex, Claude, OpenCode, Hermes and OpenClaw native workers passed an approval, tool execution, exact artifact verification and usage reporting against local deterministic providers, with zero paid model calls. A native Codex-to-Claude-to-second-Claude-profile-to-OpenCode-to-Hermes-to-OpenClaw chain retains one work/profile identity, selected memory, its goal/checkpoint, six verified artifacts, six account usage scopes and six OS-checked native worker roots. A separate native check switches between two OpenCode profiles with distinct synthetic credentials and a verified artifact read. Inference is deterministic and local; live subscription/account isolation and real model quality remain unverified. Native limits, permissions, and compatibility still apply.
@@ -70,6 +71,7 @@ The defining demonstration is a real task checkpointed in one harness, continued
 ## Read the design
 
 - [Current implementation, setup, and limits](docs/RUNTIME.md)
+- [Background operation and macOS service setup](docs/BACKGROUND_SERVICE.md)
 - [Native resource ownership and observation limits](docs/RESOURCES.md)
 - [Private phone access and native approval review](docs/PHONE_ACCESS.md)
 - [Native OpenClaw execution, profile setup and conformance](docs/OPENCLAW.md)

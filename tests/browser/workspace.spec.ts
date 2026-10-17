@@ -1,6 +1,57 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
+test('background availability explains setup and shows native service mode on desktop and mobile', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Connections', exact: true }).click();
+  const availability = page.getByRole('region', { name: 'Workspace availability' });
+  await expect(
+    availability.getByRole('heading', { name: 'Keep your workspace available.' }),
+  ).toBeVisible();
+  await availability.getByText('Set up the macOS user service', { exact: true }).click();
+  await expect(availability.getByText(/node bin\/forge.mjs service install/)).toBeVisible();
+  for (const narrow of [false, true]) {
+    if (narrow) {
+      await page.getByRole('button', { name: 'Use dark theme' }).click();
+      await page.setViewportSize({ width: 390, height: 844 });
+    }
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    ).toBe(true);
+    const result = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(result.violations.map((v) => v.id)).toEqual([]);
+    await page.screenshot({
+      path: `artifacts/forge-service-${narrow ? 'mobile-dark' : 'light'}.png`,
+      fullPage: true,
+    });
+  }
+  await page.route('**/api/snapshot', async (route) => {
+    const response = await route.fetch();
+    const data = await response.json();
+    await route.fulfill({
+      response,
+      json: { ...data, service: { mode: 'launchd', scope: 'user-login' } },
+    });
+  });
+  await page.reload();
+  await page.getByRole('button', { name: 'Toggle navigation' }).click();
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'Connections', exact: true })
+    .click();
+  await expect(
+    availability.getByRole('heading', { name: 'Forge is running in the background.' }),
+  ).toBeVisible();
+  await expect(availability.getByText(/Mac is awake/)).toBeVisible();
+  await expect(
+    availability.getByText('Set up the macOS user service', { exact: true }),
+  ).toHaveCount(0);
+});
+
 test('create an account slot, save work and a checkpoint, and retain them after reload', async ({
   page,
 }) => {

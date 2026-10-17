@@ -3043,3 +3043,16 @@ label small,
     padding: 0 16px 16px;
   }
 }
+
+.service-commands {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  padding: 14px 16px;
+  background: var(--soft);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.7;
+}

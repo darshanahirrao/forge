@@ -14,6 +14,7 @@ __pycache__/
 *.db-*
 .forge/
 .forge-openclaw.json*
+.forge-service.json
 .local/
 runtime/
 artifacts/

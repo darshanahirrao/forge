@@ -1,6 +1,6 @@
 {
   "name": "@forge-workspace/forge",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "description": "A local workspace for continuous work across agent harnesses.",
   "private": true,
   "type": "module",
@@ -28,7 +28,8 @@
     "test:native": "npm run test:native:codex && npm run test:native:claude && npm run test:native:opencode && npm run test:native:hermes && npm run test:native:openclaw && npm run test:native:handoff",
     "test:native:opencode": "tsx tests/native/opencode-conformance.ts",
     "test:native:hermes": "tsx tests/native/hermes-conformance.ts",
-    "test:native:openclaw": "tsx tests/native/openclaw-conformance.ts"
+    "test:native:openclaw": "tsx tests/native/openclaw-conformance.ts",
+    "test:native:service": "node tests/native/service-conformance.mjs"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.9.0",
