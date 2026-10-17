@@ -180,7 +180,7 @@ test('background availability explains setup and shows native service mode on de
   await expect(
     availability.getByRole('heading', { name: 'Keep your workspace available.' }),
   ).toBeVisible();
-  await availability.getByText('Set up the macOS user service', { exact: true }).click();
+  await availability.getByText('Native service commands', { exact: true }).click();
   await expect(availability.getByText(/node bin\/forge.mjs service install/)).toBeVisible();
   for (const narrow of [false, true]) {
     if (narrow) {

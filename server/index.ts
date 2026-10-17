@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { phoneConfig, createPhoneGateway } from './phone.js';
 import { createApp } from './app.js';
-import { backgroundRuntime, defaultDataDirectory } from './background-service.js';
+import { backgroundRuntime, defaultDataDirectory, serviceContext } from './background-service.js';
 
 const port = Number(process.env.FORGE_PORT ?? 4710);
 if (!Number.isInteger(port) || port < 1024 || port > 65535)
@@ -13,12 +13,37 @@ const phone = phoneConfig(process.env, port);
 const phoneBridge = phone
   ? { origin: phone.origin, proof: randomBytes(32).toString('hex') }
   : undefined;
+let closing = false;
+const shutdown = async () => {
+  if (closing) return;
+  closing = true;
+  try {
+    await app.close();
+    process.exit(0);
+  } catch {
+    console.error(
+      'Forge could not confirm graceful shutdown. Review native workers and service status before another start.',
+    );
+    process.exitCode = 1;
+  }
+};
 const { app } = await createApp({
   phoneBridge,
   background: backgroundRuntime(),
   filename: join(dataDirectory, 'workspace.sqlite'),
   port,
   development: import.meta.url.endsWith('.ts'),
+  availability: {
+    dataDirectory,
+    port,
+    phone,
+    context: serviceContext({
+      ...(backgroundRuntime().definitionDirectory
+        ? { agentDirectory: backgroundRuntime().definitionDirectory }
+        : {}),
+    }),
+    requestShutdown: shutdown,
+  },
 });
 let gateway: Awaited<ReturnType<typeof createPhoneGateway>> | null = null;
 app.addHook('onClose', async () => {
@@ -42,10 +67,7 @@ try {
   process.exit(1);
 }
 console.log(`Forge ${version} is ready at http://127.0.0.1:${port}`);
-let closing = false;
 for (const signal of ['SIGINT', 'SIGTERM'] as const)
   process.on(signal, () => {
-    if (closing) return;
-    closing = true;
-    void app.close().then(() => process.exit(0));
+    void shutdown();
   });

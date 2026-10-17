@@ -13,6 +13,7 @@ import { NativeRpc } from '../dist/server/adapters/rpc.js';
 import { readCodexAccount } from '../dist/server/adapters/accounts.js';
 import { t3Fixture } from './fixtures/t3-mcp.ts';
 import { connectorTestExecutable } from './fixtures/connector-executable.ts';
+import { serviceContext } from '../dist/server/background-service.js';
 const t3 = await t3Fixture();
 // Owned loopback sink only. Browser tests never publish to an external topic.
 const delivered = [];
@@ -32,6 +33,7 @@ const notificationServer = createServer(async (request, response) => {
 await new Promise((resolve) => notificationServer.listen(0, '127.0.0.1', resolve));
 const notificationOrigin = `http://127.0.0.1:${notificationServer.address().port}`;
 const directory = mkdtempSync(join(tmpdir(), 'forge-browser-'));
+// Browser-only service simulation. No helper, OS definition or native service is started.
 const nativeHome = join(directory, 'native-fixture');
 mkdirSync(join(nativeHome, 'automations', 'fixture-schedule'), { recursive: true });
 mkdirSync(join(nativeHome, 'cron'));
@@ -75,6 +77,22 @@ const fixtureRpc = (options = {}) =>
     env: { PATH: process.env.PATH },
   });
 const { app } = await createApp({
+  availability: {
+    dataDirectory: directory,
+    port: 4711,
+    phone: null,
+    context: serviceContext({
+      platform: 'darwin',
+      root: fileURLToPath(new URL('../', import.meta.url)),
+      agentDirectory: join(directory, 'Owned simulated definitions'),
+      control: async () => null,
+    }),
+    environment: { PATH: '/usr/bin:/bin', LANG: 'C' },
+    launch: async () => 'aborted',
+    requestShutdown: () => {
+      throw new Error('The browser fixture never commits native background activation.');
+    },
+  },
   memoryPressureReader: unknownPressure,
   nativeControlBridge: async (_source, request) => {
     const filename = join(nativeHome, 'cron', 'jobs.json');

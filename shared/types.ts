@@ -422,8 +422,10 @@ export interface BackgroundRuntime {
   installationId?: string;
   label?: string;
   scope?: 'user-login';
+  definitionDirectory?: string;
 }
 export interface Snapshot {
+  availability?: import('./availability.js').AvailabilitySnapshot;
   connectors?: import('./connectors.js').NativeConnector[];
   notifications?: import('./notifications.js').NotificationSnapshot;
   nativeControls?: import('./native-controls.js').NativeControlSnapshot;

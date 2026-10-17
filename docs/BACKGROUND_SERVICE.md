@@ -6,7 +6,17 @@ Forge can run outside Codex and start at login through the native macOS user ser
 
 This is an opt-in user login service. The Mac must be awake and you must be logged in. It does not keep a sleeping laptop online. Optional [ntfy notifications](NOTIFICATIONS.md) use the same private destination/reference in foreground and background operation; physical device delivery remains separate acceptance. Linux and Windows use the foreground application until their native service backends are implemented and verified.
 
-## Install and start
+## Reviewed setup from Forge
+
+In the compiled macOS app, open **Connections**, then **Review background setup**. The two-minute review shows the exact workspace directory, native definition, executable/runner, local ports, phone origin and allowed users, and narrow service environment. Review it and choose **Activate background service**. The action is local-human only; demo, companion bearers and paired phone access cannot provision a startup service.
+
+Forge commits a private receipt before a bounded helper can act. The helper uses private IPC and a separate native SQLite ownership lease. It waits for the original foreground process to exit and release the workspace before installing and starting the reviewed launchd definition. Native work, account/source operations and setup must be idle; unconfirmed native exits hold activation. New mutations are fenced during review/handoff. The same saved work, accounts and private credential references remain in the same database. Repeated activation IDs do not submit another helper. An unchanged existing installation is reused; changed or foreign ownership is refused.
+
+The browser connection can briefly close during handoff. Reopen the same local address or choose **Check current availability**. Running mode is reported by the new native-owned process; the last handoff receipt remains separate evidence. If preparation aborts before commitment, the foreground process stays available. A lost acknowledgement, committed helper crash or uncertain native startup is never replayed. From a fresh idle foreground process, **Review inactive handoff** records a human note only after verifying that the helper lease is released and no native service is loaded for that exact installation. It preserves the original outcome and permits a new explicit setup review. A changed receipt/definition or active native owner requires the native commands below instead.
+
+Private `.forge-activation-UUID.json` receipts retain the approved settings, local-human origin and observed outcome outside exports. They contain no provider key values. The activation helper ends after startup confirmation or its bounded failure path; it is not a new resident supervisor. Source checkout and native runtime dependencies remain trusted local inputs, as with manual service setup.
+
+## Manual install and start
 
 From the Forge source directory, with Node.js 24 or newer:
 
@@ -28,6 +38,8 @@ Open the returned local URL. Connections shows whether this process is running i
 For an existing nondefault workspace, pass `--data-dir /absolute/private/directory` to every command and pass `--port` during installation. The state directory must be private and owned by your user. Start refuses an occupied port or an active/unconfirmed SQLite workspace owner. The server still acquires its exclusive native SQLite lock after those preflight checks.
 
 Phone options on `service install` match foreground startup: `--phone-origin`, repeated `--phone-user` and `--phone-port`. Native Tailscale Serve setup remains separate. See [private phone access](PHONE_ACCESS.md).
+
+Advanced setups and native fixtures may select an absolute definition directory with `FORGE_SERVICE_AGENT_DIR`. Use the same setting for all native service commands. A custom directory outside `~/Library/LaunchAgents` does **not** automatically start at login; the setup review and running workspace state say this explicitly. The native runner carries its reviewed definition directory without inheriting an arbitrary environment override.
 
 ## Identity, credentials and installation changes
 
@@ -56,6 +68,8 @@ launchd restarts abnormal exits with a 30-second throttle. Forge's existing star
 Private `.forge-service.stdout.log` and `.forge-service.stderr.log` files live in the selected data directory. Startup diagnostics are deliberately limited; request/native transcripts are not logged by this service integration. Automatic log rotation remains open. Unconfirmed state or definition edits require review, not an automatic ownership reset.
 
 ## Evidence
+
+`npm run test:native:availability` tests the actual compiled foreground-to-launchd transition using an owned temporary definition outside the login directory. It kills its exact direct-child helper after commitment while the foreground still owns SQLite, verifies released helper ownership and no native service/replay after restart, then records an inactive review. A fresh reviewed handoff proves foreground exit, matching native identity/health, the same idle work and synthetic private credential reference, and both private listeners. A second transition reuses the unchanged installation. Its temporary service is removed only after confirmed native shutdown. This checks the private gateway boundary through owned loopback requests; it does not certify a real tailnet or physical phone.
 
 `npm run test:native:service` is an explicit macOS-only check against actual launchd. It registers a temporary owned definition outside the login auto-load directory, starts the compiled application, creates idle fixture work, verifies graceful restart and abnormal-exit restart, checks a synthetic private-file credential reference across both restarts, stops/removes its own native service and checks private state retention. It uses no model calls or real credentials and removes its temporary test state after native removal is confirmed. A failed/unconfirmed cleanup retains the fixture for review.
 

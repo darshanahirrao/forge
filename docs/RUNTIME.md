@@ -1,4 +1,6 @@
-# Forge v0.23.1
+# Forge v0.24.0
+
+Version 0.24 adds reviewed background activation from Connections, reusing the [native macOS service](BACKGROUND_SERVICE.md). A bounded helper waits for the foreground owner to exit, preserves the same workspace/private references, and installs or starts only the reviewed definition. Private IPC, a native ownership lease, idle/admission fences, idempotent receipts and human review of uncertain inactive outcomes prevent automatic control replay. Actual committed-helper SIGKILL, dual-listener handoff and unchanged-installation reuse pass without a login item or model call.
 
 Version 0.23 adds reviewed [native ACP connector registration](NATIVE_CONNECTORS.md). New compatible agents share the existing execution/permission coordinator and durable context without a new native tool stack. Native model/mode/catalog incompatibilities hold before input; provider identity and billable usage stay unknown. State remains 6.
 

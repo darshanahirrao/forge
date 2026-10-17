@@ -56,6 +56,7 @@ import { AccountRouting, routePrepareSchema } from './routing.js';
 import { Notifications } from './notifications.js';
 import { NativeControls, type NativeControlBridge } from './native-controls.js';
 import { NativeConnectors } from './connectors.js';
+import { Availability, type AvailabilityOptions } from './availability.js';
 import type { IncomingHttpHeaders } from 'node:http';
 import { credentialReferenceSchema, credentialTarget, resolveCredential } from './credentials.js';
 
@@ -94,6 +95,7 @@ const accountSchema = z
   })
   .strict();
 export interface AppOptions {
+  availability?: AvailabilityOptions;
   nativeControlBridge?: NativeControlBridge;
   notificationFetch?: typeof fetch;
   notificationTimeoutMs?: number;
@@ -151,7 +153,7 @@ export async function createApp(options: AppOptions) {
     async () => {
       const pressure = await machine.freshPressure();
       assert(
-        !connectors.isChecking,
+        !connectors.isChecking && !availability.isBusy,
         409,
         'Wait for the native connector check before starting work.',
       );
@@ -185,7 +187,11 @@ export async function createApp(options: AppOptions) {
     codexBinary: options.codexBinary,
     t3Reader: (source) => t3.read(source),
     ...options.nativeSourcesOptions,
-    isManagedBusy: () => controller.activeCount > 0 || probing.size > 0 || connectors.isChecking,
+    isManagedBusy: () =>
+      controller.activeCount > 0 ||
+      probing.size > 0 ||
+      connectors.isChecking ||
+      availability.isBusy,
   });
   const nativeControls = new NativeControls(
     local,
@@ -202,7 +208,8 @@ export async function createApp(options: AppOptions) {
       controller.activeCount > 0 ||
       controller.hasLiveExecution ||
       nativeSources.isReading ||
-      probing.size > 0,
+      probing.size > 0 ||
+      availability.isBusy,
   );
   const blueprints = new Blueprints(
     local,
@@ -211,7 +218,27 @@ export async function createApp(options: AppOptions) {
       controller.activeCount > 0 ||
       controller.hasLiveExecution ||
       nativeSources.isReading ||
-      probing.size > 0,
+      probing.size > 0 ||
+      availability.isBusy,
+  );
+  const mutations = new Set<string>();
+  const availability = new Availability(
+    local,
+    options.filename,
+    options.background ?? { mode: 'foreground' },
+    options.development ? undefined : options.availability,
+    () =>
+      controller.activeCount > 0 ||
+      controller.hasLiveExecution ||
+      nativeSources.isReading ||
+      probing.size > 0 ||
+      connectors.isChecking ||
+      local
+        .all<Run>('runs')
+        .some((run) =>
+          run.settlement ? !run.settlement.confirmed : run.exitConfirmed === false,
+        ) ||
+      mutations.size > 1,
   );
   const csrf = options.csrf ?? randomBytes(32).toString('hex');
   const port = options.port ?? 4710;
@@ -270,6 +297,12 @@ export async function createApp(options: AppOptions) {
         'Companion MCP connects directly to the local workspace.',
       );
       companions.authenticate(request.headers.authorization);
+      assert(
+        !availability.isBusy,
+        409,
+        'Wait for the reviewed workspace availability operation to finish.',
+      );
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) mutations.add(request.id);
       if (request.method === 'POST')
         assert(
           request.headers['content-type']?.startsWith('application/json'),
@@ -295,7 +328,32 @@ export async function createApp(options: AppOptions) {
           .send({ error: 'Workspace protection expired. Reload Forge before changing anything.' });
       if (!request.headers['content-type']?.startsWith('application/json'))
         return reply.code(415).send({ error: 'Send workspace changes as JSON.' });
+      assert(
+        !availability.isBusy || request.url.split('?')[0] === '/api/availability/activate',
+        409,
+        'Wait for the reviewed workspace availability operation to finish.',
+      );
+      mutations.add(request.id);
     }
+    if (request.url.split('?')[0] === '/api/native/t3/callback') {
+      assert(
+        !availability.isBusy,
+        409,
+        'Wait for the workspace availability operation before completing native setup.',
+      );
+      mutations.add(request.id);
+    }
+  });
+  app.addHook('onResponse', async (request) => {
+    mutations.delete(request.id);
+    if (
+      request.method === 'POST' &&
+      request.url.split('?')[0] === '/api/availability/activate' &&
+      availability.shouldShutdown
+    )
+      setImmediate(() => {
+        void availability.requestShutdown();
+      });
   });
   app.addHook('onSend', async (_request, reply) => {
     workspaceHeaders(reply);
@@ -329,6 +387,47 @@ export async function createApp(options: AppOptions) {
       .user_version,
   }));
   registerCompanionMcp(app, companions);
+  app.get('/api/availability', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo has no background service installation.');
+    return availability.snapshot();
+  });
+  const availabilityAuthority = (request: { headers: IncomingHttpHeaders }) =>
+    assert(
+      mode(request) === 'local' &&
+        bridgeActor(request.headers, options.phoneBridge).kind === 'local',
+      403,
+      'Review and activate native background setup from the local Forge host.',
+    );
+  app.post('/api/availability/prepare', async (request) => {
+    availabilityAuthority(request);
+    z.object({}).strict().parse(request.body);
+    return availability.prepare();
+  });
+  app.post('/api/availability/activate', async (request, reply) => {
+    availabilityAuthority(request);
+    const input = z
+      .object({
+        planId: z.string().uuid(),
+        digest: z.string().regex(/^[a-f0-9]{64}$/),
+        reviewed: z.literal(true),
+      })
+      .strict()
+      .parse(request.body);
+    return reply.code(202).send(await availability.activate(input.planId, input.digest));
+  });
+  app.post('/api/availability/review', async (request) => {
+    availabilityAuthority(request);
+    const input = z
+      .object({
+        id: z.string().uuid(),
+        digest: z.string().regex(/^[a-f0-9]{64}$/),
+        note: text(1000).min(1),
+        reviewed: z.literal(true),
+      })
+      .strict()
+      .parse(request.body);
+    return availability.reviewInactive(input.id, input.digest, input.note);
+  });
   app.get('/api/companions', async (request) =>
     mode(request) === 'demo' ? [] : companions.list(),
   );
@@ -381,6 +480,7 @@ export async function createApp(options: AppOptions) {
     const db = store(request);
     const result: Snapshot = {
       service: options.background ?? { mode: 'foreground' },
+      availability: mode(request) === 'demo' ? undefined : await availability.snapshot(),
       access: bridgeActor(request.headers, options.phoneBridge),
       mode: mode(request),
       connectors: mode(request) === 'demo' ? [] : connectors.list(),
@@ -1477,5 +1577,6 @@ export async function createApp(options: AppOptions) {
     notifications,
     nativeControls,
     connectors,
+    availability,
   };
 }

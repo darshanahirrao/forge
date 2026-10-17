@@ -18,6 +18,7 @@ import { CompanionsPanel } from '../components/CompanionsPanel';
 import { BlueprintsPanel } from '../components/BlueprintsPanel';
 import { NotificationsPanel } from '../components/NotificationsPanel';
 import { ConnectorsPanel } from '../components/ConnectorsPanel';
+import { AvailabilityPanel } from '../components/AvailabilityPanel';
 
 export function ConnectionsPage({
   data,
@@ -58,45 +59,7 @@ export function ConnectionsPage({
       <ConnectorsPanel data={data} mutate={mutate} />
       <CompanionsPanel data={data} mutate={mutate} />
       <NotificationsPanel data={data} mutate={mutate} />
-      <section className="panel resource-controls" aria-label="Workspace availability">
-        <div>
-          <span className="eyebrow">WORKSPACE AVAILABILITY</span>
-          <h2>
-            {data.service?.mode === 'launchd'
-              ? 'Forge is running in the background.'
-              : 'Keep your workspace available.'}
-          </h2>
-          <p>
-            {data.service?.mode === 'launchd'
-              ? 'The macOS user service keeps Forge available outside Codex and starts at login. Native work and approval reviews keep their existing controls.'
-              : 'This Forge process is running in the foreground. The optional macOS user service can keep it available outside Codex and start it at login.'}
-          </p>
-          {data.service?.mode === 'launchd' ? (
-            <p className="source-note">
-              Runs while you are logged in and the Mac is awake. Phone access still requires your
-              private gateway.
-            </p>
-          ) : (
-            <details className="native-details">
-              <summary>Set up the macOS user service</summary>
-              <p>
-                From your Forge source directory, install the service, stop the foreground process
-                with Ctrl+C, then start it:
-              </p>
-              <pre className="service-commands" tabIndex={0}>
-                <code>
-                  node bin/forge.mjs service install{'\n'}node bin/forge.mjs service start{'\n'}node
-                  bin/forge.mjs service status
-                </code>
-              </pre>
-              <p className="source-note">
-                Use the same data directory and ports as this workspace. Provider keys and shell
-                profiles are not copied. Other platforms can run Forge in the foreground.
-              </p>
-            </details>
-          )}
-        </div>
-      </section>
+      <AvailabilityPanel data={data} mutate={mutate} />
       <section className="panel runtime-panel">
         <div className="runtime-copy">
           <h2>Hermes API health</h2>

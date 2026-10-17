@@ -25,7 +25,7 @@ export const defaultDataDirectory = () =>
       ? join(process.env.LOCALAPPDATA ?? homedir(), 'Forge')
       : join(process.env.XDG_DATA_HOME ?? join(homedir(), '.local', 'share'), 'forge'));
 
-interface Receipt {
+export interface ServiceReceipt {
   version: 1;
   configurationHash: string;
   id: string;
@@ -87,12 +87,17 @@ export function serviceContext(overrides: Partial<ServiceContext> = {}): Service
     uid: process.getuid?.() ?? -1,
     home,
     root: fileURLToPath(new URL('../../', import.meta.url)),
-    agentDirectory: join(home, 'Library', 'LaunchAgents'),
+    agentDirectory: process.env.FORGE_SERVICE_AGENT_DIR ?? join(home, 'Library', 'LaunchAgents'),
     control: nativeControl,
     ...overrides,
   };
 }
 function supported(c: ServiceContext) {
+  assert(
+    pathValue(c.agentDirectory),
+    400,
+    'Select an absolute native service definition directory.',
+  );
   assert(
     c.platform === 'darwin' && c.uid > 0,
     409,
@@ -105,9 +110,9 @@ function pathValue(value: unknown): value is string {
 function labelFor(directory: string) {
   return `org.forgeworkspace.forge.${createHash('sha256').update(directory).digest('hex').slice(0, 20)}`;
 }
-const plistPath = (r: Receipt) => join(r.agentDirectory, `${r.label}.plist`);
-const target = (r: Receipt, c: ServiceContext) => `gui/${c.uid}/${r.label}`;
-function configurationHash(r: Receipt) {
+const plistPath = (r: ServiceReceipt) => join(r.agentDirectory, `${r.label}.plist`);
+const target = (r: ServiceReceipt, c: ServiceContext) => `gui/${c.uid}/${r.label}`;
+function configurationHash(r: ServiceReceipt) {
   return createHash('sha256')
     .update(
       JSON.stringify({
@@ -139,7 +144,7 @@ function xml(value: string) {
     (v) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' })[v]!,
   );
 }
-export function servicePlist(r: Receipt) {
+export function servicePlist(r: ServiceReceipt) {
   const args = [
     r.node,
     r.runner,
@@ -195,7 +200,7 @@ async function directory(value: string, c: ServiceContext, create = false) {
   );
   return canonical;
 }
-async function receipt(directory: string, c: ServiceContext): Promise<Receipt | null> {
+async function receipt(directory: string, c: ServiceContext): Promise<ServiceReceipt | null> {
   let raw;
   try {
     raw = await privateRead(join(directory, receiptName), c.uid);
@@ -203,7 +208,7 @@ async function receipt(directory: string, c: ServiceContext): Promise<Receipt | 
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw error;
   }
-  let r: Receipt;
+  let r: ServiceReceipt;
   try {
     r = JSON.parse(raw);
   } catch {
@@ -272,7 +277,7 @@ async function receipt(directory: string, c: ServiceContext): Promise<Receipt | 
   );
   return r;
 }
-async function loaded(r: Receipt, c: ServiceContext) {
+async function loaded(r: ServiceReceipt, c: ServiceContext) {
   const output = await c.control(['print', target(r, c)]);
   if (output === null) return null;
   const source = output.match(/^\s*path = (.+)$/m)?.[1];
@@ -299,7 +304,7 @@ async function loaded(r: Receipt, c: ServiceContext) {
   );
   return { pid: Number(output.match(/^\s*pid = (\d+)$/m)?.[1]) || undefined };
 }
-async function health(r: Receipt) {
+async function health(r: ServiceReceipt) {
   try {
     const response = await fetch(`http://127.0.0.1:${r.port}/api/health`, {
       signal: AbortSignal.timeout(1000),
@@ -315,7 +320,7 @@ async function health(r: Receipt) {
     return null;
   }
 }
-function workspaceIdle(r: Receipt) {
+function workspaceIdle(r: ServiceReceipt) {
   let db: DatabaseSync | undefined;
   try {
     db = new DatabaseSync(join(r.dataDirectory, 'workspace.sqlite'), { readOnly: true });
@@ -401,7 +406,110 @@ export async function serviceStatus(
     scope: 'user-login',
   };
 }
-export async function installService(options: ServiceOptions, c = serviceContext()) {
+async function buildDefinition(
+  options: ServiceOptions,
+  c: ServiceContext,
+  dir: string,
+): Promise<ServiceReceipt> {
+  const env = options.environment ?? process.env;
+  const port = options.port ?? 4710;
+  assert(
+    Number.isInteger(port) && port >= 1024 && port <= 65535,
+    400,
+    'The service port must be between 1024 and 65535.',
+  );
+  const r: ServiceReceipt = {
+    version: 1,
+    configurationHash: '',
+    id: randomUUID(),
+    label: labelFor(dir),
+    dataDirectory: dir,
+    agentDirectory: resolve(c.agentDirectory),
+    node: await realpath(process.execPath),
+    runner: join(c.root, 'bin', 'service-runner.mjs'),
+    root: resolve(c.root),
+    port,
+    phone: options.phone ?? null,
+    environment: {
+      HOME: c.home,
+      PATH: env.PATH ?? '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin',
+      LANG: env.LANG ?? 'en_US.UTF-8',
+    },
+  };
+  for (const key of nativeOverrides)
+    if (env[key]) {
+      assert(pathValue(env[key]), 400, 'Native runtime overrides must be absolute paths.');
+      await access(env[key]);
+      r.environment[key] = env[key];
+    }
+  r.phone = phoneConfig(
+    r.phone
+      ? {
+          FORGE_PHONE_ORIGIN: r.phone.origin,
+          FORGE_PHONE_USERS: r.phone.users.join(','),
+          FORGE_PHONE_PORT: String(r.phone.port),
+        }
+      : {},
+    port,
+  );
+  assert(
+    Object.values(r.environment).every((v) => !/[\x00-\x1f\x7f]/.test(v)),
+    400,
+    'The service environment contains unsupported control characters.',
+  );
+  r.configurationHash = configurationHash(r);
+  await access(join(c.root, 'dist', 'server', 'index.js'));
+  await access(join(c.root, 'dist', 'client', 'index.html'));
+  await access(r.runner);
+  return r;
+}
+export async function prepareService(
+  options: ServiceOptions,
+  c = serviceContext(),
+): Promise<ServiceReceipt> {
+  supported(c);
+  return buildDefinition(options, c, await directory(options.dataDirectory, c));
+}
+export async function verifyServiceDefinition(
+  value: ServiceReceipt,
+  c = serviceContext(),
+): Promise<ServiceReceipt> {
+  const checked = await prepareService(
+    {
+      dataDirectory: value.dataDirectory,
+      port: value.port,
+      phone: value.phone,
+      environment: value.environment,
+    },
+    c,
+  );
+  assert(/^[0-9a-f-]{36}$/.test(value.id), 409, 'The reviewed service installation ID changed.');
+  checked.id = value.id;
+  checked.configurationHash = configurationHash(checked);
+  assert(
+    checked.configurationHash === value.configurationHash,
+    409,
+    'The reviewed native service configuration changed.',
+  );
+  return checked;
+}
+export async function installedServiceDefinition(dataDirectory: string, c = serviceContext()) {
+  supported(c);
+  return receipt(await directory(dataDirectory, c), c);
+}
+export async function serviceDefinitionLoaded(definition: ServiceReceipt, c = serviceContext()) {
+  supported(c);
+  return (await loaded(definition, c)) !== null;
+}
+export function workspaceAvailable(dataDirectory: string) {
+  return workspaceIdle({ dataDirectory } as ServiceReceipt);
+}
+
+export async function installService(
+  options: ServiceOptions,
+  c = serviceContext(),
+  reviewed?: ServiceReceipt,
+) {
   supported(c);
   const dir = await directory(options.dataDirectory, c, true);
   return locked(dir, async () => {
@@ -410,56 +518,16 @@ export async function installService(options: ServiceOptions, c = serviceContext
       409,
       'A service is already installed for this workspace. Review its status; uninstall it explicitly before changing configuration.',
     );
-    const env = options.environment ?? process.env;
-    const port = options.port ?? 4710;
+    const r = reviewed
+      ? await verifyServiceDefinition(reviewed, c)
+      : await buildDefinition(options, c, dir);
     assert(
-      Number.isInteger(port) && port >= 1024 && port <= 65535,
-      400,
-      'The service port must be between 1024 and 65535.',
+      r.dataDirectory === dir &&
+        r.port === (options.port ?? 4710) &&
+        JSON.stringify(r.phone) === JSON.stringify(options.phone ?? null),
+      409,
+      'The reviewed service does not match this workspace configuration.',
     );
-    const r: Receipt = {
-      version: 1,
-      configurationHash: '',
-      id: randomUUID(),
-      label: labelFor(dir),
-      dataDirectory: dir,
-      agentDirectory: resolve(c.agentDirectory),
-      node: await realpath(process.execPath),
-      runner: join(c.root, 'bin', 'service-runner.mjs'),
-      root: resolve(c.root),
-      port,
-      phone: options.phone ?? null,
-      environment: {
-        HOME: c.home,
-        PATH: env.PATH ?? '/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin',
-        LANG: env.LANG ?? 'en_US.UTF-8',
-      },
-    };
-    for (const key of nativeOverrides)
-      if (env[key]) {
-        assert(pathValue(env[key]), 400, 'Native runtime overrides must be absolute paths.');
-        await access(env[key]);
-        r.environment[key] = env[key];
-      }
-    r.phone = phoneConfig(
-      r.phone
-        ? {
-            FORGE_PHONE_ORIGIN: r.phone.origin,
-            FORGE_PHONE_USERS: r.phone.users.join(','),
-            FORGE_PHONE_PORT: String(r.phone.port),
-          }
-        : {},
-      port,
-    );
-    assert(
-      Object.values(r.environment).every((v) => !/[\x00-\x1f\x7f]/.test(v)),
-      400,
-      'The service environment contains unsupported control characters.',
-    );
-    r.configurationHash = configurationHash(r);
-    await access(join(c.root, 'dist', 'server', 'index.js'));
-    await access(join(c.root, 'dist', 'client', 'index.html'));
-    await access(r.runner);
     assert(
       (await c.control(['print', target(r, c)])) === null,
       409,
@@ -513,7 +581,7 @@ export async function installService(options: ServiceOptions, c = serviceContext
     } as ServiceStatus;
   });
 }
-async function stopOwned(r: Receipt, c: ServiceContext): Promise<boolean> {
+async function stopOwned(r: ServiceReceipt, c: ServiceContext): Promise<boolean> {
   const native = await loaded(r, c);
   if (native) await c.control(['bootout', target(r, c)]);
   const deadline = Date.now() + (c.settleTimeoutMs ?? 10000);
@@ -605,7 +673,13 @@ export async function launchInstalledService(
       FORGE_PHONE_USERS: r.phone.users.join(','),
       FORGE_PHONE_PORT: String(r.phone.port),
     });
-  runtime = { mode: 'launchd', installationId: r.id, label: r.label, scope: 'user-login' };
+  runtime = {
+    mode: 'launchd',
+    installationId: r.id,
+    label: r.label,
+    scope: 'user-login',
+    definitionDirectory: r.agentDirectory,
+  };
   await import('./index.js');
 }
 export async function runServiceCommand(args: string[]) {
