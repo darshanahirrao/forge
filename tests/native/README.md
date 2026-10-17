@@ -70,7 +70,6 @@ Run `npm run test:native:companion` with an installed Hermes MCP interpreter. Se
 
 The T3 execution check now dispatches its crash-stage native run through a finite MCP grant. Compiled Forge restarts on the same port; repeating the request ID returns the original run without another native turn or approval. See [the companion contract](../../docs/COMPANION_ACCESS.md).
 
-
 ## Native scheduler evidence
 
 Build first, then run `npm run test:native:scheduler` with an installed Hermes interpreter. This opt-in isolated-profile check uses the compiled module and packaged Python asset, validates missing/current/stale/malformed/nonfinite/future/oversized markers and external-provider configuration, and verifies every fixture profile byte is unchanged by each read. It starts no job, tick, plugin provider or model. See [the contract and limits](../../docs/SCHEDULER_EVIDENCE.md).
