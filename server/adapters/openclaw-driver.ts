@@ -131,6 +131,7 @@ export class OpenClawDriver implements NativeDriver {
       await this.stop();
       return;
     }
+    if (this.worker.pid) await sink.worker?.(this.worker.pid);
     this.listening = this.worker.onEvent((event) => this.event(event));
     this.worker.signal.addEventListener('abort', () => this.withdrawAll(), { once: true });
     const health = await this.worker.request<{ defaultAgentId?: string }>('health', {});

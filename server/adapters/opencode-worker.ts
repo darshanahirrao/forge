@@ -9,6 +9,7 @@ import { assert, ForgeError } from '../errors.js';
 import { findBinary } from './discovery.js';
 
 export interface OpenCodeConnection {
+  readonly pid?: number;
   client: OpenCodeClient;
   readonly exited: boolean;
   readonly transportLost?: boolean;
@@ -290,6 +291,7 @@ export async function openCodeWorker(
     );
     output = '';
     return {
+      pid: child.pid,
       client,
       version: info.version,
       get exited() {

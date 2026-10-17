@@ -23,6 +23,8 @@ export interface NativeApproval {
   respond(decision: 'accept' | 'decline'): void | Promise<void>;
 }
 export interface DriverSink {
+  /** Register the actual supervised native process before model input. PIDs are provenance, not control authority. */
+  worker?(pid: number): Promise<void>;
   session(id: string, routingKey?: string): void;
   turn(id: string): void;
   account(account: Account): void;

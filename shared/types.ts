@@ -73,6 +73,7 @@ export interface Run {
   id: string;
   workId: string;
   accountId: string;
+  harness?: Harness;
   generation: number;
   nativeSessionId: string | null;
   nativeSessionKey?: string | null;
@@ -82,6 +83,27 @@ export interface Run {
   endedAt: string | null;
   exitConfirmed?: boolean;
   contextReceipt?: ContextReceipt;
+  nativeWorker?: NativeWorkerIdentity;
+}
+export interface NativeWorkerIdentity {
+  version: 1;
+  pid: number;
+  ownerPid: number;
+  uid: number | null;
+  startedAt: string | null;
+  capturedAt: string;
+}
+export interface NativeWorkerResources {
+  runId: string;
+  workId: string;
+  accountId: string;
+  harness: Harness;
+  root: NativeWorkerIdentity;
+  state: 'live' | 'not-observed' | 'identity-changed' | 'unavailable' | 'exited';
+  pids: number[];
+  rss: number | null;
+  cpuPercent: number | null;
+  sampledAt: string;
 }
 export interface ArtifactFingerprint {
   path: string;
@@ -307,6 +329,7 @@ export interface MachineSnapshot {
   processes: { pid: number; parentPid: number; name: string; rss: number; cpuPercent: number }[];
 }
 export interface Snapshot {
+  nativeWorkers?: NativeWorkerResources[];
   access?: ApprovalActor;
   mode: WorkspaceMode;
   version: string;

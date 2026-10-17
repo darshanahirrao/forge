@@ -165,6 +165,11 @@ export class ClaudeDriver implements NativeDriver {
         });
       },
       spawnClaudeCodeProcess: (options) => {
+        assert(
+          !this.child,
+          409,
+          'The native SDK requested a replacement root worker. Reconcile this attempt before starting another worker.',
+        );
         const child = spawn(options.command, options.args, {
           cwd: options.cwd,
           env: options.env,
@@ -205,6 +210,7 @@ export class ClaudeDriver implements NativeDriver {
         409,
         'The native worker did not confirm the selected API authentication route. No task input was sent.',
       );
+      if (this.child?.pid) await sink.worker?.(this.child.pid);
       this.releasePrompt?.(!this.closing);
     } catch (error) {
       this.releasePrompt?.(false);

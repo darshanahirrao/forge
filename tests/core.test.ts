@@ -4,7 +4,8 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Store } from '../server/store.js';
-import { parseProcesses } from '../server/machine.js';
+import { processSummary } from '../server/machine.js';
+import { parseProcessTable } from '../server/processes.js';
 import { normalizeQuotas } from '../server/adapters/accounts.js';
 import {
   loopbackEndpoint,
@@ -163,10 +164,14 @@ test('native session inventory retains native state without claiming control', (
   assert.equal(result[0].status, 'waiting');
 });
 test('process parser excludes command arguments and handles localized CPU decimals', () => {
-  const result = parseProcesses(
-    ' 77 1 2048 2,5 /Applications/Codex.app/Contents/MacOS/Codex\n 3 1 1024 0.0 /usr/bin/node',
+  const result = processSummary(
+    parseProcessTable(
+      '77 1 501 Sat Oct 17 00:00:00 2026 2048 2,5 /Applications/Codex.app/Contents/MacOS/Codex\n3 1 501 Sat Oct 17 00:00:01 2026 1024 0.0 /usr/bin/node',
+    ),
   );
   assert.equal(result[0].name, 'Codex');
+  assert.equal('uid' in result[0], false);
+  assert.equal('startedAt' in result[0], false);
   assert.equal(result[0].rss, 2097152);
   assert.equal(result[0].cpuPercent, 2.5);
 });

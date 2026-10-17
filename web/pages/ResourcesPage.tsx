@@ -1,6 +1,11 @@
-import { type MachineSnapshot } from '../../shared/types';
+import { useState } from 'react';
+import {
+  type MachineSnapshot,
+  type NativeWorkerResources,
+  type WorkSummary,
+} from '../../shared/types';
 import { Cpu, HardDrive, Activity, Play, Pause, Terminal } from 'lucide-react';
-import { gb, age } from '../lib/format';
+import { gb, age, names } from '../lib/format';
 import { Empty } from '../components/primitives';
 
 export function ResourcesPage({
@@ -8,12 +13,21 @@ export function ResourcesPage({
   quiet,
   onQuiet,
   busy,
+  workers = [],
+  work = [],
+  onWork,
 }: {
   machine: MachineSnapshot;
   quiet: boolean;
   onQuiet: () => void;
   busy: string;
+  workers?: NativeWorkerResources[];
+  work?: WorkSummary[];
+  onWork?: (id: string) => void;
 }) {
+  const [showAll, setShowAll] = useState(false);
+  const observedOwner = new Map(workers.flatMap((w) => w.pids.map((pid) => [pid, w] as const)));
+  const active = work.filter((w) => w.activeRunId);
   return (
     <div className="page-stack">
       <div className="metrics-row">
@@ -58,6 +72,78 @@ export function ResourcesPage({
           {quiet ? 'Allow new managed work' : 'Pause new managed work'}
         </button>
       </section>
+      <section className="panel" aria-label="Native worker ownership">
+        <div className="section-heading">
+          <div>
+            <h2>What your native work is using</h2>
+            <p>Work, native worker and observed child processes in one place.</p>
+          </div>
+        </div>
+        {workers.length ? (
+          <div className="native-worker-list">
+            {workers.map((row) => {
+              const current = work.find((w) => w.id === row.workId);
+              const label = current?.title ?? 'Saved native work';
+              const state = current?.stopRequestedAt
+                ? 'Stopping'
+                : row.state === 'not-observed'
+                  ? 'Not in latest sample'
+                  : row.state === 'identity-changed'
+                    ? 'PID identity changed'
+                    : row.state === 'unavailable'
+                      ? 'Identity unavailable'
+                      : current?.activeRunId !== row.runId
+                        ? 'Needs native reconciliation'
+                        : `${row.pids.length} observed ${row.pids.length === 1 ? 'process' : 'processes'}`;
+              return (
+                <article className="native-worker-row" key={row.runId}>
+                  <div className="native-worker-work">
+                    <strong>{label}</strong>
+                    <span>
+                      {names[row.harness]} · <span className="mono">PID {row.root.pid}</span>
+                    </span>
+                    <small>{state}</small>
+                  </div>
+                  <div className="native-worker-metrics">
+                    <span>Observed memory</span>
+                    <strong>
+                      {row.rss === null
+                        ? 'Unknown'
+                        : row.rss >= 1024 ** 3
+                          ? gb(row.rss)
+                          : `${Math.round(row.rss / 1024 ** 2)} MB`}
+                    </strong>
+                    {row.cpuPercent !== null && <small>{row.cpuPercent.toFixed(1)}% CPU</small>}
+                  </div>
+                  <button
+                    className="text-button"
+                    onClick={() => onWork?.(row.workId)}
+                    aria-label={`Review native work: ${label}`}
+                  >
+                    Review work
+                  </button>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+          <Empty
+            icon={Activity}
+            title={
+              active.length ? 'Preparing native worker ownership.' : 'No managed native workers.'
+            }
+          >
+            {active.length
+              ? 'Native startup is in progress. Open the work to review activity or request shutdown.'
+              : 'Start native work to see its recorded process and observed memory here.'}
+          </Empty>
+        )}
+        <p className="source-note native-worker-note">
+          Matches use the recorded process start and OS user. A missing or changed PID does not
+          confirm exit or release work. Stop a live managed attempt from its work panel; other
+          sessions retain their native controls.
+        </p>
+      </section>
       <section className="panel">
         <div className="section-heading">
           <div>
@@ -70,7 +156,12 @@ export function ResourcesPage({
           </span>
         </div>
         {machine.processes.length ? (
-          <div className="table-scroll">
+          <div
+            className="table-scroll"
+            tabIndex={0}
+            role="region"
+            aria-label="Observed operating-system process table"
+          >
             <table className="process-table">
               <thead>
                 <tr>
@@ -86,7 +177,7 @@ export function ResourcesPage({
                 </tr>
               </thead>
               <tbody>
-                {machine.processes.map((p) => (
+                {(showAll ? machine.processes : machine.processes.slice(0, 10)).map((p) => (
                   <tr key={p.pid}>
                     <td>
                       <span className="process-name">
@@ -100,7 +191,16 @@ export function ResourcesPage({
                     </td>
                     <td className="align-right mono">{p.cpuPercent.toFixed(1)}%</td>
                     <td>
-                      <span className="observed-label">Observed only</span>
+                      {observedOwner.has(p.pid) ? (
+                        <button
+                          className="text-button"
+                          onClick={() => onWork?.(observedOwner.get(p.pid)!.workId)}
+                        >
+                          Review owning work
+                        </button>
+                      ) : (
+                        <span className="observed-label">Observed only</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -114,6 +214,17 @@ export function ResourcesPage({
           </Empty>
         )}
       </section>
+      {machine.processes.length > 10 && (
+        <button
+          className="text-button"
+          aria-expanded={showAll}
+          onClick={() => setShowAll(!showAll)}
+        >
+          {showAll
+            ? 'Show the ten largest processes'
+            : `Show all ${machine.processes.length} observed processes`}
+        </button>
+      )}
       <p className="source-note">
         Command arguments and environment variables are excluded. Forge does not claim ownership of
         observed processes or offer a blanket kill action.

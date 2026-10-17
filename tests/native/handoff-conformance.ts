@@ -19,6 +19,7 @@ import type {
   MemoryInspection,
   MemorySource,
   Run,
+  Snapshot,
   Usage,
   Work,
   WorkCapsule,
@@ -368,6 +369,7 @@ const post = async <T>(path: string, payload: Record<string, unknown>): Promise<
   return result.json<T>();
 };
 let approvals = 0;
+const attributedRuns = new Set<string>();
 async function runNative(workId: string) {
   const work = state.local.work(workId);
   const review = await post<ContextReview>(`/work/${workId}/context-review`, {});
@@ -400,6 +402,23 @@ async function runNative(workId: string) {
           'openclaw/gateway/exec',
         ].includes(approval.method),
       );
+      const observation = await state.app.inject({
+        url: '/api/snapshot',
+        headers: { host: '127.0.0.1:4710' },
+      });
+      const owner = observation
+        .json<Snapshot>()
+        .nativeWorkers?.find((row) => row.runId === approval.runId);
+      assert(
+        owner?.root.startedAt && owner.root.uid !== null,
+        'Native process identity must be recorded before a command decision.',
+      );
+      if (owner.state !== 'live') {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        continue;
+      }
+      assert(owner.pids.includes(owner.root.pid) && owner.rss !== null && owner.rss > 0);
+      attributedRuns.add(approval.runId);
       await post(`/approvals/${approval.id}/decision`, {
         digest: approval.digest,
         decision: 'accept',
@@ -543,6 +562,7 @@ try {
   assert.equal(openCodeProvider.failure(), null);
   const usage = state.local.all<Usage>('usage').filter((u) => u.workId === work.id);
   assert.equal(usage.length, 6);
+  assert.equal(attributedRuns.size, 6);
   assert.equal(new Set(usage.map((u) => u.accountId)).size, 6);
   assert.equal(
     state.local.all<Run>('runs').filter((r) => r.workId === work.id && r.exitConfirmed).length,
@@ -556,6 +576,7 @@ try {
       status: 'passed',
       workIdentityRetained: true,
       nativeRuns: 6,
+      nativeResourceOwnershipRuns: attributedRuns.size,
       nativeApprovals: approvals,
       harnesses: ['codex', 'claude', 'opencode', 'hermes', 'openclaw'],
       isolatedClaudeProfiles: 2,

@@ -45,6 +45,7 @@ export class CodexDriver implements NativeDriver {
           'Inspect native activity and external effects before another attempt. No action was replayed.',
         );
     });
+    if (rpc.child.pid) await sink.worker?.(rpc.child.pid);
     await rpc.initialize();
     const checked = await readCodexAccount(rpc, context.account);
     this.context = { ...context, account: checked };

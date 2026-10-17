@@ -380,6 +380,9 @@ export function App() {
               {view === 'resources' && (
                 <ResourcesPage
                   machine={snapshot.machine}
+                  workers={snapshot.nativeWorkers}
+                  work={snapshot.work}
+                  onWork={setSelected}
                   quiet={snapshot.settings.quietMode}
                   onQuiet={() =>
                     void act('quiet', () =>

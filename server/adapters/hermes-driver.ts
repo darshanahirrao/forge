@@ -85,6 +85,7 @@ export async function startHermesWorker(
     );
     let stopped: Promise<void> | null = null;
     return {
+      pid: worker.pid,
       connection: worker.connection,
       get exited() {
         return worker.exited;
@@ -201,6 +202,7 @@ export class HermesDriver implements NativeDriver {
       await this.worker.stop();
       return;
     }
+    if (this.worker.pid) await sink.worker?.(this.worker.pid);
     const init = await initializeHermesWorker(this.worker);
     const agent = this.worker.connection.agent;
     let state: SessionState;

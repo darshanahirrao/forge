@@ -3,6 +3,7 @@ import { Readable, Writable } from 'node:stream';
 import type { ClientApp, ClientConnection } from '@agentclientprotocol/sdk';
 
 export interface AcpWorker {
+  readonly pid?: number;
   connection: ClientConnection;
   readonly exited: boolean;
   stop(): Promise<void>;
@@ -89,6 +90,7 @@ export async function spawnAcpWorker(
   }
   let stopping: Promise<void> | null = null;
   return {
+    pid: child.pid,
     connection,
     get exited() {
       return exited;

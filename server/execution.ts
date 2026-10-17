@@ -9,6 +9,7 @@ import type {
 import { assert, safeMessage } from './errors.js';
 import { Store, id, now } from './store.js';
 import { requestDigest } from './adapters/sources.js';
+import { captureWorker } from './processes.js';
 import type {
   DriverContext,
   DriverFactory,
@@ -148,6 +149,7 @@ export class ExecutionController {
         id: id(),
         workId,
         accountId: account.id,
+        harness: work.harness,
         generation: work.generation + 1,
         nativeSessionId: effectiveWork.nativeSessionId,
         nativeSessionKey: effectiveWork.nativeSessionKey ?? null,
@@ -255,6 +257,39 @@ export class ExecutionController {
   private sink(active: Active): DriverSink {
     const live = () => !active.ending && this.active.get(active.run.workId) === active;
     return {
+      worker: async (pid) => {
+        assert(
+          live() && Number.isSafeInteger(pid) && pid > 1 && pid !== process.pid,
+          409,
+          'Native process ownership cannot be recorded for this attempt.',
+        );
+        assert(
+          !active.run.nativeWorker || active.run.nativeWorker.pid === pid,
+          409,
+          'The native process changed unexpectedly. No replacement worker was adopted.',
+        );
+        if (active.run.nativeWorker) return;
+        // Persist the spawn report synchronously, including during native startup.
+        active.run.nativeWorker = {
+          version: 1,
+          pid,
+          ownerPid: process.pid,
+          uid: null,
+          startedAt: null,
+          capturedAt: now(),
+        };
+        this.store.put('runs', active.run.id, active.run);
+        const identity = await captureWorker(pid);
+        assert(live(), 409, 'Native ownership capture ended after shutdown was requested.');
+        active.run.nativeWorker = { ...active.run.nativeWorker, ...identity };
+        this.store.put('runs', active.run.id, active.run);
+        this.store.event(
+          active.run.workId,
+          'resource',
+          'Native worker recorded',
+          `PID ${pid}. ${identity.startedAt ? 'OS parent, user and process start were checked.' : 'OS start identity is unavailable; resource attribution stays unknown.'} Process observations do not grant control authority.`,
+        );
+      },
       session: (sessionId, routingKey) => {
         if (!live()) return;
         assert(

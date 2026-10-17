@@ -12,6 +12,7 @@ import type {
   AgentProfile,
   Approval,
   NativeSession,
+  Run,
   RuntimeProbe,
   Settings,
   Snapshot,
@@ -240,6 +241,10 @@ export async function createApp(options: AppOptions) {
       settings: db.settings(),
       connections,
       machine: await machine.sample(),
+      nativeWorkers:
+        mode(request) === 'demo'
+          ? []
+          : await machine.workers(local.all<Run>('runs'), local.all<Account>('accounts')),
       nativeSessions:
         mode(request) === 'demo'
           ? []

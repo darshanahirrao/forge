@@ -71,6 +71,7 @@ export class OpenCodeDriver implements NativeDriver {
       await this.worker.stop();
       return;
     }
+    if (this.worker.pid) await sink.worker?.(this.worker.pid);
     const c = this.worker.client;
     const location = { directory: context.work.cwd };
     await c.location.get({ location });

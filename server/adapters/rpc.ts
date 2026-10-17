@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { ForgeError } from '../errors.js';
+import { version } from '../../shared/version.js';
 
 export interface RpcMessage {
   id?: string | number;
@@ -125,7 +126,7 @@ export class NativeRpc extends EventEmitter {
   }
   async initialize() {
     await this.request('initialize', {
-      clientInfo: { name: 'forge_workspace', title: 'Forge', version: '0.5.0' },
+      clientInfo: { name: 'forge_workspace', title: 'Forge', version },
     });
     this.notify('initialized');
   }

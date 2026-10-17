@@ -38,6 +38,7 @@ export const openClawVersion = '2026.10.4';
 export type OpenClawEvent = Parameters<NonNullable<GatewayClientOptions['onEvent']>>[0];
 type Hello = Parameters<NonNullable<GatewayClientOptions['onHelloOk']>>[0];
 export interface OpenClawConnection {
+  readonly pid?: number;
   readonly exited: boolean;
   readonly signal: AbortSignal;
   readonly hello: Hello;
@@ -481,6 +482,7 @@ export async function openClawWorker(account: Account, cwd: string): Promise<Ope
       );
       handedOff = true;
       return {
+        pid: child.pid,
         get exited() {
           return exited;
         },

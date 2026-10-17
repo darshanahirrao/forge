@@ -191,8 +191,23 @@ test('a native approval and verified handoff retain the same work and expose the
   });
   await post(`/work/${work.id}/launch`, { expectedRevision: work.revision });
   await page.reload();
-  await page.getByRole('button', { name: 'Work', exact: true }).click();
-  await page.getByRole('button', { name: work.title, exact: true }).click();
+  await page.getByRole('button', { name: 'Resources', exact: true }).click();
+  const ownership = page.getByRole('region', { name: 'Native worker ownership' });
+  await expect(ownership.getByText(work.title, { exact: true })).toBeVisible({ timeout: 10000 });
+  await expect(ownership.getByText(/PID \d+/)).toBeVisible();
+  await expect(ownership.getByText(/\d+ observed process/)).toBeVisible({ timeout: 12000 });
+  await page.screenshot({ path: 'artifacts/forge-owned-resources-light.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const resourcesAxe = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+    .analyze();
+  expect(resourcesAxe.violations.map((v) => v.id)).toEqual([]);
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1),
+  ).toBe(true);
+  await page.screenshot({ path: 'artifacts/forge-owned-resources-mobile.png', fullPage: true });
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await ownership.getByRole('button', { name: `Review native work: ${work.title}` }).click();
   const detail = page.getByRole('dialog', { name: work.title });
   await detail.getByRole('button', { name: 'Review', exact: true }).click();
   await page
