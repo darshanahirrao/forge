@@ -1,9 +1,10 @@
-import { useState, useRef, type FormEvent } from 'react';
+import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { BookOpen, Eye, FolderSearch, LoaderCircle, Plus, Unplug, UserRound } from 'lucide-react';
 import type { AgentProfile, MemoryInspection, MemorySource, Snapshot } from '../../shared/types';
 import type { Mutate } from '../api';
 import { Dialog, Empty, FormError, IconButton } from '../components/primitives';
 import { age } from '../lib/format';
+import { MemoryPortabilityPanel } from '../components/MemoryPortabilityPanel';
 
 const scopeLabel = (source: MemorySource) =>
   source.scope.kind === 'global'
@@ -32,6 +33,8 @@ export function MemoryPage({
   } | null>(null);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
+  const [profileEpoch, setProfileEpoch] = useState(0);
+  const [profileDirty, setProfileDirty] = useState(false);
   const profile = data.profiles.find((profile) => profile.id === selected) ?? data.profiles[0];
   async function perform(key: string, task: () => Promise<void>) {
     setBusy(key);
@@ -64,11 +67,21 @@ export function MemoryPage({
       </div>
       {profile && (
         <ProfileEditor
-          key={profile.id}
+          key={`${profile.id}:${profileEpoch}`}
           profile={profile}
           data={data}
           mutate={mutate}
           onActivity={onActivity}
+          onDirtyChange={setProfileDirty}
+        />
+      )}
+      {profile && (
+        <MemoryPortabilityPanel
+          data={data}
+          profile={profile}
+          profileDirty={profileDirty}
+          mutate={mutate}
+          onInstalled={() => setProfileEpoch((epoch) => epoch + 1)}
         />
       )}
       <section className="panel">
@@ -232,11 +245,13 @@ function ProfileEditor({
   data,
   mutate,
   onActivity,
+  onDirtyChange,
 }: {
   profile: AgentProfile;
   data: Snapshot;
   mutate: Mutate;
   onActivity: () => void;
+  onDirtyChange: (dirty: boolean) => void;
 }) {
   const [name, setName] = useState(profile.name);
   const [instructions, setInstructions] = useState(profile.instructions);
@@ -246,6 +261,14 @@ function ProfileEditor({
   const [error, setError] = useState('');
   const [revision, setRevision] = useState(profile.revision);
   const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    onDirtyChange(
+      name !== profile.name ||
+        instructions !== profile.instructions ||
+        companion !== (profile.companionSourceId ?? '') ||
+        JSON.stringify(pinned) !== JSON.stringify(profile.memorySourceIds),
+    );
+  }, [name, instructions, companion, pinned, profile, onDirtyChange]);
   async function save(event: FormEvent) {
     event.preventDefault();
     setBusy(true);

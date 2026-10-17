@@ -1,6 +1,6 @@
 {
   "name": "@forge-workspace/forge",
-  "version": "0.24.0",
+  "version": "0.25.0",
   "description": "A local workspace for continuous work across agent harnesses.",
   "private": true,
   "type": "module",
@@ -38,7 +38,8 @@
     "test:native:pressure": "node tests/native/pressure-conformance.mjs",
     "test:native:t3": "tsx tests/native/t3-conformance.ts",
     "test:native:t3-execution": "tsx tests/native/t3-execution-conformance.ts",
-    "test:native:companion": "tsx tests/native/companion-conformance.ts"
+    "test:native:companion": "tsx tests/native/companion-conformance.ts",
+    "test:native:memory-packs": "tsx tests/native/companion-conformance.ts --portable-memory"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.9.0",

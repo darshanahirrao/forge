@@ -214,6 +214,8 @@ export class Profiles {
     profileId: string,
     revision: number,
     input: Pick<AgentProfile, 'name' | 'instructions' | 'companionSourceId' | 'memorySourceIds'>,
+    // Internal verified-source installation hooks. Never accepted from an HTTP payload.
+    installation: { sources?: MemorySource[]; committed?: () => void } = {},
   ) {
     assert(
       !this.isBusy(),
@@ -226,8 +228,16 @@ export class Profiles {
       409,
       'This profile changed. Review its latest version before saving.',
     );
-    this.validate(input);
     return this.store.transaction(() => {
+      for (const source of installation.sources ?? []) {
+        assert(
+          !this.store.get('memory_sources', source.id),
+          409,
+          'A new memory reference identity already exists.',
+        );
+        this.store.put('memory_sources', source.id, source);
+      }
+      this.validate(input);
       const updated = this.store.put('profiles', profileId, {
         ...previous,
         ...input,
@@ -246,6 +256,7 @@ export class Profiles {
           'Review current memory before the next launch. Native source files were not rewritten.',
         );
       }
+      installation.committed?.();
       return updated;
     });
   }

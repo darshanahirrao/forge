@@ -57,6 +57,7 @@ import { Notifications } from './notifications.js';
 import { NativeControls, type NativeControlBridge } from './native-controls.js';
 import { NativeConnectors } from './connectors.js';
 import { Availability, type AvailabilityOptions } from './availability.js';
+import { MemoryPacks, memoryPackImportSchema } from './memory-packs.js';
 import type { IncomingHttpHeaders } from 'node:http';
 import { credentialReferenceSchema, credentialTarget, resolveCredential } from './credentials.js';
 
@@ -153,7 +154,7 @@ export async function createApp(options: AppOptions) {
     async () => {
       const pressure = await machine.freshPressure();
       assert(
-        !connectors.isChecking && !availability.isBusy,
+        !connectors.isChecking && !availability.isBusy && !memoryPacks.isBusy,
         409,
         'Wait for the native connector check before starting work.',
       );
@@ -191,7 +192,8 @@ export async function createApp(options: AppOptions) {
       controller.activeCount > 0 ||
       probing.size > 0 ||
       connectors.isChecking ||
-      availability.isBusy,
+      availability.isBusy ||
+      memoryPacks.isBusy,
   });
   const nativeControls = new NativeControls(
     local,
@@ -209,7 +211,8 @@ export async function createApp(options: AppOptions) {
       controller.hasLiveExecution ||
       nativeSources.isReading ||
       probing.size > 0 ||
-      availability.isBusy,
+      availability.isBusy ||
+      memoryPacks.isBusy,
   );
   const blueprints = new Blueprints(
     local,
@@ -219,10 +222,11 @@ export async function createApp(options: AppOptions) {
       controller.hasLiveExecution ||
       nativeSources.isReading ||
       probing.size > 0 ||
-      availability.isBusy,
+      availability.isBusy ||
+      memoryPacks.isBusy,
   );
   const mutations = new Set<string>();
-  const availability = new Availability(
+  const availability: Availability = new Availability(
     local,
     options.filename,
     options.background ?? { mode: 'foreground' },
@@ -233,11 +237,25 @@ export async function createApp(options: AppOptions) {
       nativeSources.isReading ||
       probing.size > 0 ||
       connectors.isChecking ||
+      memoryPacks.isBusy ||
       local
         .all<Run>('runs')
         .some((run) =>
           run.settlement ? !run.settlement.confirmed : run.exitConfirmed === false,
         ) ||
+      mutations.size > 1,
+  );
+  const memoryPacks: MemoryPacks = new MemoryPacks(
+    local,
+    profiles,
+    options.filename === ':memory:' ? undefined : dirname(options.filename),
+    () =>
+      controller.activeCount > 0 ||
+      controller.hasLiveExecution ||
+      nativeSources.isReading ||
+      probing.size > 0 ||
+      connectors.isChecking ||
+      availability.isBusy ||
       mutations.size > 1,
   );
   const csrf = options.csrf ?? randomBytes(32).toString('hex');
@@ -298,7 +316,7 @@ export async function createApp(options: AppOptions) {
       );
       companions.authenticate(request.headers.authorization);
       assert(
-        !availability.isBusy,
+        !availability.isBusy && !memoryPacks.isBusy,
         409,
         'Wait for the reviewed workspace availability operation to finish.',
       );
@@ -329,7 +347,8 @@ export async function createApp(options: AppOptions) {
       if (!request.headers['content-type']?.startsWith('application/json'))
         return reply.code(415).send({ error: 'Send workspace changes as JSON.' });
       assert(
-        !availability.isBusy || request.url.split('?')[0] === '/api/availability/activate',
+        (!availability.isBusy || request.url.split('?')[0] === '/api/availability/activate') &&
+          (!memoryPacks.isBusy || request.url.split('?')[0] === '/api/memory/packs/apply'),
         409,
         'Wait for the reviewed workspace availability operation to finish.',
       );
@@ -337,7 +356,7 @@ export async function createApp(options: AppOptions) {
     }
     if (request.url.split('?')[0] === '/api/native/t3/callback') {
       assert(
-        !availability.isBusy,
+        !availability.isBusy && !memoryPacks.isBusy,
         409,
         'Wait for the workspace availability operation before completing native setup.',
       );
@@ -481,6 +500,7 @@ export async function createApp(options: AppOptions) {
     const result: Snapshot = {
       service: options.background ?? { mode: 'foreground' },
       availability: mode(request) === 'demo' ? undefined : await availability.snapshot(),
+      memoryPacks: mode(request) === 'demo' ? [] : memoryPacks.list(),
       access: bridgeActor(request.headers, options.phoneBridge),
       mode: mode(request),
       connectors: mode(request) === 'demo' ? [] : connectors.list(),
@@ -1438,6 +1458,53 @@ export async function createApp(options: AppOptions) {
     );
     return { ok: true };
   });
+  const memoryPackAuthority = (request: { headers: IncomingHttpHeaders }) =>
+    assert(
+      mode(request) === 'local' &&
+        bridgeActor(request.headers, options.phoneBridge).kind === 'local',
+      403,
+      'Manage portable memory from the local Forge host.',
+    );
+  app.get('/api/memory/packs', async (request) =>
+    mode(request) === 'demo' ? [] : memoryPacks.list(),
+  );
+  app.get('/api/memory/packs/schema', async () => z.toJSONSchema(memoryPackImportSchema));
+  app.post('/api/memory/packs/parse', async (request) => {
+    memoryPackAuthority(request);
+    return memoryPacks.parse(
+      z.object({ definition: z.unknown() }).strict().parse(request.body).definition,
+    );
+  });
+  app.post('/api/memory/packs/copy', async (request) => {
+    memoryPackAuthority(request);
+    const input = z
+      .object({ profileId: z.string().uuid(), expectedRevision: z.number().int().nonnegative() })
+      .strict()
+      .parse(request.body);
+    return memoryPacks.prepareCopy(input.profileId, input.expectedRevision);
+  });
+  app.post('/api/memory/packs/import', async (request) => {
+    memoryPackAuthority(request);
+    return memoryPacks.prepareImport(request.body);
+  });
+  const memoryPackReview = z
+    .object({
+      planId: z.string().uuid(),
+      digest: z.string().regex(/^[a-f0-9]{64}$/),
+      reviewed: z.literal(true),
+    })
+    .strict();
+  app.post('/api/memory/packs/export', async (request, reply) => {
+    memoryPackAuthority(request);
+    const input = memoryPackReview.parse(request.body);
+    reply.header('Content-Disposition', 'attachment; filename="forge-private-memory-pack.json"');
+    return memoryPacks.export(input.planId, input.digest);
+  });
+  app.post('/api/memory/packs/apply', async (request) => {
+    memoryPackAuthority(request);
+    const input = memoryPackReview.parse(request.body);
+    return memoryPacks.apply(input.planId, input.digest);
+  });
   const memorySelection = {
     path: text(2000).min(1),
     section: z.array(text(500).min(1)).max(12).default([]),
@@ -1559,6 +1626,7 @@ export async function createApp(options: AppOptions) {
     );
   }
   app.addHook('onClose', async () => {
+    await memoryPacks.close();
     await t3.close();
     await controller.close();
     await notifications.close();
@@ -1578,5 +1646,6 @@ export async function createApp(options: AppOptions) {
     nativeControls,
     connectors,
     availability,
+    memoryPacks,
   };
 }

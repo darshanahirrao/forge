@@ -19,6 +19,7 @@ type Collection =
   | 'native_inventories'
   | 'profiles'
   | 'memory_sources'
+  | 'memory_packs'
   | 'companion_grants'
   | 'companion_operations'
   | 'blueprint_imports'

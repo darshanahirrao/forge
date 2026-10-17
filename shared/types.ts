@@ -425,6 +425,7 @@ export interface BackgroundRuntime {
   definitionDirectory?: string;
 }
 export interface Snapshot {
+  memoryPacks?: import('./memory-packs.js').MemoryPackReceipt[];
   availability?: import('./availability.js').AvailabilitySnapshot;
   connectors?: import('./connectors.js').NativeConnector[];
   notifications?: import('./notifications.js').NotificationSnapshot;

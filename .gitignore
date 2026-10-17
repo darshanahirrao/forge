@@ -16,6 +16,7 @@ __pycache__/
 .forge-openclaw.json*
 .forge-service.json
 .forge-activation-*.json*
+memory-packs/
 .forge-t3-*.json
 .forge-t3-*.json.*
 .local/

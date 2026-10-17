@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { mkdtemp, mkdir, readFile, writeFile, realpath, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, writeFile, realpath, rm, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
@@ -17,6 +17,7 @@ import type { Work } from '../../shared/types.js';
 const binary = await findBinary('hermes');
 assert(binary, 'Install Hermes with its native MCP client before this opt-in check.');
 const python = await hermesPython(binary);
+const portable = process.argv.includes('--portable-memory');
 const root = await realpath(await mkdtemp(join(tmpdir(), 'forge-native-companion-')));
 const project = join(root, 'project'),
   home = join(root, 'home');
@@ -52,6 +53,17 @@ try {
   );
   const profile = profiles.profile();
   profiles.update(profile.id, profile.revision, { ...profile, memorySourceIds: [source.id] });
+  let selectedSourceId = source.id;
+  const retainedOriginal = portable ? join(root, 'Removed original native memory.md') : filename;
+  if (portable) {
+    const current = profiles.profile(),
+      plan = await app.memoryPacks.prepareCopy(current.id, current.revision);
+    const copied = await app.memoryPacks.apply(plan.id, plan.digest);
+    assert.equal(copied.state, 'applied');
+    selectedSourceId = copied.sourceIds[0];
+    await rename(filename, retainedOriginal);
+    assert.equal(profiles.profile().id, profile.id);
+  }
   const settings = {
     root: project,
     profileId: profile.id,
@@ -199,8 +211,8 @@ try {
   });
   assert(JSON.stringify(context).includes('native-selected-copper'));
   assert(!JSON.stringify(context).includes('native-excluded-violet'));
-  assert.equal(await readFile(filename, 'utf8'), bytes);
-  assert.equal(profiles.profile().memorySourceIds[0], source.id);
+  assert.equal(await readFile(retainedOriginal, 'utf8'), bytes);
+  assert.equal(profiles.profile().memorySourceIds[0], selectedSourceId);
   assert.equal(app.controller.activeCount, 0);
   assert.throws(() => app.companions.authenticate(`Bearer ${grant.token}`), /revoked/);
   success = true;
@@ -213,6 +225,8 @@ try {
       memoryBytesUnchanged: true,
       oldAccessRevoked: true,
       extraAgentLoop: false,
+      portableSelectedMemory: portable,
+      originalPathRemoved: portable,
     }),
   );
 } finally {

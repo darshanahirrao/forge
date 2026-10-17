@@ -40,6 +40,12 @@ mkdirSync(join(nativeHome, 'cron'));
 const memoryPath = join(directory, 'MEMORY.md');
 const memoryProject = join(directory, 'project');
 mkdirSync(memoryProject);
+const portableMemoryPath = join(directory, 'portable-native-memory.md');
+writeFileSync(
+  portableMemoryPath,
+  '# Shared\nPortable browser selected marker.\n# Private\nPORTABLE-EXCLUDED-PRIVATE\n',
+  { mode: 0o600 },
+);
 const credentialPath = join(directory, 'owned-browser-private.json');
 writeFileSync(credentialPath, JSON.stringify({ selected: 'public-owned-browser-synthetic-key' }), {
   mode: 0o600,
@@ -177,6 +183,10 @@ const { app } = await createApp({
   rpcFactory: fixtureRpc,
 });
 app.get('/api/fixture/memory', async () => ({ path: memoryPath, project: memoryProject }));
+app.get('/api/fixture/memory-packs', async () => ({
+  path: portableMemoryPath,
+  project: memoryProject,
+}));
 app.get('/api/fixture/credentials', async () => ({
   path: credentialPath,
   key: 'selected',

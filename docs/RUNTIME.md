@@ -1,4 +1,6 @@
-# Forge v0.24.0
+# Forge v0.25.0
+
+Version 0.25 adds reviewed [private portable memory](MEMORY_PACKS.md), reusing ordinary Markdown and the existing scope/context reader. Explicit selected-text export and local scope-bound import preserve profile identity without transferring account or tool authority. Atomic reference activation, source/target revalidation and failed-stage recovery prevent partial binding or replay. Actual Hermes and OpenClaw MCP clients retain the selected marker after removal of the original memory path, with zero model calls. Provider search, learning tools, policies and hidden histories stay native.
 
 Version 0.24 adds reviewed background activation from Connections, reusing the [native macOS service](BACKGROUND_SERVICE.md). A bounded helper waits for the foreground owner to exit, preserves the same workspace/private references, and installs or starts only the reviewed definition. Private IPC, a native ownership lease, idle/admission fences, idempotent receipts and human review of uncertain inactive outcomes prevent automatic control replay. Actual committed-helper SIGKILL, dual-listener handoff and unchanged-installation reuse pass without a login item or model call.
 

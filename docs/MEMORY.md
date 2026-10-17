@@ -2,6 +2,8 @@
 
 Implemented in v0.5. Forge keeps stable profile identities and references to existing native Markdown memory. Native owners continue to curate, edit and search their memory. Forge adds scoped selection, preview, input provenance and continuation checks. It does not implement embeddings, a memory extraction loop, a native memory editor or another memory engine.
 
+Version 0.25 adds reviewed [private portable memory packs](MEMORY_PACKS.md). Selected text can be exported explicitly or copied into independent private Markdown on the same profile. Imports bind local scopes and retain target instructions by default. Native provider search, learning tools and policies stay upstream.
+
 ## Configure a profile
 
 Open Memory to create or select a profile. A profile has an immutable ID, a revision, user-authored working instructions, optional Hermes/OpenClaw companion reference and up to eight memory references. Work records select a profile independently of their harness/account. Compatible handoff preserves that profile ID and its references. Choosing a companion reference does not start it or enable managed execution; current companion connections remain observation adapters.
@@ -34,7 +36,7 @@ Correct a memory file through its native tools or editor. Changed selected conte
 
 Unpin a source from every profile before forgetting its reference. Forgetting removes the registry entry, not the native file or earlier native/provider conversation history. Work receipts and private capsules retain historical provenance. This is a future-input control, not universal erasure from upstream transcripts or user-authored work notes. Native deletion/export controls remain authoritative.
 
-Capsules carry the prepared context receipt, not a new permanent copy of every native memory file. Keep memory in a durable native store independent of a runtime installation when it must survive removal of that installation. If a required source disappears or its heading becomes ambiguous, Forge blocks that launch instead of silently dropping it. Native memory/provider migration and search remain with existing implementations.
+Capsules carry the prepared context receipt, not a new permanent copy of every native memory file. Keep memory in a durable native store independent of a runtime installation when it must survive removal of that installation. If a required source disappears or its heading becomes ambiguous, Forge blocks that launch instead of silently dropping it. Full native memory/provider migration and search remain with existing implementations; reviewed selected-text snapshots can be retained independently through private memory packs.
 
 ## Implementation and evidence
 
