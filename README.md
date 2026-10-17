@@ -6,7 +6,7 @@ Forge is an open-source local workspace for people who work across AI runtimes a
 
 We call the product concept **Persistent Agency**: your agent profile, memory, workspace, work history, shared connections, schedules, and policies remain in Forge while you change a compatible execution harness at a verified checkpoint.
 
-**Status: early local application, v0.16.0.** Persistent work/profiles, scoped native memory, account slots, native activity, machine telemetry and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic quota fallback, always-on companion planning/control, background approval notifications, native schedule controls, full memory-provider migration and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md).
+**Status: early local application, v0.17.0.** Persistent work/profiles, scoped native memory, account slots, native activity, machine telemetry and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic quota fallback, always-on companion planning/control, background approval notifications, native schedule controls, full memory-provider migration and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md).
 
 The workspace now starts with your managed work and existing native chats, compact resource/usage status and exact pending approvals. Ctrl/Cmd K searches work and commands; optional creation fields stay folded until needed. See [the experience decisions and upstream references](docs/UI_EXPERIENCE.md).
 
@@ -31,6 +31,8 @@ Hermes reuses its installed ACP runtime, native tools, memory and skills with an
 OpenClaw reuses its native foreground Gateway and official client with a dedicated execution profile. [OpenClaw setup, native session identity and shutdown](docs/OPENCLAW.md) describe the evaluated 2026.10.4 route. Existing companion channels and schedules retain their native owner.
 
 Existing Hermes, OpenClaw and other MCP clients can use [scoped companion access](docs/COMPANION_ACCESS.md) to keep the same Forge profile, selected memory and work. Optional native dispatch has explicit account, billing and finite-run grants; approvals stay on the human path. Forge adds no agent loop or scheduler.
+
+[Workspace blueprints](docs/BLUEPRINTS.md) reuse setup roles and optional work templates. Bind your own native accounts and selected memory, review the import, and roll back unused setup. Existing native credentials, schedules and work retain their owners.
 
 For phone review, the opt-in private gateway reuses Tailscale Serve and an explicit owner allowlist. [Phone setup and evidence](docs/PHONE_ACCESS.md) describe the authenticated route and the remaining live-device verification. The default service remains local.
 

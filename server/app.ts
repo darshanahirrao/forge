@@ -51,6 +51,7 @@ import { T3Backends } from './backends/t3-backend.js';
 import { T3Driver } from './backends/t3-driver.js';
 import { Companions } from './companions.js';
 import { registerCompanionMcp } from './companion-mcp.js';
+import { Blueprints, blueprintSchema } from './blueprints.js';
 
 const builtinHarness = z.enum(['codex', 'claude', 'opencode', 'hermes', 'openclaw']);
 const harness = z.string().regex(/^[a-zA-Z][a-zA-Z0-9._-]{0,79}$/);
@@ -154,6 +155,15 @@ export async function createApp(options: AppOptions) {
     ...options.nativeSourcesOptions,
     isManagedBusy: () => controller.activeCount > 0 || probing.size > 0,
   });
+  const blueprints = new Blueprints(
+    local,
+    profiles,
+    () =>
+      controller.activeCount > 0 ||
+      controller.hasLiveExecution ||
+      nativeSources.isReading ||
+      probing.size > 0,
+  );
   const csrf = options.csrf ?? randomBytes(32).toString('hex');
   const port = options.port ?? 4710;
   const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
@@ -1043,6 +1053,32 @@ export async function createApp(options: AppOptions) {
       ],
     };
   });
+  app.get('/api/blueprints/schema', async () => z.toJSONSchema(blueprintSchema));
+  app.get('/api/blueprints/imports', async (request) =>
+    mode(request) === 'demo' ? [] : blueprints.list(),
+  );
+  app.post('/api/blueprints/parse', async (request) => {
+    assert(mode(request) === 'local', 409, 'Switch to the local workspace before importing setup.');
+    return blueprints.parse(
+      z.object({ definition: z.unknown() }).strict().parse(request.body).definition,
+    );
+  });
+  app.post('/api/blueprints/inspect', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo imports never inspect local bindings.');
+    return blueprints.inspect(request.body);
+  });
+  app.post('/api/blueprints/apply', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo imports never change local setup.');
+    const input = z
+      .object({ planId: z.string().uuid(), digest: z.string().regex(/^[a-f0-9]{64}$/) })
+      .strict()
+      .parse(request.body);
+    return blueprints.apply(input.planId, input.digest);
+  });
+  app.post('/api/blueprints/:id/rollback', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo imports have no local rollback.');
+    return blueprints.rollback((request.params as { id: string }).id);
+  });
   const staticRoot = options.staticRoot ?? fileURLToPath(new URL('../client/', import.meta.url));
   if (existsSync(resolve(staticRoot, 'index.html'))) {
     await app.register(fastifyStatic, { root: staticRoot, wildcard: false });
@@ -1058,5 +1094,5 @@ export async function createApp(options: AppOptions) {
     local.close();
     demo.close();
   });
-  return { app, local, demo, controller, csrf, companions };
+  return { app, local, demo, controller, csrf, companions, blueprints };
 }

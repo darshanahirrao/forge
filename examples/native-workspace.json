@@ -1,0 +1,32 @@
+{
+  "format": "forge.workspace-blueprint",
+  "version": 1,
+  "name": "Native development workspace",
+  "harnesses": ["codex"],
+  "accounts": [{ "role": "coding", "harness": "codex", "billingMode": "native" }],
+  "settings": { "maxConcurrent": 1, "memoryPressurePolicy": "protect" },
+  "profiles": [
+    {
+      "role": "developer",
+      "name": "Developer",
+      "instructions": "Follow the project's existing instructions and native tools. Record validation and concise source-attributed checkpoints.",
+      "memoryOwners": [],
+      "preferredCompanion": "hermes"
+    }
+  ],
+  "requirements": [
+    "Choose your own native account and project directory.",
+    "Connect the companion separately through native MCP."
+  ],
+  "workTemplates": [
+    {
+      "role": "project-review",
+      "title": "Review this project",
+      "goal": "Inspect the project's native instructions and tests, then propose the next concrete improvement.",
+      "acceptance": "Report findings with file references and relevant validation.",
+      "accountRole": "coding",
+      "profileRole": "developer",
+      "projectRole": "project"
+    }
+  ]
+}

@@ -119,3 +119,7 @@ The v0.5 native three-worker handoff also verifies the same persistent profile I
 ## Native companion access at v0.16
 
 The [companion MCP contract](COMPANION_ACCESS.md) connects native Hermes, OpenClaw or another compatible client to the same profile, selected context and work. Scopes separate reads, attributed writes and optional finite account/billing dispatch. Writes retain idempotent operation receipts; approval decisions remain human native operations. No agent loop, model worker or scheduler starts on connection. Native tests and limits are documented with the contract.
+
+## Blueprint activation at v0.17
+
+The existing version-1 setup format now has [reviewed local import and unused rollback](BLUEPRINTS.md), with optional profile instructions and work templates. Bindings reuse existing native accounts, memory references and directories. Selected content and native identity/model/home are rechecked; profiles/ready work/receipt commit together, and repeated activation stays idempotent. Later work, grants, references or preference changes protect the import from rollback. No native executor, account, grant or scheduler is created by import. General extension packaging and the full audit remain open.

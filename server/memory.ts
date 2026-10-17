@@ -132,7 +132,7 @@ export async function inspectMemory(
     );
   }
 }
-export function scopeApplies(scope: MemoryScope, work: Work) {
+export function scopeApplies(scope: MemoryScope, work: Pick<Work, 'id' | 'cwd'>) {
   if (scope.kind === 'global') return true;
   if (scope.kind === 'work') return scope.workId === work.id;
   if (!work.cwd) return false;

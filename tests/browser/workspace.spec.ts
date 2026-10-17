@@ -1,6 +1,11 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
+test.afterEach(async ({ page }) => {
+  // Finish interception callbacks before Playwright disposes their request context.
+  await page.unrouteAll({ behavior: 'wait' });
+});
+
 test('T3 Code signs in natively for read-only activity, retains revoked observations and disconnects in both themes and mobile', async ({
   page,
 }) => {

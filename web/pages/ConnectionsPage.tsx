@@ -11,12 +11,11 @@ import {
   RefreshCw,
   Plus,
   ExternalLink,
-  SlidersHorizontal,
-  ArrowDownToLine,
 } from 'lucide-react';
 import { compact, currency } from '../lib/format';
 import { BackendsPanel } from '../components/BackendsPanel';
 import { CompanionsPanel } from '../components/CompanionsPanel';
+import { BlueprintsPanel } from '../components/BlueprintsPanel';
 
 export function ConnectionsPage({
   data,
@@ -298,20 +297,7 @@ export function ConnectionsPage({
           </div>
         </section>
       )}
-      <section className="blueprint-panel">
-        <div>
-          <SlidersHorizontal size={22} />
-          <h2>Make this workspace your own.</h2>
-          <p>
-            Export a small setup blueprint with harness roles and concurrency preferences. Private
-            work, paths, account identities, and credentials stay local.
-          </p>
-        </div>
-        <button className="button secondary" onClick={onDownload} disabled={busy === 'blueprint'}>
-          <ArrowDownToLine size={16} />
-          Export setup blueprint
-        </button>
-      </section>
+      <BlueprintsPanel data={data} mutate={mutate} onDownload={onDownload} />
     </div>
   );
 }

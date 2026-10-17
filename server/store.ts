@@ -21,6 +21,7 @@ type Collection =
   | 'memory_sources'
   | 'companion_grants'
   | 'companion_operations'
+  | 'blueprint_imports'
   | 'settings'
   | 'config';
 export const now = () => new Date().toISOString();

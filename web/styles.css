@@ -1785,6 +1785,40 @@ dd {
   border: 1px solid var(--line);
   padding: 12px;
 }
+.blueprint-actions {
+  display: flex;
+  gap: 8px;
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.blueprint-profile {
+  border: 1px solid var(--line);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.blueprint-import {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+}
+.blueprint-import > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.blueprint-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+}
+.blueprint-content {
+  overflow-wrap: anywhere;
+}
 .backend-panel > .form-error {
   padding: 0 18px 16px;
 }
@@ -1940,29 +1974,6 @@ label small,
 .external-link:hover {
   color: var(--accent);
   background: var(--soft);
-}
-.blueprint-panel {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 26px;
-  padding: 26px;
-  border: 1px dashed var(--structure);
-  border-radius: 8px;
-}
-.blueprint-panel > div {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  align-items: flex-start;
-}
-.blueprint-panel > div > svg {
-  color: var(--accent);
-}
-.blueprint-panel p {
-  color: var(--muted);
-  font-size: 13px;
-  max-width: 66ch;
 }
 .native-details {
   font-size: 12px;
@@ -2426,6 +2437,8 @@ label small,
   flex-shrink: 0;
 }
 .dialog-header > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
   display: flex;
   flex-direction: column;
   gap: 7px;
@@ -2921,10 +2934,6 @@ label small,
     border-left: 0;
     border-top: 1px solid var(--line);
   }
-  .blueprint-panel {
-    align-items: flex-start;
-    flex-direction: column;
-  }
   .resource-controls {
     align-items: flex-start;
     flex-direction: column;
@@ -3230,9 +3239,6 @@ label small,
   }
   .connection-actions .button {
     min-height: 42px;
-  }
-  .blueprint-panel {
-    padding: 22px;
   }
   .resource-controls {
     padding: 22px;
