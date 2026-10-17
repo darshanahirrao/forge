@@ -1,6 +1,89 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
+test('memory protection persists and explains a native pressure hold without sending task input', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Resources', exact: true }).click();
+  const protection = page.getByRole('switch', { name: 'Memory pressure protection', exact: true });
+  await expect(protection).toHaveAttribute('aria-checked', 'true');
+  await protection.click();
+  await expect(protection).toHaveAttribute('aria-checked', 'false');
+  await page.reload();
+  await page.getByRole('button', { name: 'Resources', exact: true }).click();
+  await expect(protection).toHaveAttribute('aria-checked', 'false');
+  await protection.click();
+  await expect(protection).toHaveAttribute('aria-checked', 'true');
+  await page.route('**/api/snapshot', async (route) => {
+    const response = await route.fetch(),
+      data = await response.json();
+    await route.fulfill({
+      response,
+      json: {
+        ...data,
+        machine: {
+          ...data.machine,
+          memoryPressure: {
+            state: 'critical',
+            source: 'macos-sysctl',
+            nativeValue: 4,
+            checkedAt: new Date().toISOString(),
+          },
+        },
+      },
+    });
+  });
+  await page.reload();
+  await page.getByRole('button', { name: 'Resources', exact: true }).click();
+  const region = page.getByRole('region', { name: 'Memory pressure protection', exact: true });
+  await expect(region.getByText(/macOS reports critical memory pressure/)).toBeVisible();
+  await region.screenshot({ path: 'artifacts/forge-headroom-light.png' });
+  await page.getByRole('button', { name: 'Use dark theme' }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  const axe = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+  expect(axe.violations.map((v) => v.id)).toEqual([]);
+  await region.screenshot({ path: 'artifacts/forge-headroom-mobile-dark.png' });
+  const snapshot = await (await page.request.get('/api/snapshot')).json();
+  const post = async (url: string, data: unknown) => {
+    const response = await page.request.post('/api' + url, {
+      data,
+      headers: { 'x-forge-csrf': snapshot.csrf },
+    });
+    expect(response.ok(), await response.text()).toBe(true);
+    return response.json();
+  };
+  const account = await post('/accounts', { label: 'Headroom browser slot', harness: 'codex' });
+  const work = await post('/work', {
+    title: 'Headroom browser work',
+    project: 'Headroom fixture',
+    goal: 'Review resource admission without starting native work.',
+    harness: 'codex',
+    accountId: account.id,
+    cwd: process.cwd(),
+  });
+  let launches = 0;
+  page.on('request', (request) => {
+    if (request.url().endsWith(`/api/work/${work.id}/launch`)) launches++;
+  });
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.reload();
+  await page.getByRole('button', { name: 'Work', exact: true }).click();
+  await page.getByRole('button', { name: work.title, exact: true }).click();
+  await page.getByRole('button', { name: 'Run with Codex', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Ready to use the native harness?' });
+  await expect(dialog.getByText('New native work is waiting for memory headroom.')).toBeVisible();
+  await expect(
+    dialog.getByRole('button', { name: 'Start native attempt', exact: true }),
+  ).toBeDisabled();
+  expect(launches).toBe(0);
+  await dialog.getByRole('button', { name: 'Review Resources', exact: true }).click();
+  await expect(region).toBeVisible();
+});
+
 test('background availability explains setup and shows native service mode on desktop and mobile', async ({
   page,
 }) => {

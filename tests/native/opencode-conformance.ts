@@ -1,3 +1,4 @@
+import { unknownPressure } from '../../server/memory-pressure.js';
 // Opt-in real OpenCode v2 worker. Only a deterministic loopback model endpoint is selected.
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -165,6 +166,7 @@ for (let i = 0; i < homes.length; i++)
     }),
   );
 const state = await createApp({
+  memoryPressureReader: unknownPressure,
   filename: ':memory:',
   csrf: 'opencode-conformance',
   test: true,

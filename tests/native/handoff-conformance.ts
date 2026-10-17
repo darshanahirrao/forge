@@ -1,3 +1,4 @@
+import { unknownPressure } from '../../server/memory-pressure.js';
 // Actual native tools across one work identity and two credential contexts; inference remains synthetic.
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, realpath } from 'node:fs/promises';
@@ -303,6 +304,7 @@ process.env[refs[1]] = 'synthetic-profile-two';
 process.env[refs[2]] = 'synthetic-profile-three';
 const profileIds: string[] = [];
 const state = await createApp({
+  memoryPressureReader: unknownPressure,
   filename: ':memory:',
   csrf: 'handoff-conformance',
   test: true,

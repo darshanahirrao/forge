@@ -1,3 +1,4 @@
+import { unknownPressure } from '../server/memory-pressure.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
@@ -13,6 +14,7 @@ async function fixture(
   nativeOptions: { metered?: boolean; withdraw?: boolean } = {},
 ) {
   const state = await createApp({
+    memoryPressureReader: unknownPressure,
     filename: ':memory:',
     csrf: token,
     test: true,
@@ -91,6 +93,7 @@ test('stop acknowledges immediately, withdraws decisions and retains ownership u
     release = resolve;
   });
   const state = await createApp({
+    memoryPressureReader: unknownPressure,
     filename: ':memory:',
     csrf: token,
     test: true,
@@ -178,6 +181,7 @@ test('native account checks share admission with each other, inventory and manag
     release = resolve;
   });
   const state = await createApp({
+    memoryPressureReader: unknownPressure,
     filename: ':memory:',
     csrf: token,
     test: true,

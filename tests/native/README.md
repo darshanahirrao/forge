@@ -49,3 +49,9 @@ The standalone check owns five actual foreground Gateways across two synthetic n
 ## macOS background workspace
 
 `npm run test:native:service` is a separate macOS-only opt-in against actual launchd and the compiled application. It installs an isolated private definition outside login auto-load, starts Forge, retains idle work through graceful and abnormal-exit restarts, removes its native job and preserves state before temporary cleanup. It starts no harness task and uses no model or provider credentials. Unconfirmed cleanup leaves the fixture for review. It is not included in the combined model-tool command or Linux CI. [Service setup and boundaries](../../docs/BACKGROUND_SERVICE.md) distinguish this evidence from real login/logout, managed work during OS shutdown and background API-key/phone delivery.
+
+## Native memory pressure query
+
+`npm run test:native:pressure` reads actual macOS pressure and exercises loopback launch admission with an inert driver. On the evaluated host, native warning flag 2 held the launch before factory creation. No pressure is injected, no native harness starts, and no model or provider key is used. Normal host pressure admits only the inert fixture; the report states whether an actual elevated hold was observed. [Resource evidence and limits](../../docs/RESOURCES.md) describe the masked optional OS ABI, unknown coverage and absence of hard limits.
+
+Other protocol/browser/native-tool fixtures now explicitly inject unavailable pressure coverage. Their native tool, ownership, permission and continuation checks are independent of changing test-host load; they do not validate the pressure guard. The separate native query and functional admission/race checks cover that boundary.

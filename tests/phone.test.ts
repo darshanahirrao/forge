@@ -1,3 +1,4 @@
+import { unknownPressure } from '../server/memory-pressure.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
@@ -45,6 +46,7 @@ async function fixture() {
     },
   };
   const state = await createApp({
+    memoryPressureReader: unknownPressure,
     filename: ':memory:',
     port: 0,
     test: true,

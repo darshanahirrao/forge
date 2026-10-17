@@ -45,6 +45,7 @@ import type { DriverFactory } from './adapters/driver.js';
 import { workspaceHeaders } from './http-security.js';
 import { bridgeActor, type PhoneBridge } from './phone.js';
 import { seedDemo } from './demo.js';
+import { checkMemoryAdmission } from './memory-pressure.js';
 
 const harness = z.enum(['codex', 'claude', 'opencode', 'hermes', 'openclaw']);
 const text = (max: number) => z.string().trim().max(max);
@@ -77,6 +78,9 @@ const accountSchema = z
 export interface AppOptions {
   filename: string;
   background?: Snapshot['service'];
+  memoryPressureReader?: () =>
+    | NonNullable<Snapshot['machine']['memoryPressure']>
+    | Promise<NonNullable<Snapshot['machine']['memoryPressure']>>;
   port?: number;
   csrf?: string;
   phoneBridge?: PhoneBridge;
@@ -117,10 +121,14 @@ export async function createApp(options: AppOptions) {
         );
       }),
     (work, digest) => profiles.prepare(work, digest),
+    async () => {
+      const pressure = await machine.freshPressure();
+      checkMemoryAdmission(local.settings(), pressure);
+    },
   );
   const profiles: Profiles = new Profiles(local, () => controller.activeCount > 0);
   const demoProfiles = new Profiles(demo);
-  const machine = new MachineMonitor();
+  const machine = new MachineMonitor(options.memoryPressureReader);
   const continuity = new Continuity(local, controller);
   const probing = new Set<string>();
   const nativeSources = new NativeSources(local, {
@@ -601,7 +609,11 @@ export async function createApp(options: AppOptions) {
   });
   app.patch('/api/settings', async (request) => {
     const body = z
-      .object({ quietMode: z.boolean().optional(), maxConcurrent: z.literal(1).optional() })
+      .object({
+        quietMode: z.boolean().optional(),
+        maxConcurrent: z.literal(1).optional(),
+        memoryPressurePolicy: z.enum(['protect', 'observe']).optional(),
+      })
       .strict()
       .parse(request.body);
     const db = store(request);
@@ -788,7 +800,10 @@ export async function createApp(options: AppOptions) {
         harness: a.harness,
         billingMode: a.billingMode,
       })),
-      settings: { maxConcurrent: 1 },
+      settings: {
+        maxConcurrent: 1,
+        memoryPressurePolicy: db.settings().memoryPressurePolicy ?? 'protect',
+      },
       profiles: db.all<AgentProfile>('profiles').map((profile, index) => ({
         role: `profile-${index + 1}`,
         memoryOwners: (mode(request) === 'demo' ? demoProfiles : profiles)

@@ -6,7 +6,7 @@ Forge is an open-source local workspace for people who work across AI runtimes a
 
 We call the product concept **Persistent Agency**: your agent profile, memory, workspace, work history, shared connections, schedules, and policies remain in Forge while you change a compatible execution harness at a verified checkpoint.
 
-**Status: early local application, v0.11.0.** Persistent work/profiles, scoped native memory, account slots, native activity, machine telemetry and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic quota fallback, always-on companion planning/control, background approval notifications, native schedule controls, full memory-provider migration and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md).
+**Status: early local application, v0.12.0.** Persistent work/profiles, scoped native memory, account slots, native activity, machine telemetry and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic quota fallback, always-on companion planning/control, background approval notifications, native schedule controls, full memory-provider migration and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md).
 
 ## Run Forge
 
@@ -42,7 +42,7 @@ Private state is stored outside this repository. On macOS, the default is `~/Lib
 - Stable profiles and native memory references, project/work scopes, reviewed input fingerprints, corrected-context isolation and selected-memory continuity across supported harnesses/accounts.
 - Multiple account slots per supported harness choice, native Codex/Claude authentication status checks, and native Codex quota evidence when exposed.
 - A shared execution coordinator for experimental Codex app-server, Claude Agent SDK API, OpenCode v2, Hermes ACP and OpenClaw Gateway turns, with one managed worker, supported exact approvals, cancellation, native session continuation, usage snapshots, and recovery receipts.
-- Real CPU, OS memory, process RSS and service-memory visibility, with [managed native worker attribution](docs/RESOURCES.md) and direct review of owning work. Quiet mode gates new managed work.
+- Real CPU, OS memory, process RSS and service-memory visibility, with [managed native worker attribution](docs/RESOURCES.md) and direct review of owning work. A fresh native macOS pressure check holds new managed launches at reported warning/critical pressure; explicit observe-only mode and quiet mode remain available.
 - Native activity across profile/account homes: Codex and Claude chats, byte-preserving Codex/Hermes schedule inventory, and capability-aware Hermes/OpenClaw session API observations.
 - Optional Agent Deck session inventory and ccusage daily Claude reports through their installed native CLIs.
 - Optional macOS user service with verified native installation ownership, start/status/stop/restart/removal and no automatic task replay after a crash.

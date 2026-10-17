@@ -43,6 +43,7 @@ export class ExecutionController {
     private store: Store,
     private factory: DriverFactory,
     private prepareContext?: (work: Work, reviewDigest?: string) => Promise<ContextReview>,
+    private admissionCheck?: () => Promise<void>,
   ) {}
   get activeCount() {
     return this.active.size + (this.preparing ? 1 : 0);
@@ -126,6 +127,7 @@ export class ExecutionController {
     };
     try {
       const review = await this.prepareContext?.(work, reviewDigest);
+      await this.admissionCheck?.();
       assert(
         !this.closing && !this.store.settings().quietMode,
         409,

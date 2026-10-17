@@ -1,3 +1,4 @@
+import { unknownPressure } from '../server/memory-pressure.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
@@ -347,7 +348,12 @@ test('memory APIs enforce preview hashes, demo isolation, profile revisions and 
     path,
     '# Selected\nPrivate selected fixture text.\n# Other\nExcluded fixture text.',
   );
-  const state = await createApp({ filename: ':memory:', csrf: 'memory-api', test: true });
+  const state = await createApp({
+    memoryPressureReader: unknownPressure,
+    filename: ':memory:',
+    csrf: 'memory-api',
+    test: true,
+  });
   const call = (
     method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
     url: string,

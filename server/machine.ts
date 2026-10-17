@@ -1,6 +1,7 @@
 import os from 'node:os';
-import type { Account, MachineSnapshot, Run } from '../shared/types.js';
+import type { Account, MachineSnapshot, MemoryPressure, Run } from '../shared/types.js';
 import { attributeWorkers, processTable, type ProcessObservation } from './processes.js';
+import { readMemoryPressure } from './memory-pressure.js';
 export function processSummary(rows: ProcessObservation[]): MachineSnapshot['processes'] {
   return rows
     .map(({ uid: _uid, startedAt: _start, ...p }) => p)
@@ -8,10 +9,28 @@ export function processSummary(rows: ProcessObservation[]): MachineSnapshot['pro
     .slice(0, 30);
 }
 export class MachineMonitor {
+  constructor(
+    private pressureReader: () => MemoryPressure | Promise<MemoryPressure> = readMemoryPressure,
+  ) {}
   private previous = this.cpu();
   private cached: MachineSnapshot | null = null;
   private pending: Promise<MachineSnapshot> | null = null;
   private observed: ProcessObservation[] | null = null;
+  async freshPressure() {
+    let result: MemoryPressure;
+    try {
+      result = await this.pressureReader();
+    } catch {
+      result = {
+        state: 'unknown',
+        source: 'unavailable',
+        nativeValue: null,
+        checkedAt: new Date().toISOString(),
+      };
+    }
+    if (this.cached) this.cached.memoryPressure = result;
+    return result;
+  }
   async workers(runs: Run[], accounts: Account[]) {
     const sample = await this.sample();
     return attributeWorkers(
@@ -48,10 +67,12 @@ export class MachineMonitor {
         ? Math.max(0, Math.min(100, (1 - (current.idle - this.previous.idle) / elapsed) * 100))
         : null;
     this.previous = current;
-    this.observed = await processTable();
+    const [observed, memoryPressure] = await Promise.all([processTable(), this.freshPressure()]);
+    this.observed = observed;
     const processes = processSummary(this.observed ?? []);
     const processCoverage = this.observed ? 'available' : 'unavailable';
     this.cached = {
+      memoryPressure,
       platform: `${os.type()} ${os.release()}`,
       cores: os.cpus().length,
       totalMemory: os.totalmem(),

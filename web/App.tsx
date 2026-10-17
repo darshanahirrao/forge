@@ -383,6 +383,17 @@ export function App() {
                   workers={snapshot.nativeWorkers}
                   work={snapshot.work}
                   onWork={setSelected}
+                  memoryPolicy={snapshot.settings.memoryPressurePolicy}
+                  onMemoryPolicy={() =>
+                    void act('headroom', () =>
+                      mutate('/settings', 'PATCH', {
+                        memoryPressurePolicy:
+                          snapshot.settings.memoryPressurePolicy === 'observe'
+                            ? 'protect'
+                            : 'observe',
+                      }),
+                    )
+                  }
                   quiet={snapshot.settings.quietMode}
                   onQuiet={() =>
                     void act('quiet', () =>
@@ -524,6 +535,13 @@ export function App() {
         <LaunchDialog
           work={launch}
           account={snapshot.accounts.find((a) => a.id === launch.accountId)}
+          memoryPressure={snapshot.machine.memoryPressure}
+          memoryProtection={snapshot.settings.memoryPressurePolicy !== 'observe'}
+          onResources={() => {
+            setLaunch(null);
+            setSelected(null);
+            setView('resources');
+          }}
           mutate={mutate}
           onClose={() => setLaunch(null)}
           onLaunched={() => {

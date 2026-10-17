@@ -38,3 +38,5 @@ Community packages should be inspectable, pinned, and optional. Installing a pac
 6. **Inspect a switch before making it.** Show which capabilities, data, policies, and native services remain compatible. Keep the same visible work record after a verified continuation.
 
 These are experience priorities, not claims that every mechanism is new. Evaluate existing implementations first and build only the remaining gap.
+
+The setup export now includes the generic `memoryPressurePolicy` choice (`protect` or `observe`). It carries no machine measurements or private work. An absent policy defaults to protecting against reported macOS warning/critical pressure; import/activation remains a separate delivery gate.

@@ -1,3 +1,4 @@
+import { unknownPressure } from '../../server/memory-pressure.js';
 // Opt-in actual app-server/tool conformance against a deterministic loopback Responses fixture.
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -92,6 +93,7 @@ const phoneOrigin = 'https://forge.conformance.ts.net';
 const phoneIdentity = 'reviewer@example.com';
 const bridge = { origin: phoneOrigin, proof: randomBytes(32).toString('hex') };
 const state = await createApp({
+  memoryPressureReader: unknownPressure,
   port: 0,
   phoneBridge: bridge,
   filename: ':memory:',

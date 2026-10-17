@@ -1,3 +1,4 @@
+import { unknownPressure } from '../server/memory-pressure.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -315,6 +316,7 @@ test('Hermes negotiates session resources and OpenClaw uses only its fixed nativ
 test('native source HTTP operations stay local, reject unsafe endpoints and expose cached metadata without changing managed work', async () => {
   let reads = 0;
   const state = await createApp({
+    memoryPressureReader: unknownPressure,
     filename: ':memory:',
     csrf: 'test-csrf',
     test: true,
@@ -403,6 +405,7 @@ test('an in-flight native inventory read excludes HTTP launch before any executi
   });
   let driverCreated = false;
   const state = await createApp({
+    memoryPressureReader: unknownPressure,
     filename: ':memory:',
     csrf: 'admission-test',
     test: true,
@@ -489,6 +492,7 @@ test('native read admission wins while a launch is waiting for filesystem valida
   });
   let driverCreated = false;
   const state = await createApp({
+    memoryPressureReader: unknownPressure,
     filename: ':memory:',
     csrf: 'race-test',
     test: true,

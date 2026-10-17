@@ -1,3 +1,4 @@
+import { unknownPressure } from '../../server/memory-pressure.js';
 // Actual native Hermes ACP + tools. The only configured model endpoints are loopback fixtures.
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, realpath, rm } from 'node:fs/promises';
@@ -128,7 +129,12 @@ for (let profile = 0; profile < 2; profile++) {
   );
   await writeFile(join(homes[profile], 'memories', 'MEMORY.md'), `${nativeFacts[profile]}\n`);
 }
-const state = await createApp({ filename: ':memory:', csrf: 'hermes-conformance', test: true });
+const state = await createApp({
+  memoryPressureReader: unknownPressure,
+  filename: ':memory:',
+  csrf: 'hermes-conformance',
+  test: true,
+});
 async function post<T>(url: string, payload: Record<string, unknown> = {}): Promise<T> {
   const response = await state.app.inject({
     method: 'POST',

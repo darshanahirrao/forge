@@ -3,6 +3,7 @@ import {
   type MachineSnapshot,
   type NativeWorkerResources,
   type WorkSummary,
+  type Settings,
 } from '../../shared/types';
 import { Cpu, HardDrive, Activity, Play, Pause, Terminal } from 'lucide-react';
 import { gb, age, names } from '../lib/format';
@@ -16,6 +17,8 @@ export function ResourcesPage({
   workers = [],
   work = [],
   onWork,
+  memoryPolicy = 'protect',
+  onMemoryPolicy,
 }: {
   machine: MachineSnapshot;
   quiet: boolean;
@@ -24,12 +27,49 @@ export function ResourcesPage({
   workers?: NativeWorkerResources[];
   work?: WorkSummary[];
   onWork?: (id: string) => void;
+  memoryPolicy?: Settings['memoryPressurePolicy'];
+  onMemoryPolicy?: () => void;
 }) {
   const [showAll, setShowAll] = useState(false);
   const observedOwner = new Map(workers.flatMap((w) => w.pids.map((pid) => [pid, w] as const)));
   const active = work.filter((w) => w.activeRunId);
   return (
     <div className="page-stack">
+      <section className="panel resource-controls" aria-label="Memory pressure protection">
+        <div>
+          <span className="eyebrow">LAPTOP HEADROOM</span>
+          <h2>
+            {machine.memoryPressure?.state === 'warning' ||
+            machine.memoryPressure?.state === 'critical'
+              ? 'Your Mac is asking for room.'
+              : 'Let your laptop set the pace.'}
+          </h2>
+          <p>
+            {machine.memoryPressure?.state === 'warning' ||
+            machine.memoryPressure?.state === 'critical'
+              ? `macOS reports ${machine.memoryPressure.state} memory pressure. ${memoryPolicy === 'observe' ? 'Observe-only mode allows new managed work.' : 'New managed launches wait while this signal is high.'}`
+              : machine.memoryPressure?.state === 'normal'
+                ? 'macOS reports normal memory pressure. The report is checked again before creating a native worker.'
+                : 'Automatic memory pressure detection is unavailable here. Quiet mode can still pause new managed work.'}
+          </p>
+          <p className="source-note">
+            {memoryPolicy === 'observe'
+              ? 'Protection is off. Pressure remains visible.'
+              : 'Protection is on for reported warning or critical pressure.'}{' '}
+            Running work keeps its native controls. This is admission guidance, not a memory limit.
+          </p>
+        </div>
+        <button
+          className="button secondary"
+          role="switch"
+          aria-checked={memoryPolicy !== 'observe'}
+          aria-label="Memory pressure protection"
+          onClick={onMemoryPolicy}
+          disabled={busy === 'headroom'}
+        >
+          {memoryPolicy === 'observe' ? 'Enable memory protection' : 'Use observe-only mode'}
+        </button>
+      </section>
       <div className="metrics-row">
         <div className="metric">
           <span>

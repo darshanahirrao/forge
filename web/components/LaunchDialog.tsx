@@ -1,4 +1,9 @@
-import { type Work, type Account, type ContextReview } from '../../shared/types';
+import {
+  type Work,
+  type Account,
+  type ContextReview,
+  type MemoryPressure,
+} from '../../shared/types';
 import { type Mutate } from '../api';
 import { useState, useEffect, type FormEvent } from 'react';
 import { Dialog, HarnessMark, FormError } from './primitives';
@@ -11,12 +16,18 @@ export function LaunchDialog({
   mutate,
   onClose,
   onLaunched,
+  memoryPressure,
+  memoryProtection = true,
+  onResources,
 }: {
   work: Work;
   account?: Account;
   mutate: Mutate;
   onClose: () => void;
   onLaunched: () => void;
+  memoryPressure?: MemoryPressure;
+  memoryProtection?: boolean;
+  onResources?: () => void;
 }) {
   const [metered, setMetered] = useState(false);
   const [reconciled, setReconciled] = useState(false);
@@ -50,6 +61,8 @@ export function LaunchDialog({
   const openclaw = work.harness === 'openclaw';
   const requiresMetered = claude || opencode || hermes || openclaw;
   const compatible = canExecuteAccount(account);
+  const pressureHigh =
+    memoryProtection && ['warning', 'critical'].includes(memoryPressure?.state ?? 'unknown');
   async function start(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -99,6 +112,26 @@ export function LaunchDialog({
           <Folder size={16} />
           <code>{work.cwd}</code>
         </div>
+        {pressureHigh && (
+          <div className="notice" role="status">
+            <div>
+              <strong>New native work is waiting for memory headroom.</strong>
+              <p>
+                macOS reports {memoryPressure?.state} pressure. Wait for it to ease, or review your
+                resource policy before launching.
+              </p>
+              <button type="button" className="text-button" onClick={onResources}>
+                Review Resources
+              </button>
+            </div>
+          </div>
+        )}
+        {memoryProtection && (!memoryPressure || memoryPressure.state === 'unknown') && (
+          <p className="source-note">
+            Automatic memory pressure detection is unavailable here. Quiet mode can still pause new
+            managed work.
+          </p>
+        )}
         <section className="memory-launch-review">
           <h3>{review ? `Profile: ${review.receipt.profileName}` : 'Reading selected context'}</h3>
           {review && (
@@ -210,6 +243,7 @@ export function LaunchDialog({
             className="button primary"
             disabled={
               busy ||
+              pressureHigh ||
               !compatible ||
               !review ||
               reading ||

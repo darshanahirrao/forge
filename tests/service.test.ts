@@ -1,3 +1,4 @@
+import { unknownPressure } from '../server/memory-pressure.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, mkdir, writeFile, readFile, rm, stat, symlink } from 'node:fs/promises';
@@ -233,7 +234,12 @@ test('service runtime evidence is shared by health and workspace without dependi
     label: 'org.forgeworkspace.fixture',
     scope: 'user-login' as const,
   };
-  const { app } = await createApp({ filename: ':memory:', background, test: true });
+  const { app } = await createApp({
+    memoryPressureReader: unknownPressure,
+    filename: ':memory:',
+    background,
+    test: true,
+  });
   t.after(() => app.close());
   for (const url of ['/api/health', '/api/snapshot']) {
     const response = await app.inject({ url, headers: { host: '127.0.0.1:4710' } });

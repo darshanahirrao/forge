@@ -249,6 +249,7 @@ export interface Usage {
 export interface Settings {
   quietMode: boolean;
   maxConcurrent: number;
+  memoryPressurePolicy?: 'protect' | 'observe';
 }
 export interface Connection {
   id: string;
@@ -315,7 +316,14 @@ export interface RuntimeProbe {
   checkedAt: string | null;
   error: string | null;
 }
+export interface MemoryPressure {
+  state: 'normal' | 'warning' | 'critical' | 'unknown';
+  source: 'macos-sysctl' | 'unavailable';
+  nativeValue: number | null;
+  checkedAt: string;
+}
 export interface MachineSnapshot {
+  memoryPressure?: MemoryPressure;
   platform: string;
   cpuPercent: number | null;
   cores: number;

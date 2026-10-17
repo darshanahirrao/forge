@@ -1,3 +1,4 @@
+import { unknownPressure } from '../../server/memory-pressure.js';
 // Opt-in native CLI conformance. The only model endpoint is a local deterministic fixture.
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
@@ -127,6 +128,7 @@ const endpoint = `http://127.0.0.1:${address.port}`;
 const previous = process.env.FORGE_NATIVE_CONFORMANCE_KEY;
 process.env.FORGE_NATIVE_CONFORMANCE_KEY = 'synthetic-local-provider-key';
 const state = await createApp({
+  memoryPressureReader: unknownPressure,
   filename: ':memory:',
   csrf: 'native-conformance',
   test: true,

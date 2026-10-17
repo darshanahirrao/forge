@@ -1,3 +1,4 @@
+import { unknownPressure } from '../../server/memory-pressure.js';
 // Real installed OpenClaw Gateway + native tools; inference stays on synthetic loopback providers.
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, readFile, realpath, stat, writeFile, rm } from 'node:fs/promises';
@@ -141,7 +142,12 @@ for (let profile = 0; profile < homes.length; profile++) {
     }),
   );
 }
-const state = await createApp({ filename: ':memory:', csrf: 'openclaw-conformance', test: true });
+const state = await createApp({
+  memoryPressureReader: unknownPressure,
+  filename: ':memory:',
+  csrf: 'openclaw-conformance',
+  test: true,
+});
 async function post<T>(url: string, payload: Record<string, unknown> = {}): Promise<T> {
   const response = await state.app.inject({
     method: 'POST',

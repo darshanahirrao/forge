@@ -1,3 +1,4 @@
+import { unknownPressure } from '../dist/server/memory-pressure.js';
 import { readFileSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { createServer as createHttpsServer } from 'node:https';
@@ -42,6 +43,7 @@ writeFileSync(
 const phoneOrigin = 'https://127.0.0.1:4713';
 const phoneBridge = { origin: phoneOrigin, proof: randomBytes(32).toString('hex') };
 const { app } = await createApp({
+  memoryPressureReader: unknownPressure,
   phoneBridge,
   filename: join(directory, 'workspace.sqlite'),
   port: 4711,
