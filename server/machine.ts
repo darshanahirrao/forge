@@ -1,6 +1,18 @@
 import os from 'node:os';
-import type { Account, MachineSnapshot, MemoryPressure, Run } from '../shared/types.js';
-import { attributeWorkers, processTable, type ProcessObservation } from './processes.js';
+import type {
+  Account,
+  MachineSnapshot,
+  MemoryPressure,
+  Run,
+  CompanionWorkerResources,
+  NativeWorkerResources,
+} from '../shared/types.js';
+import {
+  attributeWorkers,
+  attributeNativeRoots,
+  processTable,
+  type ProcessObservation,
+} from './processes.js';
 import { readMemoryPressure } from './memory-pressure.js';
 import { resourceMap } from './resource-map.js';
 export function processSummary(
@@ -47,23 +59,56 @@ export class MachineMonitor {
       sample.sampledAt,
     );
   }
-  async observe(runs: Run[], accounts: Account[]) {
+  async observe(
+    runs: Run[],
+    accounts: Account[],
+    companions: Pick<
+      CompanionWorkerResources,
+      'runtimeId' | 'launchId' | 'accountId' | 'harness' | 'root'
+    >[] = [],
+  ) {
     const machine = await this.sample();
     // Capture table reference before any subsequent asynchronous sample. A response
     // never mixes process epochs across its machine, workers and resource map.
-    const nativeWorkers = attributeWorkers(
-      runs,
-      new Map(accounts.map((account) => [account.id, account.harness])),
-      this.observed,
-      machine.sampledAt,
-    );
+    const harnesses = new Map(accounts.map((account) => [account.id, account.harness]));
+    const roots = [
+      ...runs
+        .filter(
+          (run) =>
+            run.nativeWorker &&
+            (!run.exitConfirmed || ['starting', 'running'].includes(run.status)),
+        )
+        .map((run) => ({
+          kind: 'work' as const,
+          runId: run.id,
+          workId: run.workId,
+          accountId: run.accountId,
+          harness: run.harness ?? harnesses.get(run.accountId)!,
+          root: run.nativeWorker!,
+        })),
+      ...companions.map((companion) => ({ kind: 'companion' as const, ...companion })),
+    ];
+    const observed = attributeNativeRoots(roots, this.observed, machine.sampledAt);
+    const nativeWorkers: NativeWorkerResources[] = observed
+      .filter((root) => root.kind === 'work')
+      .map(({ kind: _kind, ...root }) => root);
+    const companionWorkers: CompanionWorkerResources[] = observed
+      .filter((root) => root.kind === 'companion')
+      .map(({ kind: _kind, ...root }) => root);
     return {
       machine,
       nativeWorkers,
-      resources: resourceMap(this.observed, nativeWorkers, machine.sampledAt, {
-        pid: process.pid,
-        uid: process.getuid?.() ?? null,
-      }),
+      companionWorkers,
+      resources: resourceMap(
+        this.observed,
+        nativeWorkers,
+        machine.sampledAt,
+        {
+          pid: process.pid,
+          uid: process.getuid?.() ?? null,
+        },
+        companionWorkers,
+      ),
     };
   }
   private cpu() {

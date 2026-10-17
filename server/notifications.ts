@@ -10,6 +10,7 @@ import type {
 import { Store, id, now } from './store.js';
 import { assert } from './errors.js';
 import { readPrivateJson, writePrivateJson } from './private-json.js';
+import type { CompanionRuntimeLaunch, CompanionRuntime } from '../shared/companion-runtime.js';
 
 export const notificationOrigin = z
   .string()
@@ -113,7 +114,13 @@ export class Notifications {
         detail: 'Delivery acknowledgement was lost. Nothing was resent.',
       });
     this.unsubscribe = store.onChange((collections) => {
-      if ((collections.has('approvals') || collections.has('runs')) && this.config()?.enabled)
+      if (
+        (collections.has('approvals') ||
+          collections.has('runs') ||
+          collections.has('companion_launches') ||
+          collections.has('companion_runtimes')) &&
+        this.config()?.enabled
+      )
         this.wake();
     });
     this.wake();
@@ -279,6 +286,22 @@ export class Notifications {
     });
   }
   private collect(config: NotificationConfig) {
+    if (config.kinds.includes('failed')) {
+      const rows = this.store.db
+        .prepare(
+          `SELECT l.data FROM records AS l JOIN records AS r
+        ON r.collection='companion_runtimes' AND r.id=json_extract(l.data,'$.runtimeId')
+        WHERE l.collection='companion_launches' AND json_extract(l.data,'$.state') IN ('unknown','failed')
+        AND json_type(r.data,'$.retiredAt') IS NULL AND json_extract(r.data,'$.currentLaunchId')=l.id
+        AND COALESCE(json_extract(l.data,'$.endedAt'),json_extract(l.data,'$.updatedAt'),json_extract(l.data,'$.createdAt'))>=?
+        AND NOT EXISTS(SELECT 1 FROM records AS n WHERE n.collection='notifications' AND n.id=?||':failed:companion:'||l.id) LIMIT 20`,
+        )
+        .all(config.enabledAt, config.id);
+      for (const row of rows) {
+        const launch = JSON.parse(String(row.data)) as CompanionRuntimeLaunch;
+        this.enqueue(config, 'failed', `companion:${launch.id}`, null);
+      }
+    }
     if (config.kinds.includes('approval')) {
       const rows = this.store.db
         .prepare(
@@ -310,6 +333,23 @@ export class Notifications {
     if (!config?.enabled || row.configId !== config.id) return false;
     if (row.kind === 'test') return true;
     if (!config.kinds.includes(row.kind)) return false;
+    if (row.referenceId.startsWith('companion:')) {
+      const launch = this.store.get<CompanionRuntimeLaunch>(
+          'companion_launches',
+          row.referenceId.slice('companion:'.length),
+        ),
+        runtime = launch
+          ? this.store.get<CompanionRuntime>('companion_runtimes', launch.runtimeId)
+          : null;
+      return Boolean(
+        row.kind === 'failed' &&
+        launch &&
+        ['failed', 'unknown'].includes(launch.state) &&
+        runtime &&
+        !runtime.retiredAt &&
+        runtime.currentLaunchId === launch.id,
+      );
+    }
     if (row.kind === 'approval') {
       const approval = this.store.get<Approval>('approvals', row.referenceId);
       const work = approval
@@ -381,7 +421,12 @@ export class Notifications {
           });
           continue;
         }
-        const [title, body] = messages[row.kind];
+        const [title, body] = row.referenceId.startsWith('companion:')
+          ? [
+              'Forge native companion needs review',
+              'A managed native gateway stopped or lost its owner. Open Forge to review its current lifecycle.',
+            ]
+          : messages[row.kind];
         attempted = true;
         const response = await (this.options.fetch ?? fetch)(
           `${secret.serverOrigin}/${encodeURIComponent(secret.topic)}`,

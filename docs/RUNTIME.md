@@ -1,4 +1,6 @@
-# Forge v0.29.0
+# Forge v0.30.0
+
+Version 0.30 adds [reviewed native companion lifecycle](COMPANION_RUNTIME.md): supported Hermes/OpenClaw gateway start, stop, original-child ownership, signed-close reconciliation, distinct resource attribution and optional generic failure alerts. Native configured interfaces, authentication, channels, scheduler and memory stay native. Source gateways must settle before connection replacement. State 9 protects lifecycle reservations, with a private before-v9 state-8 backup and refusal by the previous compiled reader. Scheduler-definition transfer, complete native memory migration and live acceptance remain open.
 
 Version 0.29 adds [retained context reads](COMPANION_HISTORY.md) through the existing native MCP tools. Scoped keyset pages retrieve earlier work/events/runs without bulk summary materialization, and digest-bound chunks expose complete saved event detail. Insertion windows and lineage-bound cursors survive restart and reviewed connection replacement; current authority is rechecked on every read. State stays 8; the new profile index and read parameters add no control authority or native memory engine.
 
@@ -128,7 +130,7 @@ The macOS pressure check also passed against the real native flag 2 (warning), h
 
 ## State version and rollback
 
-Current state is 8. State-7 upgrades create a private before-v8 copy and the previous compiled reader refuses state 8. Connection handoffs cannot safely be rolled back by serving an old authorization snapshot without reconciling access and later native effects.
+Current state is 9. Existing earlier file workspaces receive a private before-v9 copy; the v0.29 state-8 reader refuses state 9. Native profiles and worker proofs must be retained separately. The preceding state-8 upgrade created before-v8 copies. Native lifecycle and connection handoffs cannot safely be rolled back by serving an old authorization snapshot without reconciling access and later native effects.
 
 The preceding recovery milestone used state 7. Native recovery upgrades from earlier file states create a mode-0600 `workspace.sqlite.before-v7.UUID.sqlite` copy before advancing. The previous compiled state-6 reader refuses state 7. Preserve private native profiles/proofs separately; restoring old application/state files does not establish native settlement. [Recovery compatibility](NATIVE_RECOVERY.md) describes the ownership boundary. The following version-3 note records the earlier migration milestone.
 

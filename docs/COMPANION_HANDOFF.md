@@ -17,7 +17,7 @@ flowchart LR
 
 In **Connections → Companion access**, choose **Replace** on an active connection. Review the existing project/profile, selected reference count, saved work count, access scopes and finite allowance. This reads selected-file hashes, project identity, work revisions and native account bindings. It starts no model, planner, schedule or native worker.
 
-Staging commits two access states and a durable receipt in one SQLite transaction: the original becomes `draining` and the replacement becomes `staged`. Both may read permitted work and context; neither may create work, append checkpoints or dispatch a native attempt. Current native execution must settle before staging. Unconfirmed native or delegated attempts in this project, including human-started attempts, cannot be bypassed through replacement.
+Staging commits two access states and a durable receipt in one SQLite transaction: the original becomes `draining` and the replacement becomes `staged`. Both may read permitted work and context; neither may create work, append checkpoints or dispatch a native attempt. Current native execution must settle before staging. In v0.30, any [managed native source gateway](COMPANION_RUNTIME.md) must also stop and confirm original closure before preparing the replacement; its lifecycle binding is included in the reviewed digest. Unconfirmed native or delegated attempts in this project, including human-started attempts, cannot be bypassed through replacement.
 
 The new connection secret is shown once on the host, using the existing native MCP configuration formats. Only its hash is retained. Repeating the same stage returns metadata without another secret. If the response or secret is lost, cancel the staged handoff and prepare a fresh one. No target native configuration is silently edited.
 
@@ -47,11 +47,11 @@ The existing HTTP process serves at most 16 views. Bursts coalesce, slow consume
 
 ## Compatibility and rollback
 
-State 8 protects lifecycle and lineage semantics. A state-7 file workspace receives a mode-0600 native `before-v8` rollback copy, and the previous compiled reader refuses the new state. Setup blueprints do not contain live grants, handoff receipts or secrets.
+State 9 additionally protects owned native runtime reservations; read [native lifecycle compatibility](COMPANION_RUNTIME.md). State 8 introduced connection lifecycle and lineage semantics. A state-7 file workspace receives a mode-0600 native `before-v8` rollback copy, and the previous compiled reader refuses the new state. Setup blueprints do not contain live grants, handoff receipts or secrets.
 
 Keep newer state and native profiles/proofs separately when inspecting a rollback. Restoring a pre-handoff authorization database can resurrect old access hashes and omit later run counts; inspect it on an isolated address and reconcile/revoke old access before serving it again. A source rollback does not establish native settlement or undo external effects.
 
-This connection handoff does not transfer native cron ownership, stop foreign planners, migrate native memory engines/tools/policies or guarantee lossless hidden conversation state. Capability discovery remains necessary: current [Hermes API documentation](https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server) and [OpenClaw Gateway protocol](https://docs.openclaw.ai/gateway/protocol) describe native surfaces, but an advertised operation alone does not prove exact-request control on an installed version. Full planner/heartbeat lifecycle and scheduler ownership transfer remain in the [completion audit](COMPLETION_AUDIT.md).
+This connection handoff does not transfer native cron ownership, stop foreign planners, migrate native memory engines/tools/policies or guarantee lossless hidden conversation state. Capability discovery remains necessary: current [Hermes API documentation](https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server) and [OpenClaw Gateway protocol](https://docs.openclaw.ai/gateway/protocol) describe native surfaces, but an advertised operation alone does not prove exact-request control on an installed version. Reviewed start/stop of supported owned native planners is now available through [native companion lifecycle](COMPANION_RUNTIME.md). Broader planner providers and scheduler ownership transfer remain in the [completion audit](COMPLETION_AUDIT.md).
 
 ## Verification
 

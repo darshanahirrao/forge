@@ -1,7 +1,13 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { basename } from 'node:path';
-import type { NativeWorkerIdentity, NativeWorkerResources, Run, Harness } from '../shared/types.js';
+import type {
+  NativeWorkerIdentity,
+  NativeWorkerResources,
+  NativeProcessResources,
+  Run,
+  Harness,
+} from '../shared/types.js';
 import { assert } from './errors.js';
 const exec = promisify(execFile);
 
@@ -93,17 +99,37 @@ export function attributeWorkers(
   rows: ProcessObservation[] | null,
   sampledAt: string,
 ): NativeWorkerResources[] {
-  const candidates = runs.filter(
-    (run) =>
-      run.nativeWorker && (!run.exitConfirmed || ['starting', 'running'].includes(run.status)),
+  return attributeNativeRoots(
+    runs
+      .filter(
+        (run) =>
+          run.nativeWorker && (!run.exitConfirmed || ['starting', 'running'].includes(run.status)),
+      )
+      .map((run) => ({
+        runId: run.id,
+        workId: run.workId,
+        accountId: run.accountId,
+        harness: run.harness ?? harnesses.get(run.accountId)!,
+        root: run.nativeWorker!,
+      })),
+    rows,
+    sampledAt,
   );
+}
+
+/** One graph and one boundary set for all explicitly recorded native roots. Observation only. */
+export function attributeNativeRoots<T extends { root: NativeWorkerIdentity; harness: string }>(
+  candidates: T[],
+  rows: ProcessObservation[] | null,
+  sampledAt: string,
+): (T & NativeProcessResources)[] {
   const table =
     rows && new Set(rows.map((p) => p.pid)).size === rows.length
       ? new Map(rows.map((p) => [p.pid, p]))
       : null;
   const boundaries = new Set(
     candidates.flatMap((run) => {
-      const root = run.nativeWorker;
+      const root = run.root;
       const current = root && table?.get(root.pid);
       return root && current && current.uid === root.uid && current.startedAt === root.startedAt
         ? [root.pid]
@@ -112,15 +138,12 @@ export function attributeWorkers(
   );
   const rootCounts = new Map<number, number>();
   for (const run of candidates)
-    rootCounts.set(run.nativeWorker!.pid, (rootCounts.get(run.nativeWorker!.pid) ?? 0) + 1);
+    rootCounts.set(run.root!.pid, (rootCounts.get(run.root!.pid) ?? 0) + 1);
   return candidates
-    .map((run): NativeWorkerResources => {
-      const root = run.nativeWorker!;
-      const base: NativeWorkerResources = {
-        runId: run.id,
-        workId: run.workId,
-        accountId: run.accountId,
-        harness: run.harness ?? harnesses.get(run.accountId)!,
+    .map((run): T & NativeProcessResources => {
+      const root = run.root!;
+      const base: T & NativeProcessResources = {
+        ...run,
         root,
         state: 'unavailable',
         pids: [],

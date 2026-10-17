@@ -167,10 +167,7 @@ export interface NativeWorkerIdentity {
   startedAt: string | null;
   capturedAt: string;
 }
-export interface NativeWorkerResources {
-  runId: string;
-  workId: string;
-  accountId: string;
+export interface NativeProcessResources {
   harness: Harness;
   root: NativeWorkerIdentity;
   state: 'live' | 'not-observed' | 'identity-changed' | 'ambiguous' | 'unavailable' | 'exited';
@@ -178,6 +175,16 @@ export interface NativeWorkerResources {
   rss: number | null;
   cpuPercent: number | null;
   sampledAt: string;
+}
+export interface NativeWorkerResources extends NativeProcessResources {
+  runId: string;
+  workId: string;
+  accountId: string;
+}
+export interface CompanionWorkerResources extends NativeProcessResources {
+  runtimeId: string;
+  launchId: string;
+  accountId: string;
 }
 export interface ArtifactFingerprint {
   path: string;
@@ -444,6 +451,8 @@ export interface Snapshot {
   spending?: import('./spending.js').SpendingSnapshot;
   outcomes?: import('./spending.js').WorkOutcome[];
   companionGrants?: CompanionGrant[];
+  companionRuntime?: import('./companion-runtime.js').CompanionRuntimeSnapshot;
+  companionWorkers?: CompanionWorkerResources[];
   backends?: WorkspaceBackend[];
   service?: BackgroundRuntime;
   nativeWorkers?: NativeWorkerResources[];

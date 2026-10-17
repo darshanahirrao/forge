@@ -219,6 +219,62 @@ test('private topic and token stay outside SQLite and public snapshots and are e
   assert.throws(() => f.notifications.test(), /Connect/);
 });
 
+test('native gateway failures use the existing private outbox once, without account, profile or native contents', async (t) => {
+  const sink = await endpoint(t),
+    f = await fixture(t);
+  await configure(f.notifications, sink.origin, ['failed']);
+  const runtimeId = id(),
+    launchId = id(),
+    runtime = { id: runtimeId, label: 'PRIVATE-NATIVE-LABEL', currentLaunchId: launchId };
+  f.store.transaction(() => {
+    f.store.put('companion_runtimes', runtimeId, runtime);
+    f.store.put('companion_launches', launchId, {
+      id: launchId,
+      runtimeId,
+      state: 'unknown',
+      createdAt: now(),
+      updatedAt: now(),
+      detail: 'PRIVATE-NATIVE-DETAIL',
+      nativeHome: '/PRIVATE-NATIVE-HOME',
+    });
+  });
+  await f.notifications.idle();
+  assert.equal(sink.messages.length, 1);
+  assert.equal(sink.messages[0].headers.title, 'Forge native companion needs review');
+  assert(!JSON.stringify(sink.messages).includes('PRIVATE-NATIVE'));
+  const receipt = f.notifications.snapshot().receipts[0];
+  assert.equal(receipt.referenceId, `companion:${launchId}`);
+  assert.equal(receipt.workId, null);
+  f.store.put('companion_launches', launchId, {
+    id: launchId,
+    runtimeId,
+    state: 'unknown',
+    createdAt: now(),
+    updatedAt: now(),
+    revision: 3,
+  });
+  await f.notifications.idle();
+  assert.equal(sink.messages.length, 1);
+  const retiredId = id(),
+    retiredLaunch = id();
+  f.store.transaction(() => {
+    f.store.put('companion_runtimes', retiredId, {
+      id: retiredId,
+      currentLaunchId: retiredLaunch,
+      retiredAt: now(),
+    });
+    f.store.put('companion_launches', retiredLaunch, {
+      id: retiredLaunch,
+      runtimeId: retiredId,
+      state: 'failed',
+      createdAt: now(),
+      endedAt: now(),
+    });
+  });
+  await f.notifications.idle();
+  assert.equal(sink.messages.length, 1, 'Retired native lifecycle alerts must stay withdrawn.');
+});
+
 test('private reference failures do not attempt network delivery and acknowledgement does not invent success', async (t) => {
   const sink = await endpoint(t),
     f = await fixture(t, true);

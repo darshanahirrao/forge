@@ -1,6 +1,7 @@
 import type { ApprovalActor, CompanionGrant } from './types.js';
 
 export interface CompanionBoundary {
+  nativeRuntimeBinding?: string;
   profile: { id: string; revision: number; name: string };
   root: string;
   workCount: number;

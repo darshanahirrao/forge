@@ -1,7 +1,7 @@
 /** One OS sample. RSS includes shared pages; CPU uses the native ps scale. */
 export interface ResourceGroup {
   id: string;
-  kind: 'host' | 'managed' | 'native-app' | 'other';
+  kind: 'host' | 'managed' | 'companion' | 'native-app' | 'other';
   label: string;
   state: 'observed' | 'not-observed' | 'identity-changed' | 'ambiguous' | 'unavailable';
   rootPids: number[];
@@ -12,6 +12,8 @@ export interface ResourceGroup {
   workId?: string;
   runId?: string;
   harness?: string;
+  runtimeId?: string;
+  launchId?: string;
 }
 
 export interface ResourceObservation {

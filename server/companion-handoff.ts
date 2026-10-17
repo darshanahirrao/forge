@@ -44,6 +44,7 @@ const grantBinding = (grant: StoredGrant) =>
 
 /** A native companion changes access at a durable boundary; its model loop and scheduler stay native. */
 export class CompanionHandoffs {
+  nativeRuntimeBoundary?: (grantId: string) => string | undefined;
   private plans = new Map<string, CompanionHandoffPlan & { binding: string }>();
   private busy = false;
   get isBusy() {
@@ -90,6 +91,7 @@ export class CompanionHandoffs {
     }
   }
   private async boundary(grant: StoredGrant): Promise<CompanionBoundary> {
+    const nativeRuntimeBinding = this.nativeRuntimeBoundary?.(grant.id);
     assert(
       !grant.revokedAt && grant.expiresAt > now(),
       409,
@@ -202,6 +204,7 @@ export class CompanionHandoffs {
     }
     return {
       profile: { id: profile.id, revision: profile.revision, name: profile.name },
+      ...(nativeRuntimeBinding ? { nativeRuntimeBinding } : {}),
       root: grant.root,
       workCount,
       workDigest: digest.digest('hex'),

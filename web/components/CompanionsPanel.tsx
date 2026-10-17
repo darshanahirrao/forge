@@ -3,6 +3,7 @@ import type { CompanionGrant, CompanionScope, Snapshot } from '../../shared/type
 import type { Mutate } from '../api';
 import { Dialog, FormError } from './primitives';
 import { CompanionHandoffList, CompanionReplacement } from './CompanionHandoffPanel';
+import { CompanionRuntimesPanel } from './CompanionRuntimesPanel';
 
 type Credential = { grant: CompanionGrant; token: string; endpoint: string };
 export function CompanionsPanel({ data, mutate }: { data: Snapshot; mutate: Mutate }) {
@@ -364,6 +365,7 @@ export function CompanionsPanel({ data, mutate }: { data: Snapshot; mutate: Muta
           </div>
         </Dialog>
       )}
+      <CompanionRuntimesPanel data={data} mutate={mutate} />
     </section>
   );
 }

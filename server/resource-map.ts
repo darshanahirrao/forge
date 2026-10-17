@@ -1,4 +1,4 @@
-import type { NativeWorkerResources } from '../shared/types.js';
+import type { NativeWorkerResources, CompanionWorkerResources } from '../shared/types.js';
 import type { ResourceGroup, ResourceObservation } from '../shared/resources.js';
 import type { ProcessObservation } from './processes.js';
 
@@ -28,6 +28,7 @@ export function resourceMap(
   workers: NativeWorkerResources[],
   sampledAt: string,
   host: { pid: number; uid: number | null },
+  companions: CompanionWorkerResources[] = [],
 ): ResourceObservation {
   const valid = rows && new Set(rows.map((row) => row.pid)).size === rows.length;
   const groups: ResourceGroup[] = [];
@@ -38,7 +39,8 @@ export function resourceMap(
     processCount: valid ? rows.length : 0,
     rss: null,
     cpuPercent: null,
-    unresolvedWorkers: workers.filter((worker) => worker.state !== 'live').length,
+    unresolvedWorkers: [...workers, ...companions].filter((worker) => worker.state !== 'live')
+      .length,
     groups,
   };
   const table = new Map(valid ? rows.map((row) => [row.pid, row]) : []);
@@ -72,7 +74,7 @@ export function resourceMap(
   };
   // Recorded managed roots, including unresolved roots, are boundaries. An old
   // receipt's recycled PID must not become part of the host's reported overhead.
-  const managedRoots = new Set(workers.map((worker) => worker.root.pid));
+  const managedRoots = new Set([...workers, ...companions].map((worker) => worker.root.pid));
   const walk = (roots: number[], boundaries: Set<number>) => {
     const seen = new Set<number>();
     const queue = [...roots];
@@ -104,17 +106,27 @@ export function resourceMap(
       ? walk([host.pid], managedRoots)
       : [],
   );
-  for (const worker of workers) {
+  for (const worker of [...workers, ...companions]) {
     // The coordinator's verified run identity remains separate from this view.
     // A malformed overlapping receipt cannot inflate the partition totals.
     const overlap = worker.pids.some((pid) => assigned.has(pid));
     make(
       {
-        id: `run:${worker.runId}`,
-        kind: 'managed',
-        label: 'Managed native work',
-        workId: worker.workId,
-        runId: worker.runId,
+        ...('runtimeId' in worker
+          ? {
+              id: `companion:${worker.launchId}`,
+              kind: 'companion' as const,
+              label: 'Native companion runtime',
+              runtimeId: worker.runtimeId,
+              launchId: worker.launchId,
+            }
+          : {
+              id: `run:${worker.runId}`,
+              kind: 'managed' as const,
+              label: 'Managed native work',
+              workId: worker.workId,
+              runId: worker.runId,
+            }),
         harness: worker.harness,
         state: !valid
           ? 'unavailable'

@@ -63,6 +63,7 @@ export type OpenClawFactory = (
 export function openClawEnvironment(
   account: Account,
   credentials?: CredentialMaterial,
+  role: 'execution' | 'companion' = 'execution',
 ): NodeJS.ProcessEnv {
   assert(account.nativeHome, 409, 'Choose an explicit native OpenClaw execution profile.');
   const env: NodeJS.ProcessEnv = {};
@@ -89,13 +90,16 @@ export function openClawEnvironment(
     OPENCLAW_STATE_DIR: account.nativeHome,
     OPENCLAW_CONFIG_PATH: join(account.nativeHome, 'openclaw.json'),
     OPENCLAW_NO_RESPAWN: '1',
-    OPENCLAW_DISABLE_BONJOUR: '1',
-    // The embedding role is a native control-plane worker, not a second channel supervisor.
-    OPENCLAW_SKIP_CHANNELS: '1',
-    OPENCLAW_EXEC_SHELL_SNAPSHOT: '0',
     OPENCLAW_HIDE_BANNER: '1',
     OPENCLAW_SUPPRESS_NOTES: '1',
   });
+  // Dedicated execution workers leave channel ownership to the native companion.
+  if (role === 'execution')
+    Object.assign(env, {
+      OPENCLAW_SKIP_CHANNELS: '1',
+      OPENCLAW_DISABLE_BONJOUR: '1',
+      OPENCLAW_EXEC_SHELL_SNAPSHOT: '0',
+    });
   if (account.credentialEnv) {
     assert(
       !/^(PATH|HOME|CODEX_HOME|XDG_|OPENCLAW_|FORGE_|TMP|TEMP|SystemRoot|COMSPEC)/i.test(

@@ -14,6 +14,7 @@ import { readCodexAccount } from '../dist/server/adapters/accounts.js';
 import { t3Fixture } from './fixtures/t3-mcp.ts';
 import { connectorTestExecutable } from './fixtures/connector-executable.ts';
 import { serviceContext } from '../dist/server/background-service.js';
+import { companionProviderFixture } from './fixtures/companion-provider.mjs';
 const t3 = await t3Fixture();
 // Owned loopback sink only. Browser tests never publish to an external topic.
 const delivered = [];
@@ -40,6 +41,9 @@ mkdirSync(join(nativeHome, 'cron'));
 const memoryPath = join(directory, 'MEMORY.md');
 const memoryProject = join(directory, 'project');
 mkdirSync(memoryProject);
+const companionHome = join(directory, 'owned-companion');
+mkdirSync(companionHome);
+writeFileSync(join(companionHome, 'config.yaml'), 'native-fixture: true\n', { mode: 0o600 });
 const portableMemoryPath = join(directory, 'portable-native-memory.md');
 writeFileSync(
   portableMemoryPath,
@@ -83,6 +87,7 @@ const fixtureRpc = (options = {}) =>
     env: { PATH: process.env.PATH },
   });
 const { app } = await createApp({
+  companionProviders: { hermes: companionProviderFixture, openclaw: companionProviderFixture },
   availability: {
     dataDirectory: directory,
     port: 4711,
@@ -182,7 +187,11 @@ const { app } = await createApp({
   },
   rpcFactory: fixtureRpc,
 });
-app.get('/api/fixture/memory', async () => ({ path: memoryPath, project: memoryProject }));
+app.get('/api/fixture/memory', async () => ({
+  path: memoryPath,
+  project: memoryProject,
+  companionHome,
+}));
 app.get('/api/fixture/memory-packs', async () => ({
   path: portableMemoryPath,
   project: memoryProject,

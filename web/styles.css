@@ -3560,6 +3560,21 @@ label small,
   align-items: center;
   gap: 12px;
 }
+
+.companion-runtimes {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 20px;
+}
+.runtime-path {
+  overflow-wrap: anywhere;
+}
+.companion-runtimes h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+}
 .native-worker-work strong {
   display: block;
   overflow-wrap: anywhere;

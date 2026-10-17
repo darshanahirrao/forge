@@ -13,6 +13,8 @@ export function registerWorkspaceChanges(app: FastifyInstance, store: Store) {
     'accounts',
     'companion_grants',
     'companion_handoffs',
+    'companion_runtimes',
+    'companion_launches',
     'native_controls',
     'notifications',
     'profiles',

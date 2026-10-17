@@ -52,6 +52,12 @@ export function Overview({
   const notificationIssues = data.notifications?.needsReview ?? 0;
   const nativeControlIssues = data.nativeControls?.needsReview ?? 0;
   const recoveryIssues = data.recovery?.needsReview ?? 0;
+  const companionIssues =
+    data.companionRuntime?.launches.filter(
+      (launch) =>
+        ['failed', 'unknown'].includes(launch.state) &&
+        data.companionRuntime?.runtimes.some((runtime) => runtime.currentLaunchId === launch.id),
+    ).length ?? 0;
   const active = data.work.filter((work) => work.activeRunId).length;
   const sourceErrors = data.nativeSources.filter((source) => source.state === 'error').length;
   const sources = new Map(data.nativeSources.map((source) => [source.id, source.label]));
@@ -141,13 +147,18 @@ export function Overview({
       {(pending.length > 0 ||
         notificationIssues > 0 ||
         nativeControlIssues > 0 ||
-        recoveryIssues > 0) && (
+        recoveryIssues > 0 ||
+        companionIssues > 0) && (
         <section className="workspace-attention" aria-label="Needs your attention">
           <h2>
             <ShieldCheck size={16} />
             Needs your attention{' '}
             <span>
-              {pending.length + notificationIssues + nativeControlIssues + recoveryIssues}
+              {pending.length +
+                notificationIssues +
+                nativeControlIssues +
+                recoveryIssues +
+                companionIssues}
             </span>
           </h2>
           {pending.map((approval) => (
@@ -179,6 +190,17 @@ export function Overview({
               </span>
               <span>
                 Review recovery <ChevronRight size={15} />
+              </span>
+            </button>
+          )}
+          {companionIssues > 0 && (
+            <button className="attention-row" onClick={onConnections}>
+              <span>
+                <strong>Native companion lifecycle needs review</strong>
+                <small>Review the current gateway owner and native exit evidence.</small>
+              </span>
+              <span>
+                Review runtimes <ChevronRight size={15} />
               </span>
             </button>
           )}

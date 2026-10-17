@@ -25,6 +25,9 @@ type Collection =
   | 'companion_grants'
   | 'companion_operations'
   | 'companion_handoffs'
+  | 'companion_runtimes'
+  | 'companion_launches'
+  | 'companion_supervisions'
   | 'blueprint_imports'
   | 'spend_attempts'
   | 'spend_counters'
@@ -54,7 +57,7 @@ export class Store {
     try {
       const version = this.db.prepare('PRAGMA user_version').get() as { user_version: number };
       assert(
-        version.user_version <= 8,
+        version.user_version <= 9,
         409,
         'This workspace was created by a newer Forge version. Open it with that version.',
       );
@@ -74,12 +77,13 @@ export class Store {
       CREATE INDEX IF NOT EXISTS spend_by_work ON records(json_extract(data,'$.workId')) WHERE collection='spend_attempts';
       CREATE INDEX IF NOT EXISTS companion_operations_by_grant ON records(json_extract(data,'$.grantId')) WHERE collection='companion_operations';
       CREATE INDEX IF NOT EXISTS companion_operations_by_lineage ON records(json_extract(data,'$.lineageId')) WHERE collection='companion_operations';
+      CREATE INDEX IF NOT EXISTS companion_open_launches ON records(json_extract(data,'$.runtimeId')) WHERE collection='companion_launches' AND json_extract(data,'$.exitConfirmed') IS NOT 1;
       CREATE INDEX IF NOT EXISTS notifications_by_state ON records(json_extract(data,'$.state')) WHERE collection='notifications';
       CREATE INDEX IF NOT EXISTS native_controls_by_job ON records(json_extract(data,'$.sourceId'), json_extract(data,'$.jobId'), json_extract(data,'$.state')) WHERE collection='native_controls';
       `);
       let backup: string | null = null;
-      if (version.user_version > 0 && version.user_version < 8 && filename !== ':memory:') {
-        backup = `${filename}.before-v8.${randomUUID()}.sqlite`;
+      if (version.user_version > 0 && version.user_version < 9 && filename !== ':memory:') {
+        backup = `${filename}.before-v9.${randomUUID()}.sqlite`;
         writeFileSync(backup, '', { flag: 'wx', mode: 0o600 });
         try {
           this.db.prepare('VACUUM INTO ?').run(backup);
@@ -88,7 +92,7 @@ export class Store {
           throw error;
         }
       }
-      this.db.exec('PRAGMA user_version = 8');
+      this.db.exec('PRAGMA user_version = 9');
       this.migrationBackup = backup;
     } catch (error) {
       this.db.close();

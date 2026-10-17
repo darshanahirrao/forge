@@ -83,3 +83,16 @@ The T3 execution check now dispatches its crash-stage native run through a finit
 ## Native scheduler evidence
 
 Build first, then run `npm run test:native:scheduler` with an installed Hermes interpreter. This opt-in isolated-profile check uses the compiled module and packaged Python asset, validates missing/current/stale/malformed/nonfinite/future/oversized markers and external-provider configuration, and verifies every fixture profile byte is unchanged by each read. It starts no job, tick, plugin provider or model. See [the contract and limits](../../docs/SCHEDULER_EVIDENCE.md).
+
+## Owned native companion lifecycle
+
+Run `npm run test:native:companion-lifecycle` after building, with installed Hermes 0.17.0 and the supported OpenClaw overrides:
+
+```sh
+NO_PROXY=127.0.0.1,localhost \
+FORGE_OPENCLAW_BINARY=/absolute/path/to/openclaw/openclaw.mjs \
+FORGE_OPENCLAW_NODE=/absolute/path/to/node \
+npm run test:native:companion-lifecycle
+```
+
+The fixture creates temporary native profiles and one persistent Forge work/profile. It starts actual Hermes/OpenClaw gateways through the owned-child protocol, verifies each original configured interface/authentication, stops the source before staged MCP access replacement, retains selected memory and obtains two signed native-close receipts. Native configuration/memory bytes and scheduler settings stay unchanged. An instrumented loopback provider records zero model requests; no personal provider, startup service or runnable native job is configured. The earlier MCP fixture separately verifies actual native-client tool interoperability. This fixture acknowledges target readiness through the public MCP API, not a model-directed planner turn. Job delivery, scheduler-definition transfer, complete memory-engine migration, actual account billing and device push remain outside this evidence. [Lifecycle contract](../../docs/COMPANION_RUNTIME.md).

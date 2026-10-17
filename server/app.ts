@@ -53,6 +53,12 @@ import { T3Driver } from './backends/t3-driver.js';
 import { Companions } from './companions.js';
 import { registerWorkspaceChanges } from './changes.js';
 import { CompanionHandoffs, handoffDecisionSchema } from './companion-handoff.js';
+import {
+  CompanionRuntimes,
+  runtimeRegistration,
+  runtimeStopDecision,
+} from './companion-runtimes.js';
+import type { CompanionProviderDefinition } from './companion-providers.js';
 import { registerCompanionMcp } from './companion-mcp.js';
 import { Blueprints, blueprintSchema } from './blueprints.js';
 import { AccountRouting, routePrepareSchema } from './routing.js';
@@ -115,6 +121,7 @@ export interface AppOptions {
   phoneBridge?: PhoneBridge;
   rpcFactory?: RpcFactory;
   driverFactory?: DriverFactory;
+  companionProviders?: Record<string, CompanionProviderDefinition>;
   accountProbe?: typeof probeAccount;
   nativeSourcesOptions?: NativeSourcesOptions;
   resolveDirectory?: (value: string) => Promise<string>;
@@ -166,11 +173,15 @@ export async function createApp(options: AppOptions) {
     async () => {
       const pressure = await machine.freshPressure();
       assert(
-        !connectors.isChecking && !availability.isBusy && !memoryPacks.isBusy,
+        !connectors.isChecking &&
+          !availability.isBusy &&
+          !memoryPacks.isBusy &&
+          !companionRuntimes.isBusy,
         409,
         'Wait for the native connector check before starting work.',
       );
       checkMemoryAdmission(local.settings(), pressure);
+      companionRuntimes.assertDispatch();
     },
     (work, account, allowMetered) => routing.authorize(work, account, allowMetered),
     async (account) => {
@@ -188,7 +199,8 @@ export async function createApp(options: AppOptions) {
         probing.size === 0 &&
         !connectors.isChecking &&
         !availability.isBusy &&
-        !memoryPacks.isBusy,
+        !memoryPacks.isBusy &&
+        !companionRuntimes.isBusy,
       409,
       'Wait for native reads and workspace setup before replacing a companion.',
     );
@@ -262,6 +274,8 @@ export async function createApp(options: AppOptions) {
       probing.size > 0 ||
       connectors.isChecking ||
       memoryPacks.isBusy ||
+      companionRuntimes.isBusy ||
+      companionRuntimes.hasOpenLaunch ||
       local
         .all<Run>('runs')
         .some((run) =>
@@ -283,6 +297,43 @@ export async function createApp(options: AppOptions) {
       mutations.size > 1,
   );
   const csrf = options.csrf ?? randomBytes(32).toString('hex');
+  const companionRuntimes: CompanionRuntimes = new CompanionRuntimes(
+    local,
+    controller,
+    supervisions.directory,
+    async () => {
+      assert(
+        !availability.isBusy &&
+          !memoryPacks.isBusy &&
+          !companionHandoffs.isBusy &&
+          !nativeSources.isReading &&
+          !connectors.isChecking &&
+          probing.size === 0,
+        409,
+        'Wait for native reads and workspace setup before starting a native gateway.',
+      );
+      assert(
+        !local.settings().quietMode,
+        409,
+        'Resume managed launches before starting a native gateway.',
+      );
+      companionRuntimes.assertDispatch();
+      checkMemoryAdmission(local.settings(), await machine.freshPressure());
+      assert(
+        local.unconfirmedNativeRuns().length === 0 &&
+          !local.db
+            .prepare(
+              "SELECT 1 FROM records WHERE collection='runs' AND json_type(data,'$.settlement')='object' AND json_extract(data,'$.settlement.confirmed') IS NOT 1 LIMIT 1",
+            )
+            .get(),
+        409,
+        'Reconcile existing native work before starting a native gateway.',
+      );
+    },
+    options.companionProviders,
+    options.filename !== ':memory:',
+  );
+  companionHandoffs.nativeRuntimeBoundary = (grantId) => companionRuntimes.sourceBoundary(grantId);
   const port = options.port ?? 4710;
   const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
   const allowedOrigins = new Set([...allowedHosts].map((host) => `http://${host}`));
@@ -373,7 +424,12 @@ export async function createApp(options: AppOptions) {
       assert(
         (!availability.isBusy || request.url.split('?')[0] === '/api/availability/activate') &&
           (!memoryPacks.isBusy || request.url.split('?')[0] === '/api/memory/packs/apply') &&
-          !companionHandoffs.isBusy,
+          !companionHandoffs.isBusy &&
+          (!companionRuntimes.isBusy ||
+            request.url.split('?')[0] === '/api/companion-runtimes/start' ||
+            /\/api\/companion-runtimes\/[^/]+\/stop$/.test(request.url.split('?')[0]) ||
+            (request.method === 'DELETE' &&
+              /^\/api\/companions\/[^/]+$/.test(request.url.split('?')[0]))),
         409,
         'Wait for the reviewed workspace availability operation to finish.',
       );
@@ -476,6 +532,64 @@ export async function createApp(options: AppOptions) {
   app.get('/api/companions', async (request) =>
     mode(request) === 'demo' ? [] : companions.list(),
   );
+  const nativeRuntimeHuman = (request: { headers: IncomingHttpHeaders }) =>
+    assert(mode(request) === 'local', 409, 'Demo has no native companion lifecycle.');
+  app.post('/api/companion-runtimes', async (request, reply) => {
+    nativeRuntimeHuman(request);
+    assert(
+      bridgeActor(request.headers, options.phoneBridge).kind === 'local',
+      403,
+      'Link native runtime profiles from the local Forge host.',
+    );
+    return reply
+      .code(201)
+      .send(companionRuntimes.register(runtimeRegistration.parse(request.body)));
+  });
+  app.post('/api/companion-runtimes/:id/prepare', async (request) => {
+    nativeRuntimeHuman(request);
+    return companionRuntimes.prepare((request.params as { id: string }).id);
+  });
+  app.post('/api/companion-runtimes/start', async (request, reply) => {
+    nativeRuntimeHuman(request);
+    return reply
+      .code(202)
+      .send(
+        await companionRuntimes.start(
+          request.body,
+          bridgeActor(request.headers, options.phoneBridge),
+        ),
+      );
+  });
+  app.post('/api/companion-runtimes/:id/stop', async (request, reply) => {
+    nativeRuntimeHuman(request);
+    return reply
+      .code(202)
+      .send(
+        companionRuntimes.stop(
+          (request.params as { id: string }).id,
+          runtimeStopDecision.parse(request.body),
+          bridgeActor(request.headers, options.phoneBridge),
+        ),
+      );
+  });
+  app.post('/api/companion-runtimes/launches/:id/reconcile', async (request) => {
+    nativeRuntimeHuman(request);
+    const input = handoffDecisionSchema.parse(request.body);
+    return companionRuntimes.reconcile(
+      (request.params as { id: string }).id,
+      input.digest,
+      input.revision,
+      bridgeActor(request.headers, options.phoneBridge),
+    );
+  });
+  app.delete('/api/companion-runtimes/:id', async (request) => {
+    nativeRuntimeHuman(request);
+    const input = z
+      .object({ revision: z.number().int().nonnegative() })
+      .strict()
+      .parse(request.body);
+    return companionRuntimes.retire((request.params as { id: string }).id, input.revision);
+  });
   const localCompanionSetup = (request: { headers: IncomingHttpHeaders }) =>
     assert(
       mode(request) === 'local' &&
@@ -566,7 +680,11 @@ export async function createApp(options: AppOptions) {
   });
   app.get('/api/snapshot', async (request) => {
     const db = store(request);
-    const observed = await machine.observe(local.resourceRuns(), local.all<Account>('accounts'));
+    const observed = await machine.observe(
+      local.resourceRuns(),
+      local.all<Account>('accounts'),
+      companionRuntimes.resourceRoots(),
+    );
     const result: Snapshot = {
       service: options.background ?? { mode: 'foreground' },
       availability: mode(request) === 'demo' ? undefined : await availability.snapshot(),
@@ -588,6 +706,7 @@ export async function createApp(options: AppOptions) {
       accounts: db.all<Account>('accounts'),
       companionGrants: mode(request) === 'demo' ? [] : companions.list(),
       companionHandoffs: mode(request) === 'demo' ? [] : companionHandoffs.list(),
+      companionRuntime: mode(request) === 'demo' ? undefined : companionRuntimes.snapshot(),
       backends: mode(request) === 'demo' ? [] : backends.list(),
       approvals: db.all<Approval>('approvals'),
       events: db
@@ -597,7 +716,9 @@ export async function createApp(options: AppOptions) {
       settings: db.settings(),
       connections,
       ...observed,
-      ...(mode(request) === 'demo' ? { nativeWorkers: [], resources: undefined } : {}),
+      ...(mode(request) === 'demo'
+        ? { nativeWorkers: [], companionWorkers: [], resources: undefined }
+        : {}),
       nativeSessions:
         mode(request) === 'demo'
           ? []
@@ -1106,6 +1227,12 @@ export async function createApp(options: AppOptions) {
     }
   });
   app.post('/api/accounts/:id/probe', async (request) => {
+    assert(
+      mode(request) === 'demo' ||
+        !companionRuntimes.hasOpenForAccount((request.params as { id: string }).id),
+      409,
+      'Stop and reconcile this account’s native gateway before probing another native client in the same profile.',
+    );
     const db = store(request);
     const account = db.account((request.params as { id: string }).id);
     assert(
@@ -1137,6 +1264,11 @@ export async function createApp(options: AppOptions) {
   app.delete('/api/accounts/:id', async (request) => {
     const db = store(request);
     const account = db.account((request.params as { id: string }).id);
+    assert(
+      mode(request) === 'demo' || !companionRuntimes.uses('account', account.id),
+      409,
+      'Native runtime configuration or history references this account. Keep the slot to preserve attribution.',
+    );
     assert(!probing.has(account.id), 409, 'Wait for this native account check to finish.');
     assert(
       !db.all<Work>('work').some((w) => w.accountId === account.id) &&
@@ -1538,6 +1670,12 @@ export async function createApp(options: AppOptions) {
     );
   });
   app.delete('/api/profiles/:id', async (request) => {
+    assert(
+      mode(request) === 'demo' ||
+        !companionRuntimes.uses('profile', (request.params as { id: string }).id),
+      409,
+      'Retire the linked native companion runtime before removing this profile.',
+    );
     (mode(request) === 'demo' ? demoProfiles : profiles).removeProfile(
       (request.params as { id: string }).id,
     );
@@ -1712,6 +1850,7 @@ export async function createApp(options: AppOptions) {
   }
   app.addHook('onClose', async () => {
     await memoryPacks.close();
+    await companionRuntimes.close();
     await t3.close();
     await controller.close();
     await notifications.close();
@@ -1726,6 +1865,7 @@ export async function createApp(options: AppOptions) {
     csrf,
     companions,
     companionHandoffs,
+    companionRuntimes,
     blueprints,
     routing,
     notifications,

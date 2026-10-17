@@ -7,9 +7,9 @@ export interface WorkerScope {
   generation: number;
   harness: string;
 }
-export interface WorkerProofDescriptor {
+export interface WorkerProofDescriptor<Scope extends object = WorkerScope> {
   id: string;
-  scope: WorkerScope;
+  scope: Scope;
   scopeHash: string;
   directory: string;
   publicKey: string;
