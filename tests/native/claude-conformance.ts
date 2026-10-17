@@ -133,8 +133,9 @@ const state = await createApp({
   csrf: 'native-conformance',
   test: true,
   driverFactory: () =>
-    new ClaudeDriver((params) =>
-      query({
+    new ClaudeDriver((params) => {
+      assert.equal(params.options.maxBudgetUsd, 1);
+      return query({
         ...params,
         options: {
           ...params.options,
@@ -155,8 +156,14 @@ const state = await createApp({
             API_TIMEOUT_MS: '8000',
           },
         },
-      }),
-    ),
+      });
+    }),
+});
+state.controller.spending.configure({
+  expectedRevision: 0,
+  monthlyUsd: 10,
+  workUsd: 10,
+  attemptUsd: 1,
 });
 const call = (url: string, payload: Record<string, unknown>) =>
   state.app.inject({
@@ -229,6 +236,11 @@ try {
   const usage = state.local.all<Usage>('usage');
   assert.equal(usage.length, 1);
   assert.ok(usage[0].totalTokens > 0);
+  const spending = state.controller.spending.snapshot();
+  assert.equal(spending.attempts.length, 1);
+  assert.equal(spending.attempts[0].reservedUsd, 1);
+  assert.equal(spending.attempts[0].state, 'reported');
+  assert.equal(spending.attempts[0].estimatedUsd, usage[0].estimatedUsd);
   console.log(
     JSON.stringify({
       status: 'passed',
@@ -239,6 +251,8 @@ try {
       nativeApprovals: decisionCount,
       requestCount: requests,
       nativeUsageObserved: true,
+      nativeBudgetUsd: 1,
+      attemptCostAccounting: true,
       settingsOverrideRejected: true,
       paidModelCalls: 0,
     }),

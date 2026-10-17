@@ -436,6 +436,12 @@ test('Claude native permission callback resolves exactly once without creating p
     }) as unknown as Query;
   });
   const controller = new ExecutionController(store, () => driver);
+  controller.spending.configure({
+    expectedRevision: 0,
+    monthlyUsd: 10,
+    workUsd: 10,
+    attemptUsd: 1,
+  });
   try {
     await controller.launch(work.id, true, false);
     await waitFor(() => store.all<Approval>('approvals').length === 1, 'Claude native callback');
@@ -443,6 +449,7 @@ test('Claude native permission callback resolves exactly once without creating p
     assert.equal(approval.nativeRequestId, 'claude-request-1');
     assert.match(approval.command, /synthetic only/);
     assert.equal(received?.permissionMode, 'default');
+    assert.equal(received?.maxBudgetUsd, 1);
     assert.equal(received?.env?.ANTHROPIC_API_KEY, 'synthetic-test-value');
     assert.equal(received?.env?.CLAUDE_CODE_OAUTH_TOKEN, undefined);
     assert.equal(received?.env?.CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST, '1');

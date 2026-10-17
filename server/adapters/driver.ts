@@ -7,6 +7,8 @@ export interface DriverContext {
   run: Run;
   prompt: string;
   allowMetered: boolean;
+  /** Optional attempt reservation delegated to a supported native spending control. */
+  maxBudgetUsd?: number;
 }
 export interface NativeApproval {
   requestId: string | number;

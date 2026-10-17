@@ -107,7 +107,7 @@ export function BackendsPanel({ data, mutate }: { data: Snapshot; mutate: Mutate
           </p>
           <details className="native-details">
             <summary>Native CLI setup</summary>
-            <pre className="service-commands">
+            <pre className="service-commands" tabIndex={0}>
               <code>
                 t3 project add /absolute/project/path{'\n'}t3 serve --host 127.0.0.1 --port 3773
                 --no-browser{'\n'}t3 auth pairing create --scope orchestration:read --scope

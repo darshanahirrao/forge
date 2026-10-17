@@ -193,7 +193,12 @@ test('background availability explains setup and shows native service mode on de
     const result = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
       .analyze();
-    expect(result.violations.map((v) => v.id)).toEqual([]);
+    expect(
+      result.violations.map((v) => v.id),
+      JSON.stringify(
+        result.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) })),
+      ),
+    ).toEqual([]);
     await page.screenshot({
       path: `artifacts/forge-service-${narrow ? 'mobile-dark' : 'light'}.png`,
       fullPage: true,
@@ -263,6 +268,7 @@ test('create an account slot, save work and a checkpoint, and retain them after 
 });
 
 test('fictional approvals resolve in the demo and cannot touch native work', async ({ page }) => {
+  const before = (await (await page.request.get('/api/snapshot')).json()).approvals;
   await page.goto('/');
   await page.getByTitle('Explore the isolated demo workspace').click();
   await expect(
@@ -278,7 +284,7 @@ test('fictional approvals resolve in the demo and cannot touch native work', asy
   await dialog.getByRole('button', { name: 'Allow once' }).click();
   await expect(page.getByRole('heading', { name: 'Your attention is clear.' })).toBeVisible();
   const local = await page.request.get('/api/snapshot');
-  expect((await local.json()).approvals).toHaveLength(0);
+  expect((await local.json()).approvals).toEqual(before);
 });
 
 test('quiet mode persists, search is keyboard accessible, and both themes meet accessibility gates', async ({

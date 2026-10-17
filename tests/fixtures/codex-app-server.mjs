@@ -1,8 +1,9 @@
 // Protocol fixture only. It performs no shell commands, model calls, or project writes.
 import readline from 'node:readline';
+import { randomUUID } from 'node:crypto';
 const send = (value) => process.stdout.write(`${JSON.stringify(value)}\n`);
 let initialized = false;
-const threadId = 'fixture-thread';
+let threadId = randomUUID();
 const turnId = 'fixture-turn';
 readline.createInterface({ input: process.stdin }).on('line', (line) => {
   const message = JSON.parse(line);
@@ -56,7 +57,8 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
         rateLimits: { primary: { usedPercent: 25, windowDurationMins: 300, resetsAt: 2000000000 } },
       },
     });
-  else if (message.method === 'thread/start' || message.method === 'thread/resume')
+  else if (message.method === 'thread/start' || message.method === 'thread/resume') {
+    if (message.method === 'thread/resume') threadId = message.params.threadId;
     send({
       id: message.id,
       result: {
@@ -65,7 +67,7 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
         sandbox: { type: 'workspaceWrite' },
       },
     });
-  else if (message.method === 'turn/start') {
+  } else if (message.method === 'turn/start') {
     send({ id: message.id, result: { turn: { id: turnId, status: 'inProgress' } } });
     send({ method: 'turn/started', params: { threadId, turn: { id: turnId } } });
     send({

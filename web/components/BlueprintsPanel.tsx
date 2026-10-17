@@ -249,7 +249,7 @@ export function BlueprintsPanel({
                 {profile.instructions && (
                   <details className="native-details">
                     <summary>Profile instructions</summary>
-                    <pre className="service-commands">
+                    <pre className="service-commands" tabIndex={0}>
                       <code>{profile.instructions}</code>
                     </pre>
                   </details>

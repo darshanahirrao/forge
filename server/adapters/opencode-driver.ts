@@ -544,6 +544,7 @@ export function openCodeUsage(context: DriverContext, session: SessionInfo): Usa
   );
   return {
     key: `opencode:${context.account.id}:${session.id}`,
+    counterScope: 'session',
     workId: context.work.id,
     accountId: context.account.id,
     harness: 'opencode',

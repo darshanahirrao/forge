@@ -9,6 +9,8 @@ import { useState, useEffect, type FormEvent } from 'react';
 import { Dialog, HarnessMark, FormError } from './primitives';
 import { Folder, ShieldCheck, LoaderCircle, Play } from 'lucide-react';
 import { executionName, canExecuteAccount } from '../../shared/harnesses';
+import type { SpendReview } from '../../shared/spending';
+import { currency } from '../lib/format';
 
 export function LaunchDialog({
   work,
@@ -36,13 +38,17 @@ export function LaunchDialog({
   const [review, setReview] = useState<ContextReview | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const [reading, setReading] = useState(false);
+  const [spending, setSpending] = useState<SpendReview | null>(null);
   async function readContext() {
     setReading(true);
     setError('');
     setReview(null);
+    setSpending(null);
     setConfirmed(false);
     try {
       const result = await mutate<ContextReview>(`/work/${work.id}/context-review`, 'POST');
+      const cost = await mutate<{ review: SpendReview }>(`/work/${work.id}/spending`, 'GET');
+      setSpending(cost.review);
       setReview(result);
       setConfirmed(work.contextReceipt?.contentDigest === result.receipt.contentDigest);
     } catch (cause) {
@@ -73,6 +79,7 @@ export function LaunchDialog({
         allowMetered: metered,
         reconciled,
         contextDigest: review?.receipt.reviewDigest,
+        spendingRevision: spending?.policyRevision,
       });
       onLaunched();
     } catch (error) {
@@ -186,6 +193,21 @@ export function LaunchDialog({
             {reading && <LoaderCircle size={14} className="spin" />}Refresh context review
           </button>
         </section>
+        {spending && (
+          <section className="detail-section" aria-label="Launch spending review">
+            <h3>Spending admission</h3>
+            <p>
+              {spending.reserveUsd === null
+                ? 'Budget admission is off. Native usage is still recorded.'
+                : `${currency(spending.reserveUsd)} will be reserved for this attempt. ${currency(spending.monthAccountedUsd)} is accounted for in ${spending.period} UTC.`}
+            </p>
+            {spending.reason && (
+              <p className="form-error" role="status">
+                {spending.reason} Review spending in Accounts.
+              </p>
+            )}
+          </section>
+        )}
         <label className="checkbox-label">
           <input
             type="checkbox"
@@ -248,6 +270,7 @@ export function LaunchDialog({
               pressureHigh ||
               !compatible ||
               !review ||
+              !spending?.allowed ||
               reading ||
               (review.requiresReview && !confirmed) ||
               (requiresMetered && !metered) ||

@@ -424,6 +424,8 @@ export function App() {
               {view === 'accounts' && (
                 <AccountsPage
                   data={snapshot}
+                  mutate={mutate}
+                  onWork={setSelected}
                   onNew={() => setNewAccount(true)}
                   onProbe={(account) =>
                     void act(

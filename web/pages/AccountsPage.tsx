@@ -2,17 +2,23 @@ import { type Snapshot, type Account } from '../../shared/types';
 import { UsersRound, Gauge, LoaderCircle, RefreshCw, Plus } from 'lucide-react';
 import { HarnessMark, Status, Empty } from '../components/primitives';
 import { harnessName, age } from '../lib/format';
+import { SpendingPanel } from '../components/SpendingPanel';
+import type { Mutate } from '../api';
 
 export function AccountsPage({
   data,
   onNew,
   onProbe,
   busy,
+  mutate,
+  onWork,
 }: {
   data: Snapshot;
   onNew: () => void;
   onProbe: (account: Account) => void;
   busy: string;
+  mutate: Mutate;
+  onWork: (id: string) => void;
 }) {
   const duplicates = new Set(
     data.accounts
@@ -24,6 +30,7 @@ export function AccountsPage({
   );
   return (
     <div className="page-stack">
+      <SpendingPanel data={data} mutate={mutate} onWork={onWork} />
       <div className="notice">
         <UsersRound size={19} />
         <p>

@@ -312,7 +312,13 @@ export class Companions {
   }
   work(grantId: string, workId: string) {
     this.authorize(grantId, 'work:read', workId);
+    const spending = this.controller.spending.review(this.store.work(workId));
     return {
+      spendingAdmission: {
+        allowed: spending.allowed,
+        reason: spending.reason,
+        reserveUsd: spending.reserveUsd,
+      },
       work: this.store.work(workId),
       events: this.store.recentEvents(workId, 30).map((event) => ({
         ...event,

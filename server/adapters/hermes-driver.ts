@@ -489,6 +489,7 @@ export function hermesUsage(context: DriverContext, result: HermesReport): Usage
   // Native counters reset on construction. One owned worker receives one prompt, including native queued continuations.
   return {
     key: `hermes-acp:${context.run.id}`,
+    counterScope: 'run',
     workId: context.work.id,
     accountId: context.account.id,
     harness: 'hermes',

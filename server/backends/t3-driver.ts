@@ -353,6 +353,7 @@ export class T3Driver implements NativeDriver {
         outputTokens = tokens.outputTokens ?? 0;
       const usage: Usage = {
         key: `t3:${this.settlement.backendId}:${turn.id}`,
+        counterScope: 'run',
         workId: this.context.work.id,
         accountId: this.context.account.id,
         harness: this.harness,

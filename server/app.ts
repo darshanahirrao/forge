@@ -305,6 +305,8 @@ export async function createApp(options: AppOptions) {
       service: options.background ?? { mode: 'foreground' },
       access: bridgeActor(request.headers, options.phoneBridge),
       mode: mode(request),
+      spending: mode(request) === 'demo' ? undefined : controller.spending.snapshot(),
+      outcomes: mode(request) === 'demo' ? [] : controller.spending.outcomes(),
       version,
       csrf,
       work: db.all<WorkSummary>('work_summaries').sort((a, b) => {
@@ -368,6 +370,39 @@ export async function createApp(options: AppOptions) {
         )
         .slice(0, 20),
     };
+  });
+  app.get('/api/spending', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo has no managed spending ledger.');
+    return controller.spending.snapshot();
+  });
+  app.patch('/api/spending/policy', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo cannot change managed spending policy.');
+    return controller.spending.configure(request.body);
+  });
+  app.get('/api/work/:id/spending', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo has no managed spending ledger.');
+    const work = local.work((request.params as { id: string }).id);
+    return {
+      review: controller.spending.review(work),
+      attempts: controller.spending.attempts(work.id),
+      outcome: controller.spending.outcomes().find((row) => row.workId === work.id) ?? null,
+    };
+  });
+  app.post('/api/spending/:runId/review', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo cannot review managed spending.');
+    return controller.spending.reconcile(
+      (request.params as { runId: string }).runId,
+      request.body,
+      bridgeActor(request.headers, options.phoneBridge),
+    );
+  });
+  app.post('/api/work/:id/outcome', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo cannot accept real managed work.');
+    return controller.spending.outcome(
+      (request.params as { id: string }).id,
+      request.body,
+      bridgeActor(request.headers, options.phoneBridge),
+    );
   });
   async function directory(value: string, required = false) {
     if (!value && !required) return '';
@@ -541,6 +576,7 @@ export async function createApp(options: AppOptions) {
         expectedRevision: z.number().int().nonnegative(),
         allowMetered: z.boolean().default(false),
         reconciled: z.boolean().default(false),
+        spendingRevision: z.number().int().nonnegative().optional(),
         contextDigest: z
           .string()
           .regex(/^[a-f0-9]{64}$/)
@@ -567,6 +603,8 @@ export async function createApp(options: AppOptions) {
           body.reconciled,
           body.expectedRevision,
           body.contextDigest,
+          undefined,
+          body.spendingRevision,
         ),
       );
   });

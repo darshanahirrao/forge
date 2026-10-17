@@ -22,6 +22,9 @@ type Collection =
   | 'companion_grants'
   | 'companion_operations'
   | 'blueprint_imports'
+  | 'spend_attempts'
+  | 'spend_counters'
+  | 'work_outcomes'
   | 'settings'
   | 'config';
 export const now = () => new Date().toISOString();
@@ -52,6 +55,8 @@ export class Store {
       CREATE INDEX IF NOT EXISTS events_by_work ON records(json_extract(data,'$.workId')) WHERE collection='events';
       CREATE INDEX IF NOT EXISTS runs_by_companion_request ON records(json_extract(data,'$.requestedBy.grantId'), json_extract(data,'$.requestedBy.requestId')) WHERE collection='runs';
       CREATE INDEX IF NOT EXISTS runs_by_work ON records(json_extract(data,'$.workId')) WHERE collection='runs';
+      CREATE INDEX IF NOT EXISTS usage_by_work ON records(json_extract(data,'$.workId')) WHERE collection='usage';
+      CREATE INDEX IF NOT EXISTS spend_by_work ON records(json_extract(data,'$.workId')) WHERE collection='spend_attempts';
       CREATE INDEX IF NOT EXISTS companion_operations_by_grant ON records(json_extract(data,'$.grantId')) WHERE collection='companion_operations';
       `);
       let backup: string | null = null;

@@ -222,6 +222,7 @@ export class CodexDriver implements NativeDriver {
     const { work, account } = this.context!;
     const entry: Usage = {
       key: `codex:${account.identityKey ?? account.id}:${this.sessionId}`,
+      counterScope: 'session',
       workId: work.id,
       accountId: account.id,
       harness: 'codex',

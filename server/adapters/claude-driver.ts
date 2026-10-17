@@ -57,6 +57,7 @@ export class ClaudeDriver implements NativeDriver {
     if (this.closing) return;
     const options: Options = {
       cwd: context.work.cwd,
+      ...(context.maxBudgetUsd !== undefined ? { maxBudgetUsd: context.maxBudgetUsd } : {}),
       env,
       permissionMode: 'default',
       permissionPrompts: 'host',
@@ -338,6 +339,7 @@ export function claudeUsage(
   const outputTokens = sum('outputTokens');
   return {
     key: `claude:${context.account.id}:${sessionId}`,
+    counterScope: 'session',
     workId: context.work.id,
     accountId: context.account.id,
     harness: 'claude',

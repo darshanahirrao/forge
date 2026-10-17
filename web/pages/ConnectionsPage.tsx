@@ -79,7 +79,7 @@ export function ConnectionsPage({
                 From your Forge source directory, install the service, stop the foreground process
                 with Ctrl+C, then start it:
               </p>
-              <pre className="service-commands">
+              <pre className="service-commands" tabIndex={0}>
                 <code>
                   node bin/forge.mjs service install{'\n'}node bin/forge.mjs service start{'\n'}node
                   bin/forge.mjs service status
@@ -233,7 +233,12 @@ export function ConnectionsPage({
               <p>Read-only native inventory. Ownership remains in Agent Deck.</p>
             </div>
           </div>
-          <div className="table-scroll">
+          <div
+            className="table-scroll"
+            role="region"
+            aria-label="Existing Agent Deck sessions"
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>
@@ -267,7 +272,12 @@ export function ConnectionsPage({
               <p>Native cumulative snapshots and ccusage daily estimates retain separate scopes.</p>
             </div>
           </div>
-          <div className="table-scroll">
+          <div
+            className="table-scroll"
+            role="region"
+            aria-label="Native usage evidence"
+            tabIndex={0}
+          >
             <table>
               <thead>
                 <tr>

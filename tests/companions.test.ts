@@ -454,6 +454,49 @@ test('active companion grants keep their profile reference intact until explicit
   }
 });
 
+test('companion dispatch inherits human spending holds without acquiring budget or outcome authority', async () => {
+  const f = await fixture();
+  try {
+    const { grant, token } = await f.grant(true);
+    const work = await f.createWork(grant.id);
+    f.controller.spending.configure({
+      expectedRevision: 0,
+      monthlyUsd: 0.5,
+      workUsd: 2,
+      attemptUsd: 1,
+    });
+    const context = await f.companions.context(grant.id, work.id);
+    const input = {
+      requestId: 'blocked-budget',
+      workId: work.id,
+      expectedRevision: context.revision,
+      contextDigest: context.reviewDigest,
+    };
+    await assert.rejects(f.companions.start(grant.id, input), /monthly budget/);
+    assert.equal(f.drivers.length, 0);
+    assert.equal(f.companions.list()[0].runsStarted, 0);
+    assert.equal(f.companions.work(grant.id, work.id).spendingAdmission.allowed, false);
+    const client = await f.client(token);
+    assert(
+      (await client.listTools()).tools.every((tool) => !/spending|budget|outcome/.test(tool.name)),
+    );
+    f.controller.spending.configure({
+      expectedRevision: 1,
+      monthlyUsd: 2,
+      workUsd: 2,
+      attemptUsd: 1,
+    });
+    const run = await f.companions.start(grant.id, { ...input, requestId: 'allowed-budget' });
+    assert.equal(f.drivers[0].context.maxBudgetUsd, 1);
+    assert.equal(f.controller.spending.attempts()[0].runId, run.id);
+    assert.equal(f.controller.spending.attempts()[0].reservedUsd, 1);
+    await f.controller.interrupt(work.id);
+    assert.equal(f.controller.spending.attempts()[0].state, 'unknown');
+  } finally {
+    await f.close();
+  }
+});
+
 test('native backend account IDs remain opaque and shared quota evidence is preserved without exposing identity keys', async () => {
   const f = await fixture();
   try {

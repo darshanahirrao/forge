@@ -289,6 +289,8 @@ export interface Approval {
   decidedBy?: ApprovalActor;
 }
 export interface Usage {
+  /** Native counter lifetime, independent of the retained display description. */
+  counterScope?: 'run' | 'session';
   key: string;
   workId: string | null;
   accountId: string | null;
@@ -417,6 +419,8 @@ export interface BackgroundRuntime {
   scope?: 'user-login';
 }
 export interface Snapshot {
+  spending?: import('./spending.js').SpendingSnapshot;
+  outcomes?: import('./spending.js').WorkOutcome[];
   companionGrants?: CompanionGrant[];
   backends?: WorkspaceBackend[];
   service?: BackgroundRuntime;

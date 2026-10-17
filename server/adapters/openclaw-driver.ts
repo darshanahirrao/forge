@@ -583,6 +583,7 @@ export function openClawUsage(
   const cost = z.number().finite().nonnegative().safeParse(agentMeta.costUsd);
   return {
     key: `openclaw-gateway:${context.run.id}`,
+    counterScope: 'run',
     workId: context.work.id,
     accountId: context.account.id,
     harness: 'openclaw',

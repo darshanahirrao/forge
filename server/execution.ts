@@ -10,6 +10,7 @@ import { assert, safeMessage } from './errors.js';
 import { Store, id, now } from './store.js';
 import { requestDigest } from './adapters/sources.js';
 import { captureWorker } from './processes.js';
+import { Spending } from './spending.js';
 import type {
   DriverContext,
   DriverFactory,
@@ -35,6 +36,7 @@ interface Active {
 
 /** One owner for admission, durable decisions and work generations across every native adapter. */
 export class ExecutionController {
+  readonly spending: Spending;
   private active = new Map<string, Active>();
   private closing = false;
   private checkpointOwner: string | null = null;
@@ -44,7 +46,10 @@ export class ExecutionController {
     private factory: DriverFactory,
     private prepareContext?: (work: Work, reviewDigest?: string) => Promise<ContextReview>,
     private admissionCheck?: () => Promise<void>,
-  ) {}
+  ) {
+    this.spending = new Spending(store);
+    this.spending.recover();
+  }
   get activeCount() {
     return this.active.size + (this.preparing ? 1 : 0);
   }
@@ -85,6 +90,7 @@ export class ExecutionController {
     expectedRevision?: number,
     reviewDigest?: string,
     companion?: { actor: NonNullable<Run['requestedBy']>; authorize: () => void },
+    expectedSpendingRevision?: number,
   ): Promise<Run> {
     companion?.authorize();
     const work = this.store.work(workId);
@@ -183,6 +189,14 @@ export class ExecutionController {
         allowMetered,
         prompt: this.continuation(effectiveWork, review),
       };
+      const spending = this.spending.prepare(run);
+      assert(
+        expectedSpendingRevision === undefined ||
+          expectedSpendingRevision === this.spending.policy().revision,
+        409,
+        'Spending policy changed after launch review. Refresh it before starting.',
+      );
+      if (spending.reserve !== null) context.maxBudgetUsd = spending.reserve / 1_000_000;
       // Factory construction is synchronous; capacity is reserved before native discovery can yield.
       const driver = this.factory(context);
       assert(driver.harness === work.harness, 500, 'The adapter does not match this work binding.');
@@ -206,6 +220,7 @@ export class ExecutionController {
       try {
         this.store.transaction(() => {
           this.store.put('runs', run.id, run);
+          this.spending.reserve(spending);
           this.store.updateWork(workId, {
             generation: run.generation,
             activeRunId: run.id,
@@ -397,7 +412,7 @@ export class ExecutionController {
           usage.accountId === active.run.accountId &&
           usage.harness === active.driver.harness
         )
-          this.store.saveUsage(usage);
+          this.spending.observe(active.run, usage);
       },
       approval: (request) => {
         if (live()) this.approval(active, request);
@@ -672,6 +687,7 @@ export class ExecutionController {
           active.run.settlement = { ...active.driver.settlement };
         else active.run.exitConfirmed = false;
         this.store.put('runs', active.run.id, active.run);
+        this.spending.settle(active.run);
         this.store.updateWork(active.run.workId, { status: 'interrupted' });
         this.store.event(
           active.run.workId,
@@ -686,6 +702,7 @@ export class ExecutionController {
       if (active.driver.ownership !== 'delegated-run') active.run.exitConfirmed = true;
       this.store.transaction(() => {
         this.store.put('runs', active.run.id, active.run);
+        this.spending.settle(active.run);
         this.store.updateWork(active.run.workId, {
           status,
           activeRunId: null,
@@ -736,7 +753,9 @@ export class ExecutionController {
             ? 'failed'
             : 'interrupted';
       this.store.transaction(() => {
-        this.store.put('runs', run.id, { ...run, settlement: receipt, status, endedAt: now() });
+        const settled: Run = { ...run, settlement: receipt, status, endedAt: now() };
+        this.store.put('runs', run.id, settled);
+        this.spending.settle(settled);
         const work = this.store.work(run.workId);
         if (!work.activeRunId || work.activeRunId === run.id)
           this.store.updateWork(work.id, { status, activeRunId: null, stopRequestedAt: null });

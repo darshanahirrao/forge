@@ -95,6 +95,7 @@ The defining demonstration is a real task checkpointed in one harness, continued
 - [Harness interfaces and integration limits](docs/ADAPTERS.md)
 - [Dynamic components and replacement rules](docs/COMPONENTS.md)
 - [Multiple accounts and workspace continuity](docs/ACCOUNTS.md)
+- [Spending budgets, counter evidence and accepted work](docs/SPENDING.md)
 - [Research, prior art, and evidence boundaries](docs/RESEARCH.md)
 - [Product capabilities and delivery sequence](docs/PRODUCT.md)
 - [Editable architecture diagram](docs/diagrams/architecture.mmd)
