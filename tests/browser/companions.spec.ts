@@ -94,6 +94,49 @@ test('native gateway review, owned startup, resources and stop stay usable on de
         group.kind === 'companion' && group.runtimeId === runtime.id,
     ),
   ).toBeTruthy();
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = 'light';
+    localStorage.setItem('forge.theme', 'light');
+  });
+  await page
+    .getByRole('navigation')
+    .getByRole('button', { name: 'Resources', exact: true })
+    .click();
+  const resources = page.getByRole('region', { name: 'Grouped resource use' });
+  const resourceButton = resources.getByRole('button', {
+    name: 'Open native runtime: Browser owned planner',
+  });
+  await expect(resourceButton).toBeVisible();
+  await resources.screenshot({ path: 'artifacts/forge-runtime-resources-desktop-light.png' });
+  expect(
+    (await new AxeBuilder({ page }).include('[aria-label="Workspace resource map"]').analyze())
+      .violations,
+  ).toEqual([]);
+  await resourceButton.click();
+  await expect(page).toHaveURL(/#connections$/);
+  await expect(row).toBeFocused();
+  await page.keyboard.press('Tab');
+  await expect(row.getByRole('button', { name: 'Stop Browser owned planner' })).toBeFocused();
+  await page.goBack();
+  await expect(page).toHaveURL(/#resources$/);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => {
+    document.documentElement.dataset.theme = 'dark';
+    localStorage.setItem('forge.theme', 'dark');
+  });
+  await expect(resourceButton).toBeVisible();
+  const resourceRow = resourceButton.locator('xpath=ancestor::tr');
+  expect(
+    await resourceRow.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
+  ).toBeTruthy();
+  await resources.screenshot({ path: 'artifacts/forge-runtime-resources-mobile-dark.png' });
+  expect(
+    (await new AxeBuilder({ page }).include('[aria-label="Workspace resource map"]').analyze())
+      .violations,
+  ).toEqual([]);
+  await resourceButton.click();
+  await expect(row).toBeFocused();
   await row.getByRole('button', { name: 'Stop Browser owned planner' }).click();
   await expect(row.getByText(/original native child and inherited stdio closed/)).toBeVisible();
   const stopped = await (await page.request.get('/api/snapshot')).json();

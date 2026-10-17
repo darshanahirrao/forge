@@ -62,6 +62,7 @@ export function App() {
   );
   const [view, setView] = useState<View>(returnedFromT3 ? 'activity' : currentView);
   const [activityTab, setActivityTab] = useState<'chats' | 'schedules'>('chats');
+  const [runtimeFocus, setRuntimeFocus] = useState<string | undefined>();
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const loadSequence = useRef(0);
   const [networkError, setNetworkError] = useState('');
@@ -164,6 +165,7 @@ export function App() {
     const restore = () => {
       setView(currentView());
       setMobileNav(false);
+      setRuntimeFocus(undefined);
     };
     window.addEventListener('popstate', restore);
     window.addEventListener('hashchange', restore);
@@ -187,9 +189,10 @@ export function App() {
     setSearchOpen(false);
     setMobileNav(false);
   }
-  function navigate(next: View) {
+  function navigate(next: View, nativeRuntimeId?: string) {
     if (window.location.hash !== `#${next}`) window.history.pushState(null, '', `#${next}`);
     setView(next);
+    setRuntimeFocus(nativeRuntimeId);
     setMobileNav(false);
   }
   async function mutate<T = unknown>(path: string, method: string, body?: unknown): Promise<T> {
@@ -480,6 +483,10 @@ export function App() {
                   }
                   machine={snapshot.machine}
                   resources={snapshot.resources}
+                  runtimes={snapshot.companionRuntime?.runtimes}
+                  onRuntime={(id) => {
+                    navigate('connections', id);
+                  }}
                   workers={snapshot.nativeWorkers}
                   work={snapshot.work}
                   onWork={setSelected}
@@ -506,6 +513,7 @@ export function App() {
               {view === 'connections' && (
                 <ConnectionsPage
                   data={snapshot}
+                  runtimeFocus={runtimeFocus}
                   mutate={mutate}
                   onNewAccount={() => setNewAccount(true)}
                   onDownload={() =>

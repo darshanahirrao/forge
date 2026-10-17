@@ -1,5 +1,6 @@
 import type { ResourceObservation } from '../../shared/resources';
 import type { WorkSummary } from '../../shared/types';
+import type { CompanionRuntime } from '../../shared/companion-runtime';
 import { age, gb } from '../lib/format';
 import { Empty } from './primitives';
 import { Activity } from 'lucide-react';
@@ -24,12 +25,16 @@ export function ResourceMap({
   onOrder,
   work,
   onWork,
+  runtimes = [],
+  onRuntime,
 }: {
   observation?: ResourceObservation;
   order: 'memory' | 'cpu';
   onOrder: (order: 'memory' | 'cpu') => void;
   work: WorkSummary[];
   onWork?: (id: string) => void;
+  runtimes?: CompanionRuntime[];
+  onRuntime?: (id: string) => void;
 }) {
   const download = () => {
     const blob = new Blob([JSON.stringify(observation, null, 2) + '\n'], {
@@ -97,6 +102,7 @@ export function ResourceMap({
               <tbody>
                 {groups.map((group) => {
                   const current = work.find((item) => item.id === group.workId);
+                  const runtime = runtimes.find((item) => item.id === group.runtimeId);
                   return (
                     <tr key={group.id}>
                       <td>
@@ -109,6 +115,14 @@ export function ResourceMap({
                             >
                               {current?.title ?? group.label}
                             </button>
+                          ) : group.kind === 'companion' && runtime && onRuntime ? (
+                            <button
+                              className="text-button"
+                              onClick={() => onRuntime(runtime.id)}
+                              aria-label={`Open native runtime: ${runtime.label}`}
+                            >
+                              {runtime.label}
+                            </button>
                           ) : (
                             <strong>{group.label}</strong>
                           )}
@@ -120,7 +134,9 @@ export function ResourceMap({
                                   ? 'Service and observed helpers'
                                   : group.kind === 'managed'
                                     ? 'Review work for native controls'
-                                    : 'Includes shared and unrecognized runtimes')}
+                                    : group.kind === 'companion'
+                                      ? 'Review runtime for native controls'
+                                      : 'Includes shared and unrecognized runtimes')}
                           </small>
                         </div>
                       </td>

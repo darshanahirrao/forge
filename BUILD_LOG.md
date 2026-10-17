@@ -1,5 +1,13 @@
 # Build log
 
+## 2026-10-18 · forge-v0.30.1
+
+Connected native companion resource groups to their existing owned-runtime controls. Resource rows use the configured runtime name, open the matching card in Connections and move keyboard focus to it. Tab reaches its current native action; browser back restores Resources and ordinary navigation clears the focus request. Companion rows no longer use the generic unrecognized-runtime explanation. No backend, process-control authority, sampling loop or dependency changes; state remains 9.
+
+Validation: types, formatting, build, diff/local-link checks, all 32 browser flows and 3 compiled-package checks pass. Extended the real inert native-gateway browser flow through Resources on desktop light/mobile dark, matching-card focus, keyboard action, history, stop and signed-close evidence. Both captures were inspected; axe and inner-overflow pass, including honest unknown metrics before a fresh cached sample. The 266 functional checks and actual native lifecycle/five-harness/idle-trace evidence from v0.30 remain applicable. Main CI reruns the complete gates.
+
+The owned foreground app is v0.30.1/state 9 with final hashed JS/CSS status/MIME verified, unchanged 1/3/4/114/13 profile/memory/source/chat/schedule counts and zero personal managed accounts/work/gateways. Notifications remain off and default memory protection enabled. v0.30 main CI passed (39064696053); exact main and peeled tag af4d09062556303faa8f2e18ab960bf829cc87d8 are verified, with tag workflow 39065009525 to check independently. Full-scope gates remain in the completion audit. Checkpoint reference: the commit containing this entry and rollback tag forge-v0.30.1.
+
 ## 2026-10-18 · forge-v0.30.0
 
 Added reviewed native Hermes/OpenClaw companion gateway lifecycle while retaining native configured interfaces, authentication, channels, tools, memory, scheduler and model policy. Registration starts no process. Fingerprinted profile review and explicit native activity/spending consent precede a durable asynchronous launch receipt. The existing original-child protocol now serves separate execution and companion receipt domains; intent replay cannot spawn a second gateway. Original-handle stop, signed native/stdio closure, restart holds and exact human reconciliation preserve lifecycle reservations. No foreign PID control or automatic gateway replay is added. Native gateway approvals/spending remain native and outside Forge work reservations.

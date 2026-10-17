@@ -1,4 +1,6 @@
-# Forge v0.30.0
+# Forge v0.30.1
+
+Version 0.30.1 links named native companion resource groups directly to the matching runtime controls, with keyboard focus, browser-history continuity and desktop/mobile accessibility checks. It reuses existing original-handle stop/recovery and introduces no additional authority or process.
 
 Version 0.30 adds [reviewed native companion lifecycle](COMPANION_RUNTIME.md): supported Hermes/OpenClaw gateway start, stop, original-child ownership, signed-close reconciliation, distinct resource attribution and optional generic failure alerts. Native configured interfaces, authentication, channels, scheduler and memory stay native. Source gateways must settle before connection replacement. State 9 protects lifecycle reservations, with a private before-v9 state-8 backup and refusal by the previous compiled reader. Scheduler-definition transfer, complete native memory migration and live acceptance remain open.
 

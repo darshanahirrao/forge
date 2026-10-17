@@ -37,7 +37,7 @@ One native companion launch may be open for a Forge profile at a time. The exist
 
 The existing child-owner protocol durably prepares and commits before its sole native spawn. Signals use that original handle. Native argv, provider material and signing keys travel over private IPC. A native-profile fence and lease prevent another cooperating Forge client from opening the same explicit profile during uncertain cleanup.
 
-Resources appear as a **Native companion runtime** group in the shared OS sample, including the child owner and observed descendants. A companion is not a fabricated Work or Run. The actual native PID is recorded separately from the owner used as the resource root. Metrics never authorize process adoption, signals or release of a hold. No child owner or readiness observer remains running for a runtime that has not been explicitly started.
+Resources appear as a **Native companion runtime** group in the shared OS sample, including the child owner and observed descendants. A companion is not a fabricated Work or Run. From v0.30.1, its configured name in Resources opens and focuses that exact runtime’s existing controls, including original-handle stop and evidence review. Browser back returns to Resources; ordinary navigation clears the transient focus request. The actual native PID is recorded separately from the owner used as the resource root. Metrics never authorize process adoption, signals or release of a hold. No child owner or readiness observer remains running for a runtime that has not been explicitly started.
 
 ## Stop, recover and replace
 

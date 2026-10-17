@@ -27,6 +27,7 @@ export function ConnectionsPage({
   onDownload,
   busy,
   act,
+  runtimeFocus,
 }: {
   data: Snapshot;
   mutate: Mutate;
@@ -34,6 +35,7 @@ export function ConnectionsPage({
   onDownload: () => void;
   busy: string;
   act: (key: string, fn: () => Promise<unknown>, message?: string) => Promise<void>;
+  runtimeFocus?: string;
 }) {
   const [endpoint, setEndpoint] = useState(
     data.hermes.endpoint.startsWith('http') ? data.hermes.endpoint : 'http://127.0.0.1:8642',
@@ -57,7 +59,7 @@ export function ConnectionsPage({
     <div className="page-stack">
       <BackendsPanel data={data} mutate={mutate} />
       <ConnectorsPanel data={data} mutate={mutate} />
-      <CompanionsPanel data={data} mutate={mutate} />
+      <CompanionsPanel data={data} mutate={mutate} runtimeFocus={runtimeFocus} />
       <NotificationsPanel data={data} mutate={mutate} />
       <AvailabilityPanel data={data} mutate={mutate} />
       <section className="panel runtime-panel">

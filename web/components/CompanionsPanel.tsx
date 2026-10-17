@@ -6,7 +6,15 @@ import { CompanionHandoffList, CompanionReplacement } from './CompanionHandoffPa
 import { CompanionRuntimesPanel } from './CompanionRuntimesPanel';
 
 type Credential = { grant: CompanionGrant; token: string; endpoint: string };
-export function CompanionsPanel({ data, mutate }: { data: Snapshot; mutate: Mutate }) {
+export function CompanionsPanel({
+  data,
+  mutate,
+  runtimeFocus,
+}: {
+  data: Snapshot;
+  mutate: Mutate;
+  runtimeFocus?: string;
+}) {
   const [adding, setAdding] = useState(false);
   const [replacing, setReplacing] = useState<CompanionGrant | null>(null);
   const [credential, setCredential] = useState<Credential | null>(null);
@@ -365,7 +373,7 @@ export function CompanionsPanel({ data, mutate }: { data: Snapshot; mutate: Muta
           </div>
         </Dialog>
       )}
-      <CompanionRuntimesPanel data={data} mutate={mutate} />
+      <CompanionRuntimesPanel data={data} mutate={mutate} runtimeFocus={runtimeFocus} />
     </section>
   );
 }

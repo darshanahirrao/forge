@@ -1,11 +1,24 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import type { Snapshot } from '../../shared/types';
 import type { CompanionRuntimeReview } from '../../shared/companion-runtime';
 import type { Mutate } from '../api';
 import { Dialog, FormError } from './primitives';
 
-export function CompanionRuntimesPanel({ data, mutate }: { data: Snapshot; mutate: Mutate }) {
+export function CompanionRuntimesPanel({
+  data,
+  mutate,
+  runtimeFocus,
+}: {
+  data: Snapshot;
+  mutate: Mutate;
+  runtimeFocus?: string;
+}) {
   const snapshot = data.companionRuntime;
+  const focused = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    focused.current?.focus({ preventScroll: true });
+    focused.current?.scrollIntoView({ block: 'center' });
+  }, [runtimeFocus]);
   const [adding, setAdding] = useState(false),
     [review, setReview] = useState<CompanionRuntimeReview | null>(null);
   const [label, setLabel] = useState(''),
@@ -117,7 +130,14 @@ export function CompanionRuntimesPanel({ data, mutate }: { data: Snapshot; mutat
               ? 'Needs review'
               : launch.state;
         return (
-          <div className="backend-instance" key={runtime.id}>
+          <div
+            className="backend-instance"
+            key={runtime.id}
+            role="group"
+            aria-label={runtime.label}
+            tabIndex={-1}
+            ref={runtime.id === runtimeFocus ? focused : undefined}
+          >
             <div className="section-heading">
               <div>
                 <h4>{runtime.label}</h4>
