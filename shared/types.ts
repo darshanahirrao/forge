@@ -51,6 +51,7 @@ export interface QuotaWindow {
   observedAt: string;
 }
 export interface Work {
+  createdBy?: CompanionActor;
   id: string;
   title: string;
   project: string;
@@ -84,6 +85,7 @@ export interface WorkEvent {
   detail: string;
   createdAt: string;
   generation: number;
+  actor?: CompanionActor;
   handoff?: {
     version: 1;
     capsuleId: string;
@@ -92,7 +94,30 @@ export interface WorkEvent {
     fileCount: number;
   };
 }
+export interface CompanionActor {
+  kind: 'companion';
+  grantId: string;
+  label: string;
+  requestId: string;
+}
+export type CompanionScope = 'work:read' | 'context:read' | 'work:write' | 'work:dispatch';
+export interface CompanionGrant {
+  contractVersion: 1;
+  id: string;
+  label: string;
+  profileId: string;
+  root: string;
+  scopes: CompanionScope[];
+  accountIds: string[];
+  dispatch: { allowMetered: boolean; maxRuns: number } | null;
+  createdAt: string;
+  expiresAt: string;
+  revokedAt: string | null;
+  lastUsedAt: string | null;
+  runsStarted: number;
+}
 export interface Run {
+  requestedBy?: CompanionActor;
   id: string;
   workId: string;
   accountId: string;
@@ -171,7 +196,7 @@ export interface WorkCapsule {
   goal: string;
   acceptance: string;
   context: string;
-  checkpoints: { id: string; note: string; createdAt: string }[];
+  checkpoints: { id: string; note: string; createdAt: string; actor?: CompanionActor }[];
   results: { eventId: string; excerpt: string; clipped: boolean; createdAt: string }[];
   inventory: 'git' | 'explicit';
   artifacts: ArtifactFingerprint[];
@@ -392,6 +417,7 @@ export interface BackgroundRuntime {
   scope?: 'user-login';
 }
 export interface Snapshot {
+  companionGrants?: CompanionGrant[];
   backends?: WorkspaceBackend[];
   service?: BackgroundRuntime;
   nativeWorkers?: NativeWorkerResources[];

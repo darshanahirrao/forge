@@ -42,3 +42,7 @@ The guarantee to validate is continuity of Forge-owned state across compatible r
 ## First proof
 
 Demonstrate both axes independently: Hermes to OpenClaw for the companion role while retaining the same profile and memory references; Claude Code to Codex for an artifact task while retaining its work record. Then test the combined change with faults and native permission differences. The v0.5 checkpoint verifies persistent profile/selected-memory continuity across actual Codex and Claude API workers, and companion-reference replacement in local conformance. Managed Hermes-to-OpenClaw execution and combined fault recovery remain unproven; see [current evidence](RUNTIME.md).
+
+## Implemented companion boundary
+
+Version 0.16 exposes [companion contract 1 over native MCP](COMPANION_ACCESS.md). A grant binds an existing profile/project, scopes and optional finite native dispatch to selected account bindings. Hermes and OpenClaw native MCP clients pass selected-memory/work/checkpoint replacement checks. This implements a replaceable access role, not the complete planner, scheduler or provider-memory migration contract above.

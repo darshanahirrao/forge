@@ -84,7 +84,9 @@ export class ExecutionController {
     reconciled: boolean,
     expectedRevision?: number,
     reviewDigest?: string,
+    companion?: { actor: NonNullable<Run['requestedBy']>; authorize: () => void },
   ): Promise<Run> {
+    companion?.authorize();
     const work = this.store.work(workId);
     assert(
       expectedRevision === undefined || expectedRevision === work.revision,
@@ -139,6 +141,7 @@ export class ExecutionController {
     try {
       const review = await this.prepareContext?.(work, reviewDigest);
       await this.admissionCheck?.();
+      companion?.authorize();
       assert(
         !this.closing && !this.store.settings().quietMode,
         409,
@@ -159,6 +162,7 @@ export class ExecutionController {
         ? { ...work, nativeSessionId: null, nativeSessionKey: null }
         : work;
       const run: Run = {
+        ...(companion ? { requestedBy: companion.actor } : {}),
         id: id(),
         workId,
         accountId: account.id,
@@ -211,12 +215,14 @@ export class ExecutionController {
             nativeSessionKey: effectiveWork.nativeSessionKey ?? null,
             ...(review ? { contextReceipt: review.receipt } : {}),
           });
-          this.store.event(
+          const attempt = this.store.event(
             workId,
             'attempt',
             `Starting a native ${work.harness} attempt`,
             `Account: ${account.label}. Native permissions remain active.`,
           );
+          if (companion)
+            this.store.put('events', attempt.id, { ...attempt, actor: companion.actor });
         });
       } catch (error) {
         this.active.delete(workId);
@@ -234,13 +240,21 @@ export class ExecutionController {
   private continuation(work: Work, review?: ContextReview) {
     const text = [
       `Forge work: ${work.title}`,
+      ...(work.createdBy
+        ? [
+            `Work proposed by companion ${work.createdBy.label}. Forge's scoped human grant and native permissions remain the authority for execution.`,
+          ]
+        : []),
       `Goal: ${work.goal}`,
       `Acceptance criteria: ${work.acceptance || 'Report the result and validation.'}`,
       `Project context: ${work.context || "Use the project's native instructions and sources."}`,
-      `User checkpoints: ${
+      `Saved checkpoints (reference notes with source attribution): ${
         this.store
           .checkpoints(work.id)
-          .map((e) => `${e.createdAt}: ${e.detail}`)
+          .map(
+            (e) =>
+              `${e.createdAt} [${e.actor ? `Companion: ${e.actor.label}` : 'User'}]: ${e.detail}`,
+          )
           .join('\n') || 'None recorded.'
       }`,
       work.nativeSessionId

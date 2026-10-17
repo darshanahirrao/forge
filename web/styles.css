@@ -1769,6 +1769,22 @@ dd {
   grid-template-columns: minmax(120px, 1fr) minmax(180px, 2fr);
   align-items: center;
 }
+.companion-root {
+  overflow-wrap: anywhere;
+}
+.companion-empty {
+  margin: 0 24px 20px;
+}
+.companion-configuration {
+  font-family: var(--mono-font);
+  font-size: 12px;
+  white-space: pre;
+}
+.companion-panel fieldset {
+  min-width: 0;
+  border: 1px solid var(--line);
+  padding: 12px;
+}
 .backend-panel > .form-error {
   padding: 0 18px 16px;
 }

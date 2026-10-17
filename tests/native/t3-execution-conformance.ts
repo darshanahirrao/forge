@@ -6,6 +6,8 @@ import { mkdtemp, mkdir, open, readFile, writeFile, rm, realpath } from 'node:fs
 import { tmpdir } from 'node:os';
 import { join, dirname, isAbsolute } from 'node:path';
 import { createServer } from 'node:net';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { findBinary } from '../../server/adapters/discovery.js';
 import { createApp } from '../../server/app.js';
 import type {
@@ -163,11 +165,15 @@ let forge: ChildProcess | undefined;
 let forgeLog: Awaited<ReturnType<typeof open>> | undefined;
 let forgeOrigin = '',
   forgeCsrf = '';
+let forgePort: number | undefined;
+let companionClient: Client | undefined;
 async function startForge() {
-  const socket = createServer();
-  await new Promise<void>((resolve) => socket.listen(0, '127.0.0.1', resolve));
-  const forgePort = (socket.address() as { port: number }).port;
-  await new Promise<void>((resolve) => socket.close(() => resolve()));
+  if (!forgePort) {
+    const socket = createServer();
+    await new Promise<void>((resolve) => socket.listen(0, '127.0.0.1', resolve));
+    forgePort = (socket.address() as { port: number }).port;
+    await new Promise<void>((resolve) => socket.close(() => resolve()));
+  }
   forgeOrigin = `http://127.0.0.1:${forgePort}`;
   forgeLog = await open(join(root, 'forge.log'), 'a', 0o600);
   forge = spawn(
@@ -479,13 +485,40 @@ try {
   stage = 'compiled Forge crash while native approval waits';
   await app.app.close();
   appClosed = true;
-  await startForge();
+  const initial = await startForge();
   phase = 3;
   const beforeCrash = await http<{ work: Work }>(`/work/${work.id}`);
-  const crashRun = await http<Run>(`/work/${work.id}/launch`, {
-    expectedRevision: beforeCrash.work.revision,
-    allowMetered: true,
+  const access = await http<{ token: string; endpoint: string }>('/companions', {
+    label: 'Isolated companion dispatcher',
+    root: cwd,
+    profileId: initial.defaultProfileId,
+    scopes: ['work:read', 'context:read', 'work:dispatch'],
+    accountIds: [second.id],
+    dispatch: { allowMetered: true, maxRuns: 1 },
   });
+  companionClient = new Client({ name: 'isolated-native-companion', version: '1' });
+  await companionClient.connect(
+    new StreamableHTTPClientTransport(new URL(access.endpoint), {
+      requestInit: { headers: { Authorization: `Bearer ${access.token}` } },
+    }),
+  );
+  const context = await companionClient.callTool({
+    name: 'forge_context',
+    arguments: { workId: work.id },
+  });
+  assert(!context.isError);
+  const launchInput = {
+    requestId: 'native-companion-crash-once',
+    workId: work.id,
+    expectedRevision: beforeCrash.work.revision,
+    contextDigest: (context.structuredContent as { reviewDigest: string }).reviewDigest,
+  };
+  const launched = await companionClient.callTool({
+    name: 'forge_start_work',
+    arguments: launchInput,
+  });
+  assert(!launched.isError, 'The granted companion must start native execution through MCP.');
+  const crashRun = launched.structuredContent as unknown as Run;
   let heldApproval: Approval | undefined;
   for (let i = 0; i < 200; i++) {
     const snapshot = await http<Snapshot>('/snapshot');
@@ -516,6 +549,17 @@ try {
   assert(interrupted.settlement && !interrupted.settlement.confirmed);
   assert.equal(interrupted.settlement.messageId, crashRun.settlement!.messageId);
   assert.equal(interrupted.exitConfirmed, undefined);
+  const repeated = await companionClient.callTool({
+    name: 'forge_start_work',
+    arguments: launchInput,
+  });
+  assert(!repeated.isError);
+  assert.equal((repeated.structuredContent as unknown as Run).id, crashRun.id);
+  assert.equal(
+    provider.requests(),
+    requestsAtCrash,
+    'A repeated MCP request after restart must return its saved run without replay.',
+  );
   await http(`/approvals/${held.id}/decision`, { digest: held.digest, decision: 'accept' }, 409);
   await http(`/runs/${crashRun.id}/reconcile`, { interrupt: false }, 409);
   const blocked = await http<Work>('/work', {
@@ -567,6 +611,8 @@ try {
     exactRecovery: reconciled.state,
     replayedRequests: 0,
     unapprovedEffectAbsent: true,
+    companionDispatch: 'MCP',
+    repeatedDispatchAfterRestart: 'same-run',
   };
 } catch (error) {
   console.error('T3 execution conformance failed', {
@@ -578,6 +624,7 @@ try {
 } finally {
   await captureNativeTree();
   if (!appClosed) await app.app.close();
+  await companionClient?.close();
   await stopForge('SIGTERM');
   native.kill('SIGTERM');
   for (let i = 0; i < 60 && !exited; i++) await new Promise((resolve) => setTimeout(resolve, 250));

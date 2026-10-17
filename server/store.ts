@@ -19,6 +19,8 @@ type Collection =
   | 'native_inventories'
   | 'profiles'
   | 'memory_sources'
+  | 'companion_grants'
+  | 'companion_operations'
   | 'settings'
   | 'config';
 export const now = () => new Date().toISOString();
@@ -47,6 +49,9 @@ export class Store {
         PRIMARY KEY (collection, id)
       );
       CREATE INDEX IF NOT EXISTS events_by_work ON records(json_extract(data,'$.workId')) WHERE collection='events';
+      CREATE INDEX IF NOT EXISTS runs_by_companion_request ON records(json_extract(data,'$.requestedBy.grantId'), json_extract(data,'$.requestedBy.requestId')) WHERE collection='runs';
+      CREATE INDEX IF NOT EXISTS runs_by_work ON records(json_extract(data,'$.workId')) WHERE collection='runs';
+      CREATE INDEX IF NOT EXISTS companion_operations_by_grant ON records(json_extract(data,'$.grantId')) WHERE collection='companion_operations';
       `);
       let backup: string | null = null;
       if (version.user_version > 0 && version.user_version < 4 && filename !== ':memory:') {

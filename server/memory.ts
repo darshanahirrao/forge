@@ -6,6 +6,7 @@ import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import type MarkdownIt from 'markdown-it';
 import type {
   AgentProfile,
+  CompanionGrant,
   ContextReview,
   MemoryInspection,
   MemoryScope,
@@ -296,6 +297,15 @@ export class Profiles {
       !this.store.all<Work>('work').some((work) => work.profileId === profileId),
       409,
       'Work history references this profile. Keep it to preserve identity.',
+    );
+    assert(
+      !this.store
+        .all<Pick<CompanionGrant, 'profileId' | 'revokedAt' | 'expiresAt'>>('companion_grants')
+        .some(
+          (grant) => grant.profileId === profileId && !grant.revokedAt && grant.expiresAt > now(),
+        ),
+      409,
+      'Revoke active companion access before removing its profile.',
     );
     this.store.remove('profiles', this.profile(profileId).id);
   }

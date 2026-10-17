@@ -319,8 +319,8 @@ function ProfileEditor({
               ))}
             </select>
             <small>
-              A persistent native connection reference. Managed runtime execution remains
-              unavailable here.
+              A native activity reference. Grant a companion access to this profile from
+              Connections.
             </small>
           </label>
         </div>

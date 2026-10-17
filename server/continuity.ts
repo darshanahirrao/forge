@@ -16,7 +16,7 @@ const MAX_FILES = 2000;
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 50 * 1024 * 1024;
 export const capsuleCoverage =
-  'Goal, acceptance criteria, project context, all saved user checkpoints, selected file fingerprints, and up to five recent result excerpts. Native conversations remain linked to their original sessions. Native credential stores, live permissions, hidden state and unselected or excluded file contents stay outside the portable data.';
+  'Goal, acceptance criteria, project context, all saved checkpoints with source attribution, selected file fingerprints, and up to five recent result excerpts. Native conversations remain linked to their original sessions. Native credential stores, live permissions, hidden state and unselected or excluded file contents stay outside the portable data.';
 
 export function contextDigest(store: Store, work: Work) {
   return hash({
@@ -26,9 +26,12 @@ export function contextDigest(store: Store, work: Work) {
     context: work.context,
     profileId: work.profileId,
     cwd: work.cwd,
-    checkpoints: store
-      .checkpoints(work.id)
-      .map((e) => ({ id: e.id, note: e.detail, createdAt: e.createdAt })),
+    checkpoints: store.checkpoints(work.id).map((e) => ({
+      id: e.id,
+      note: e.detail,
+      createdAt: e.createdAt,
+      ...(e.actor ? { actor: e.actor } : {}),
+    })),
   });
 }
 function protectedPath(path: string) {
@@ -210,9 +213,12 @@ export class Continuity {
   async capture(workId: string, revision: number, paths?: string[]) {
     return this.execution.atCheckpoint(workId, revision, async (work) => {
       const run = this.source(work);
-      const checkpoints = this.store
-        .checkpoints(workId)
-        .map((e) => ({ id: e.id, note: e.detail, createdAt: e.createdAt }));
+      const checkpoints = this.store.checkpoints(workId).map((e) => ({
+        id: e.id,
+        note: e.detail,
+        createdAt: e.createdAt,
+        ...(e.actor ? { actor: e.actor } : {}),
+      }));
       const results = this.store
         .assistantResults(workId)
         .filter((event) => {

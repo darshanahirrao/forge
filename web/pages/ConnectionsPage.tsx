@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { compact, currency } from '../lib/format';
 import { BackendsPanel } from '../components/BackendsPanel';
+import { CompanionsPanel } from '../components/CompanionsPanel';
 
 export function ConnectionsPage({
   data,
@@ -53,6 +54,7 @@ export function ConnectionsPage({
   return (
     <div className="page-stack">
       <BackendsPanel data={data} mutate={mutate} />
+      <CompanionsPanel data={data} mutate={mutate} />
       <section className="panel resource-controls" aria-label="Workspace availability">
         <div>
           <span className="eyebrow">WORKSPACE AVAILABILITY</span>
@@ -94,8 +96,7 @@ export function ConnectionsPage({
       </section>
       <section className="panel runtime-panel">
         <div className="runtime-copy">
-          <span className="eyebrow">COMPANION RUNTIME</span>
-          <h2>Give Hermes a seat at the table.</h2>
+          <h2>Hermes API health</h2>
           <p>
             Connect an existing local Hermes API server for native health and capability discovery.
             Its tools, memory, and execution stay native. The runtime remains replaceable.

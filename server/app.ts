@@ -49,6 +49,8 @@ import { checkMemoryAdmission } from './memory-pressure.js';
 import { T3Connections, t3Endpoint } from './t3.js';
 import { T3Backends } from './backends/t3-backend.js';
 import { T3Driver } from './backends/t3-driver.js';
+import { Companions } from './companions.js';
+import { registerCompanionMcp } from './companion-mcp.js';
 
 const builtinHarness = z.enum(['codex', 'claude', 'opencode', 'hermes', 'openclaw']);
 const harness = z.string().regex(/^[a-zA-Z][a-zA-Z0-9._-]{0,79}$/);
@@ -137,6 +139,7 @@ export async function createApp(options: AppOptions) {
   );
   const profiles: Profiles = new Profiles(local, () => controller.activeCount > 0);
   const demoProfiles = new Profiles(demo);
+  const companions = new Companions(local, profiles, controller);
   const machine = new MachineMonitor(options.memoryPressureReader);
   const continuity = new Continuity(local, controller);
   const probing = new Set<string>();
@@ -201,6 +204,26 @@ export async function createApp(options: AppOptions) {
       return reply
         .code(403)
         .send({ error: 'This origin is not allowed to access the local workspace.' });
+    if (request.url.split('?')[0] === '/mcp/companions') {
+      assert(
+        actor.kind === 'local' && !request.headers['x-forge-workspace'],
+        403,
+        'Companion MCP connects directly to the local workspace.',
+      );
+      companions.authenticate(request.headers.authorization);
+      if (request.method === 'POST')
+        assert(
+          request.headers['content-type']?.startsWith('application/json'),
+          415,
+          'Send MCP requests as JSON.',
+        );
+      return;
+    }
+    assert(
+      !request.headers.authorization,
+      403,
+      'Bearer credentials do not grant access to the human workspace API.',
+    );
     if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
       const token = request.headers['x-forge-csrf'];
       const valid =
@@ -246,6 +269,26 @@ export async function createApp(options: AppOptions) {
     stateVersion: (local.db.prepare('PRAGMA user_version').get() as { user_version: number })
       .user_version,
   }));
+  registerCompanionMcp(app, companions);
+  app.get('/api/companions', async (request) =>
+    mode(request) === 'demo' ? [] : companions.list(),
+  );
+  app.post('/api/companions', async (request, reply) => {
+    assert(
+      mode(request) === 'local' &&
+        bridgeActor(request.headers, options.phoneBridge).kind === 'local',
+      403,
+      'Grant companion access from the local Forge host.',
+    );
+    const result = await companions.create(request.body);
+    return reply
+      .code(201)
+      .send({ ...result, endpoint: `http://${request.headers.host}/mcp/companions` });
+  });
+  app.delete('/api/companions/:id', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo companions have no access grant.');
+    return companions.revoke((request.params as { id: string }).id);
+  });
   app.get('/api/snapshot', async (request) => {
     const db = store(request);
     const result: Snapshot = {
@@ -259,6 +302,7 @@ export async function createApp(options: AppOptions) {
         return rank[a.status] - rank[b.status] || b.updatedAt.localeCompare(a.updatedAt);
       }),
       accounts: db.all<Account>('accounts'),
+      companionGrants: mode(request) === 'demo' ? [] : companions.list(),
       backends: mode(request) === 'demo' ? [] : backends.list(),
       approvals: db.all<Approval>('approvals'),
       events: db
@@ -1014,5 +1058,5 @@ export async function createApp(options: AppOptions) {
     local.close();
     demo.close();
   });
-  return { app, local, demo, controller, csrf };
+  return { app, local, demo, controller, csrf, companions };
 }
