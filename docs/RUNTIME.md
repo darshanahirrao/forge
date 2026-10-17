@@ -1,4 +1,4 @@
-# Forge v0.23.0
+# Forge v0.23.1
 
 Version 0.23 adds reviewed [native ACP connector registration](NATIVE_CONNECTORS.md). New compatible agents share the existing execution/permission coordinator and durable context without a new native tool stack. Native model/mode/catalog incompatibilities hold before input; provider identity and billable usage stay unknown. State remains 6.
 

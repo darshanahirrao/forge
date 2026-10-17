@@ -1,5 +1,11 @@
 # Build log
 
+## 2026-10-17 · forge-v0.23.1
+
+Fixed connector test portability after GitHub CI correctly rejected its group-writable shared Node tool-cache executable. Test fixtures now use an owned mode-0700 launcher around a group/other-writable shared runtime, retaining its installed library layout and never chmodding the cache. The native-process fixture also forces this path locally; the browser fixture uses it when required. Production executable integrity checks remain unchanged. A regression verifies launcher privacy and preservation of the original permissions.
+
+Validation: 209 functional, 3 package and 26 browser checks, TypeScript/format/build/diff/link checks. Native protocol/model/artifact/Hermes evidence remains from v0.23; runtime behavior is unchanged by this test-only portability correction. The original v0.23.0 tag remains published with its failed CI rather than rewriting history. Private app is v0.23.1/state 6 with unchanged data counts and final asset MIME. Checkpoint reference: the commit containing this entry and durable rollback tag forge-v0.23.1; verify its remote SHA/CI independently.
+
 ## 2026-10-17 · forge-v0.23.0
 
 Added versioned native ACP connector registration so a compatible installed agent can become a harness without editing Forge core. Reviewed immutable manifests bind a resolved executable/hash, exact native protocol/name/version, profile variables, mode and optional native model selection. Registration installs metadata only. Account slots share existing work/profile/context, routing, handoff, companion authorization, exact one-time approvals, pressure/spending admission and resource ownership. Native identity/quotas/billable usage remain unknown; ACP context pressure is never converted into paid usage. Retirement prevents new starts; removal preserves account/work/history references. Existing account bindings remain unchanged; state remains 6 and old code cannot dispatch the namespaced harness.

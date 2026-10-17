@@ -12,6 +12,7 @@ import { createApp } from '../dist/server/app.js';
 import { NativeRpc } from '../dist/server/adapters/rpc.js';
 import { readCodexAccount } from '../dist/server/adapters/accounts.js';
 import { t3Fixture } from './fixtures/t3-mcp.ts';
+import { connectorTestExecutable } from './fixtures/connector-executable.ts';
 const t3 = await t3Fixture();
 // Owned loopback sink only. Browser tests never publish to an external topic.
 const delivered = [];
@@ -166,6 +167,7 @@ app.get('/api/fixture/credentials', async () => ({
 }));
 const connectorHome = join(directory, 'connector-home');
 mkdirSync(connectorHome);
+const connectorExecutable = await connectorTestExecutable(directory);
 app.get('/api/fixture/connectors', async () => ({
   nativeHome: connectorHome,
   manifest: {
@@ -174,7 +176,7 @@ app.get('/api/fixture/connectors', async () => ({
     id: 'ext.browser-agent.v1',
     name: 'Owned browser agent',
     protocol: 'acp/1',
-    executable: process.execPath,
+    executable: connectorExecutable,
     args: [fileURLToPath(new URL('./fixtures/acp-agent.mjs', import.meta.url))],
     agent: { name: 'owned-acp-fixture', version: '1.0.0' },
     mode: 'review',

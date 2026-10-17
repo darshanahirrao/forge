@@ -13,6 +13,8 @@ import { Store, now } from '../server/store.js';
 import { createApp } from '../server/app.js';
 import { unknownPressure } from '../server/memory-pressure.js';
 import type { Account, Approval, Work } from '../shared/types.js';
+import { connectorTestExecutable } from './fixtures/connector-executable.js';
+import { stat } from 'node:fs/promises';
 
 const spec = (executable: string) => ({
   format: 'forge.native-connector' as const,
@@ -48,6 +50,16 @@ test('connector manifests are versioned, namespaced and exclude shell/env/escapi
     { ...good, args: ['bad\u0000arg'] },
   ])
     assert.throws(() => connectorManifestSchema.parse(wrong));
+});
+test('a group-writable CI runtime uses a private test launcher without weakening production checks or chmodding the original', async (t) => {
+  if (process.platform === 'win32') return;
+  const f = await directory(t);
+  await chmod(f.executable, 0o775);
+  const owned = await connectorTestExecutable(f.root, f.executable);
+  assert.notEqual(owned, f.executable);
+  assert.equal((await stat(owned)).mode & 0o777, 0o700);
+  assert.equal((await stat(f.executable)).mode & 0o777, 0o775);
+  assert.ok((await readFile(owned, 'utf8')).includes(`exec '${f.executable}' "$@"`));
 });
 
 test('registration executes nothing, revalidates a reviewed binary and pins immutable history bindings', async (t) => {
@@ -189,7 +201,7 @@ test('an installed connector runs through shared exact approvals, durable work, 
   });
   t.after(() => state.app.close());
   const manifest = {
-    ...spec(process.execPath),
+    ...spec(await connectorTestExecutable(f.root, process.execPath, true)),
     model: 'fixture/proof',
     args: [fileURLToPath(new URL('./fixtures/acp-agent.mjs', import.meta.url))],
   };
