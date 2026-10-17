@@ -28,6 +28,8 @@ Audit started 17 October 2026 from clean main checkpoint `a3e54d2`. Verified che
 
 ## Native compatibility findings
 
+The `native-crash-20261017` check proves compiled Forge crash/restart at a pending T3/Codex approval, stale decision rejection, global admission retention and exact native cancellation/settlement without an extra model request or an unapproved file. This covers that failure boundary; other native crashes, disconnect timing and whole-stack recovery remain open.
+
 - Claude Agent SDK documentation says third-party products need approval to offer claude.ai login or rate limits. SDK-managed execution must use supported API/cloud authentication unless the required upstream approval is established. Native subscription slots are not converted into a subscription proxy. Source: https://code.claude.com/docs/en/agent-sdk/overview
 - The installed Hermes source advertises run APIs but its legacy approval handler resolves the current session prompt without a request ID/generation. Current upstream documentation describes canonical identity-bound controls. Forge must negotiate the deployed contract and refuse identityless approval forwarding. Source: installed API capability declarations and https://hermes-agent.nousresearch.com/docs/user-guide/features/api-server
 

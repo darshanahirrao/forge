@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import { spawn, execFile as execCallback } from 'node:child_process';
+import { spawn, execFile as execCallback, type ChildProcess } from 'node:child_process';
 import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 import { mkdtemp, mkdir, open, readFile, writeFile, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, dirname, isAbsolute } from 'node:path';
@@ -14,6 +15,7 @@ import type {
   Work,
   WorkspaceBackend,
   WorkCapsule,
+  Snapshot,
 } from '../../shared/types.js';
 import { processTable, type ProcessObservation } from '../../server/processes.js';
 import { fixtureProvider } from './provider.js';
@@ -36,12 +38,21 @@ for (const folder of [home, join(data, 'userdata'), cwd, nativeHome])
   await mkdir(folder, { recursive: true });
 let toolSent = false,
   secondToolSent = false,
+  crashToolSent = false,
   phase = 1;
 let expectedKey = 'synthetic-slot-one';
 let historyRetained = false;
 const provider = await fixtureProvider(
   'responses',
   (body) => {
+    if (phase === 3 && !crashToolSent) {
+      crashToolSent = true;
+      return {
+        tool: 'exec_command',
+        id: 'forge_t3_crash_call',
+        input: { cmd: "printf 'MUST-NOT-RUN\\n' > should-not-exist.txt", max_output_tokens: 100 },
+      };
+    }
     if (phase === 2 && !secondToolSent) {
       historyRetained = JSON.stringify(body.input).includes(
         'Native Forge execution conformance complete.',
@@ -141,7 +152,82 @@ const native = spawn(
 );
 let exited = false;
 native.once('exit', () => (exited = true));
-const app = await createApp({ filename: join(root, 'forge.sqlite'), test: true });
+const app = await createApp({ filename: join(root, 'workspace.sqlite'), test: true });
+// This isolated crash fixture controls admission; native pressure protection has its own check.
+app.local.put('settings', 'workspace', {
+  ...app.local.settings(),
+  memoryPressurePolicy: 'observe',
+});
+let appClosed = false;
+let forge: ChildProcess | undefined;
+let forgeLog: Awaited<ReturnType<typeof open>> | undefined;
+let forgeOrigin = '',
+  forgeCsrf = '';
+async function startForge() {
+  const socket = createServer();
+  await new Promise<void>((resolve) => socket.listen(0, '127.0.0.1', resolve));
+  const forgePort = (socket.address() as { port: number }).port;
+  await new Promise<void>((resolve) => socket.close(() => resolve()));
+  forgeOrigin = `http://127.0.0.1:${forgePort}`;
+  forgeLog = await open(join(root, 'forge.log'), 'a', 0o600);
+  forge = spawn(
+    process.execPath,
+    [
+      fileURLToPath(new URL('../../bin/forge.mjs', import.meta.url)),
+      '--data-dir',
+      root,
+      '--port',
+      String(forgePort),
+    ],
+    { cwd, env, stdio: ['ignore', forgeLog.fd, forgeLog.fd] },
+  );
+  for (let i = 0; i < 80; i++) {
+    assert(forge.exitCode === null && forge.signalCode === null, 'Forge exited before readiness.');
+    try {
+      const response = await fetch(forgeOrigin + '/api/snapshot', {
+        signal: AbortSignal.timeout(1000),
+      });
+      if (response.ok) {
+        const snapshot = (await response.json()) as Snapshot;
+        forgeCsrf = snapshot.csrf;
+        return snapshot;
+      }
+    } catch {}
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  assert.fail('The compiled Forge service never became ready.');
+}
+async function stopForge(signal: 'SIGKILL' | 'SIGTERM') {
+  if (forge && forge.exitCode === null && forge.signalCode === null) {
+    forge.kill(signal);
+    for (let i = 0; i < 60 && forge.exitCode === null && forge.signalCode === null; i++)
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    if (forge.exitCode === null && forge.signalCode === null) {
+      forge.kill('SIGKILL');
+      await new Promise((resolve) => forge!.once('exit', resolve));
+      assert.fail('The owned Forge service did not settle during teardown.');
+    }
+    assert.equal(
+      signal === 'SIGKILL' ? forge.signalCode : forge.exitCode,
+      signal === 'SIGKILL' ? 'SIGKILL' : 0,
+    );
+  }
+  await forgeLog?.close();
+  forgeLog = undefined;
+  forge = undefined;
+}
+async function http<T>(url: string, body?: unknown, expectedStatus?: number): Promise<T> {
+  const response = await fetch(forgeOrigin + '/api' + url, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: { origin: forgeOrigin, 'content-type': 'application/json', 'x-forge-csrf': forgeCsrf },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    signal: AbortSignal.timeout(20000),
+  });
+  const result = await response.json();
+  if (expectedStatus) assert.equal(response.status, expectedStatus, JSON.stringify(result));
+  else assert(response.ok, `${url}: ${JSON.stringify(result)}`);
+  return result as T;
+}
 const request = async <T>(
   url: string,
   body: unknown = {},
@@ -390,6 +476,80 @@ try {
   }
   assert.equal(app.local.all<Run>('runs').filter((value) => value.workId === work.id).length, 2);
   assert.equal(provider.failure(), null);
+  stage = 'compiled Forge crash while native approval waits';
+  await app.app.close();
+  appClosed = true;
+  await startForge();
+  phase = 3;
+  const beforeCrash = await http<{ work: Work }>(`/work/${work.id}`);
+  const crashRun = await http<Run>(`/work/${work.id}/launch`, {
+    expectedRevision: beforeCrash.work.revision,
+    allowMetered: true,
+  });
+  let heldApproval: Approval | undefined;
+  for (let i = 0; i < 200; i++) {
+    const snapshot = await http<Snapshot>('/snapshot');
+    heldApproval = snapshot.approvals.find(
+      (value) => value.runId === crashRun.id && value.status === 'pending',
+    );
+    if (heldApproval) break;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+  }
+  const held = heldApproval;
+  assert(held, 'The native approval must be observed before the crash.');
+  assert(
+    held.command.includes('should-not-exist.txt'),
+    'The native tool must be held for approval before the crash.',
+  );
+  await captureNativeTree();
+  await assert.rejects(readFile(join(cwd, 'should-not-exist.txt')));
+  const requestsAtCrash = provider.requests();
+  await stopForge('SIGKILL');
+  assert(!exited, 'A Forge crash must not kill the native T3 owner.');
+  stage = 'restart, stale decision rejection and exact native reconciliation';
+  const recovered = await startForge();
+  assert.equal(recovered.work.find((value) => value.id === work.id)?.status, 'interrupted');
+  assert.equal(recovered.approvals.find((value) => value.id === held.id)?.status, 'invalidated');
+  const detail = await http<{ work: Work; runs: Run[] }>(`/work/${work.id}`);
+  const interrupted = detail.runs.find((value) => value.id === crashRun.id)!;
+  assert.equal(detail.runs.length, 3);
+  assert(interrupted.settlement && !interrupted.settlement.confirmed);
+  assert.equal(interrupted.settlement.messageId, crashRun.settlement!.messageId);
+  assert.equal(interrupted.exitConfirmed, undefined);
+  await http(`/approvals/${held.id}/decision`, { digest: held.digest, decision: 'accept' }, 409);
+  await http(`/runs/${crashRun.id}/reconcile`, { interrupt: false }, 409);
+  const blocked = await http<Work>('/work', {
+    title: 'Blocked during native uncertainty',
+    project: 'Conformance',
+    cwd,
+    goal: 'Do not launch while another native receipt remains unsettled.',
+    harness: second.harness,
+    accountId: second.id,
+  });
+  await http(
+    `/work/${blocked.id}/launch`,
+    { expectedRevision: blocked.revision, allowMetered: true },
+    409,
+  );
+  const reconciled = await http<NonNullable<Run['settlement']>>(`/runs/${crashRun.id}/reconcile`, {
+    interrupt: true,
+  });
+  assert(reconciled.confirmed && reconciled.runId);
+  assert.equal(reconciled.threadId, crashRun.settlement!.threadId);
+  const after = await http<{ work: Work; runs: Run[] }>(`/work/${work.id}`);
+  assert.equal(after.work.activeRunId, null);
+  assert.equal(after.runs.find((value) => value.id === crashRun.id)?.exitConfirmed, undefined);
+  assert.equal(
+    provider.requests(),
+    requestsAtCrash,
+    'Recovery must never replay a model turn or pending approval.',
+  );
+  await assert.rejects(
+    readFile(join(cwd, 'should-not-exist.txt')),
+    'The unapproved native effect must remain absent after recovery.',
+  );
+  assert.equal(provider.failure(), null);
+  await stopForge('SIGTERM');
   success = true;
   report = {
     result: 'passed',
@@ -403,6 +563,10 @@ try {
     paidModelCalls: 0,
     settlement: settled.settlement.state,
     processExitClaimed: false,
+    crashedAtPendingApproval: true,
+    exactRecovery: reconciled.state,
+    replayedRequests: 0,
+    unapprovedEffectAbsent: true,
   };
 } catch (error) {
   console.error('T3 execution conformance failed', {
@@ -413,7 +577,8 @@ try {
   process.exitCode = 1;
 } finally {
   await captureNativeTree();
-  await app.app.close();
+  if (!appClosed) await app.app.close();
+  await stopForge('SIGTERM');
   native.kill('SIGTERM');
   for (let i = 0; i < 60 && !exited; i++) await new Promise((resolve) => setTimeout(resolve, 250));
   const forced = !exited;
