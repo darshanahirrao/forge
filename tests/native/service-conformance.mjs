@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:net';
@@ -41,6 +41,38 @@ try {
   const snapshot = await (await fetch(url + '/api/snapshot')).json();
   assert.equal(snapshot.service.mode, 'launchd');
   assert.equal(snapshot.work.length, 0);
+  const credentialPath = join(root, 'owned-private-provider.json');
+  const syntheticCredential = 'public-synthetic-background-reference';
+  await writeFile(credentialPath, JSON.stringify({ selected: syntheticCredential }), {
+    mode: 0o600,
+  });
+  const accountResponse = await fetch(url + '/api/accounts', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', origin: url, 'x-forge-csrf': snapshot.csrf },
+    body: JSON.stringify({
+      label: 'Owned background reference',
+      harness: 'claude',
+      billingMode: 'api',
+      credentialEnv: 'ANTHROPIC_API_KEY',
+      credentialReference: { kind: 'private-json', path: credentialPath, key: 'selected' },
+    }),
+  });
+  assert.equal(accountResponse.status, 201);
+  const nativeAccount = await accountResponse.json();
+  async function checkCredential() {
+    const current = await (await fetch(url + '/api/snapshot')).json();
+    const checked = await fetch(url + `/api/accounts/${nativeAccount.id}/credential/check`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: url, 'x-forge-csrf': current.csrf },
+      body: '{}',
+    });
+    assert.equal(checked.status, 200);
+    const raw = await checked.text();
+    assert.equal(JSON.parse(raw).available, true);
+    assert.equal(raw.includes(syntheticCredential), false);
+    assert.equal(JSON.stringify(current).includes(syntheticCredential), false);
+  }
+  await checkCredential();
   const response = await fetch(url + '/api/work', {
     method: 'POST',
     headers: { 'content-type': 'application/json', origin: url, 'x-forge-csrf': snapshot.csrf },
@@ -58,6 +90,7 @@ try {
   assert.equal(started.state, 'running');
   assert.notEqual(started.pid, firstPid);
   assert((await (await fetch(url + '/api/snapshot')).json()).work.some((w) => w.id === work.id));
+  await checkCredential();
   console.log('Actual launchd start and graceful restart preserve the same idle work.');
   const previousPid = started.pid;
   // Native target authority, never a saved PID. No worker/model task is started.
@@ -73,6 +106,7 @@ try {
     await new Promise((ok) => setTimeout(ok, 500));
   }
   assert(recovered, 'Native crash restart did not restore the workspace.');
+  await checkCredential();
   assert((await (await fetch(url + '/api/snapshot')).json()).work.some((w) => w.id === work.id));
   console.log('Native abnormal-exit restart preserves state without a model call.');
   const stopped = await controlService('stop', dataDirectory, context);
@@ -95,6 +129,7 @@ try {
       idleWorkRetained: true,
       ownedServiceRemoved: true,
       privateStatePreserved: true,
+      privateReferenceAvailableAcrossRestarts: true,
       paidModelCalls: 0,
     }),
   );

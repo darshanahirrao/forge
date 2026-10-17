@@ -32,7 +32,7 @@ export class CodexDriver implements NativeDriver {
     const rpc = this.factory({
       binary,
       cwd: context.work.cwd,
-      env: nativeEnvironment(context.account),
+      env: nativeEnvironment(context.account, context.credentials),
       timeoutMs: 20000,
     });
     this.rpc = rpc;

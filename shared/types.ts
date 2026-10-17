@@ -31,6 +31,7 @@ export interface Account {
   nativeHome: string;
   /** Environment variable name only. Forge never stores its secret value. */
   credentialEnv?: string;
+  credentialReference?: import('./credentials.js').CredentialReference;
   billingMode: 'native' | 'subscription' | 'api';
   state: 'configured' | 'verified' | 'unavailable';
   identity: string | null;
@@ -422,6 +423,7 @@ export interface BackgroundRuntime {
 }
 export interface Snapshot {
   notifications?: import('./notifications.js').NotificationSnapshot;
+  nativeControls?: import('./native-controls.js').NativeControlSnapshot;
   spending?: import('./spending.js').SpendingSnapshot;
   outcomes?: import('./spending.js').WorkOutcome[];
   companionGrants?: CompanionGrant[];

@@ -14,6 +14,7 @@ import type {
 import type { Account, Usage } from '../../shared/types.js';
 import { version } from '../../shared/version.js';
 import { assert } from '../errors.js';
+import { credentialValue, type CredentialMaterial } from '../credentials.js';
 import { now } from '../store.js';
 import { requestDigest } from './sources.js';
 import { findBinary } from './discovery.js';
@@ -27,7 +28,9 @@ import {
 import type { DriverContext, DriverSink, NativeDriver } from './driver.js';
 
 export function hermesEnvironment(
-  account: Pick<Account, 'nativeHome' | 'credentialEnv'>,
+  account: Pick<Account, 'nativeHome' | 'credentialEnv'> &
+    Partial<Pick<Account, 'credentialReference'>>,
+  credentials?: CredentialMaterial,
 ): NodeJS.ProcessEnv {
   assert(account.nativeHome, 409, 'Choose an explicit native Hermes home before launching.');
   const env: NodeJS.ProcessEnv = {};
@@ -59,11 +62,15 @@ export function hermesEnvironment(
       'Choose a provider credential variable, not a runtime setting.',
     );
     assert(
-      process.env[account.credentialEnv],
+      credentialValue(account as Account, account.credentialEnv, credentials),
       409,
       `Set ${account.credentialEnv} before launching.`,
     );
-    env[account.credentialEnv] = process.env[account.credentialEnv];
+    env[account.credentialEnv] = credentialValue(
+      account as Account,
+      account.credentialEnv,
+      credentials,
+    );
   }
   return env;
 }
@@ -71,8 +78,9 @@ export async function startHermesWorker(
   app: ClientApp,
   account: Account,
   cwd: string,
+  credentials?: CredentialMaterial,
 ): Promise<AcpWorker> {
-  const env = hermesEnvironment(account);
+  const env = hermesEnvironment(account, credentials);
   const binary = await findBinary('hermes');
   assert(binary, 409, 'Install Hermes with its ACP extra through its native setup first.');
   const python = await hermesPython(binary);
@@ -134,13 +142,16 @@ export async function initializeHermesWorker(worker: AcpWorker) {
   );
   return init;
 }
-export async function probeHermesAccount(account: Account): Promise<Account> {
+export async function probeHermesAccount(
+  account: Account,
+  credentials?: CredentialMaterial,
+): Promise<Account> {
   const { client } = await import('@agentclientprotocol/sdk');
   const app = client({ name: 'Forge status probe' }).onRequest(
     'session/request_permission',
     () => ({ outcome: { outcome: 'cancelled' } }),
   );
-  const worker = await startHermesWorker(app, account, account.nativeHome);
+  const worker = await startHermesWorker(app, account, account.nativeHome, credentials);
   try {
     await initializeHermesWorker(worker);
     return {
@@ -198,7 +209,7 @@ export class HermesDriver implements NativeDriver {
     if (this.closing) return;
     this.starting = this.factory
       ? this.factory(app)
-      : startHermesWorker(app, context.account, context.work.cwd);
+      : startHermesWorker(app, context.account, context.work.cwd, context.credentials);
     this.worker = await this.starting;
     if (this.closing) {
       await this.worker.stop();

@@ -522,7 +522,9 @@ test('native activity discovers profiles, preserves observations after reload an
     'true',
   );
   await expect(page.getByRole('heading', { name: 'Native morning review' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Native Hermes check' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'Native Hermes check', exact: true }),
+  ).toBeVisible();
   await expect(page.getByText('excluded native instructions')).not.toBeVisible();
   await page.getByLabel('Search native activity').fill('Hermes check');
   await expect(page.getByRole('heading', { name: 'Native morning review' })).not.toBeVisible();

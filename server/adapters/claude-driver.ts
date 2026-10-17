@@ -46,7 +46,7 @@ export class ClaudeDriver implements NativeDriver {
       'Claude SDK execution requires an API account slot. Native claude.ai subscription sessions remain in their native client unless upstream approval is established.',
     );
     assert(context.allowMetered, 409, 'Explicitly allow metered usage for this Claude API launch.');
-    const env = nativeEnvironment(context.account);
+    const env = nativeEnvironment(context.account, context.credentials);
     assert(
       Boolean(env.ANTHROPIC_API_KEY),
       409,

@@ -50,6 +50,7 @@ export function Overview({
   const [limit, setLimit] = useState(20);
   const pending = data.approvals.filter((approval) => approval.status === 'pending');
   const notificationIssues = data.notifications?.needsReview ?? 0;
+  const nativeControlIssues = data.nativeControls?.needsReview ?? 0;
   const active = data.work.filter((work) => work.activeRunId).length;
   const sourceErrors = data.nativeSources.filter((source) => source.state === 'error').length;
   const sources = new Map(data.nativeSources.map((source) => [source.id, source.label]));
@@ -136,11 +137,12 @@ export function Overview({
           {data.settings.quietMode ? 'New work paused' : 'Pause new work'}
         </button>
       </section>
-      {(pending.length > 0 || notificationIssues > 0) && (
+      {(pending.length > 0 || notificationIssues > 0 || nativeControlIssues > 0) && (
         <section className="workspace-attention" aria-label="Needs your attention">
           <h2>
             <ShieldCheck size={16} />
-            Needs your attention <span>{pending.length + notificationIssues}</span>
+            Needs your attention{' '}
+            <span>{pending.length + notificationIssues + nativeControlIssues}</span>
           </h2>
           {pending.map((approval) => (
             <button
@@ -172,6 +174,20 @@ export function Overview({
               </span>
               <span>
                 Review delivery <ChevronRight size={15} />
+              </span>
+            </button>
+          )}
+          {nativeControlIssues > 0 && (
+            <button className="attention-row" onClick={onSchedules}>
+              <span>
+                <strong>Native schedule outcome needs review</strong>
+                <small>
+                  {nativeControlIssues} uncertain{' '}
+                  {nativeControlIssues === 1 ? 'control' : 'controls'}. No action was replayed.
+                </small>
+              </span>
+              <span>
+                Review schedules <ChevronRight size={15} />
               </span>
             </button>
           )}

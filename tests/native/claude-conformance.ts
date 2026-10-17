@@ -125,8 +125,12 @@ await new Promise<void>((resolve) => provider.listen(0, '127.0.0.1', resolve));
 const address = provider.address();
 assert(address && typeof address === 'object');
 const endpoint = `http://127.0.0.1:${address.port}`;
-const previous = process.env.FORGE_NATIVE_CONFORMANCE_KEY;
-process.env.FORGE_NATIVE_CONFORMANCE_KEY = 'synthetic-local-provider-key';
+const privateCredentialPath = join(directory, 'private-provider.json');
+await writeFile(
+  privateCredentialPath,
+  JSON.stringify({ selected: 'synthetic-local-provider-key' }),
+  { mode: 0o600 },
+);
 const state = await createApp({
   memoryPressureReader: unknownPressure,
   filename: ':memory:',
@@ -183,7 +187,8 @@ try {
       harness: 'claude',
       nativeHome,
       billingMode: 'api',
-      credentialEnv: 'FORGE_NATIVE_CONFORMANCE_KEY',
+      credentialEnv: 'ANTHROPIC_API_KEY',
+      credentialReference: { kind: 'private-json', path: privateCredentialPath, key: 'selected' },
     })
   ).json<Account>();
   const work = (
@@ -254,13 +259,12 @@ try {
       nativeBudgetUsd: 1,
       attemptCostAccounting: true,
       settingsOverrideRejected: true,
+      privateCredentialReference: true,
       paidModelCalls: 0,
     }),
   );
 } finally {
   await state.app.close();
   await new Promise<void>((resolve) => provider.close(() => resolve()));
-  if (previous === undefined) delete process.env.FORGE_NATIVE_CONFORMANCE_KEY;
-  else process.env.FORGE_NATIVE_CONFORMANCE_KEY = previous;
   await rm(directory, { recursive: true, force: true });
 }

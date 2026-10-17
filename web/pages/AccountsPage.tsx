@@ -3,6 +3,7 @@ import { UsersRound, Gauge, LoaderCircle, RefreshCw, Plus } from 'lucide-react';
 import { HarnessMark, Status, Empty } from '../components/primitives';
 import { harnessName, age } from '../lib/format';
 import { SpendingPanel } from '../components/SpendingPanel';
+import { CredentialReference } from '../components/CredentialReference';
 import type { Mutate } from '../api';
 import { managedHarnesses } from '../../shared/harnesses';
 
@@ -133,6 +134,16 @@ export function AccountsPage({
                 </p>
               )}
               {a.error && <p className="form-error">{a.error}</p>}
+              <CredentialReference
+                account={a}
+                mutate={mutate}
+                disabled={
+                  Boolean(busy) ||
+                  data.mode === 'demo' ||
+                  data.access?.kind === 'tailscale' ||
+                  data.work.some((work) => work.activeRunId)
+                }
+              />
               <div className="account-footer">
                 <span className="source-note">
                   {a.backend

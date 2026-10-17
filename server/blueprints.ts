@@ -106,6 +106,7 @@ const accountBinding = (account: Account) => ({
   billingMode: account.billingMode,
   nativeHome: account.nativeHome,
   credentialEnv: account.credentialEnv,
+  ...(account.credentialReference ? { credentialReference: account.credentialReference } : {}),
   backend: account.backend,
   identityKey: account.identityKey,
 });

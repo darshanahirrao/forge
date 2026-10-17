@@ -2,6 +2,7 @@ import type { Account, Harness, Run, Usage, Work } from '../../shared/types.js';
 
 /** Native tools, permissions and conversation state stay inside the selected harness. */
 export interface DriverContext {
+  credentials?: import('../credentials.js').CredentialMaterial;
   work: Work;
   account: Account;
   run: Run;

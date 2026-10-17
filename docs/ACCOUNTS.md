@@ -4,6 +4,8 @@ Version 0.19 implements explicit native account slots, exact work continuity and
 
 ## The experience
 
+Version 0.22 adds optional [private credential references](CREDENTIAL_REFERENCES.md) for native provider environment variables, including foreground/background use. Values stay outside Forge state/exports; account/reference bindings and native identity checks remain separate. No subscription allowance is pooled or inferred from another slot.
+
 One work record might continue through Claude Code account A, Claude Code account B, and then Codex account A. Its goal, acceptance criteria, files, decisions, relevant memory references, artifacts, and attempt history stay attached to the same `work_id`. The timeline records the actual account and harness used for every attempt.
 
 The person chooses an account directly or configures an ordered routing policy for that project. A switch preview shows target access, context coverage, available capabilities, quota evidence, and billing mode. With prior routing authorization and a verified safe boundary, compatible continuation can happen automatically. First sign-in, expired authorization, unavailable context, or incompatible access can still require attention.
@@ -12,24 +14,24 @@ Connecting an account should not start another always-running harness, browser, 
 
 ## Independent identities
 
-| Record | Meaning |
-| --- | --- |
-| `work_id` | The durable task, independent of any login or native conversation. |
-| `account_ref` | An opaque local reference to a connected native account slot. Secrets remain in the native credential store. |
+| Record                          | Meaning                                                                                                                                                |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `work_id`                       | The durable task, independent of any login or native conversation.                                                                                     |
+| `account_ref`                   | An opaque local reference to a connected native account slot. Secrets remain in the native credential store.                                           |
 | Native account and organization | The verified identity actually serving an attempt, including workspace or billing scope where exposed. Several slots may resolve to the same identity. |
-| Execution binding | Harness/runtime, version, host, account reference, native session, attempt, and execution generation. |
-| Quota scope | A provider-reported limit bucket, with its own scope, window, reset time, source, and observation time. Several accounts or models may share it. |
+| Execution binding               | Harness/runtime, version, host, account reference, native session, attempt, and execution generation.                                                  |
+| Quota scope                     | A provider-reported limit bucket, with its own scope, window, reset time, source, and observation time. Several accounts or models may share it.       |
 
 Account slots retain only the metadata needed for coordination: display alias, native profile reference, supported authentication mode, connection state, permitted project/data scopes, declared capabilities, and usage/quota source references. Public blueprints carry role labels and connection requirements; private account identifiers and credentials stay local.
 
 ## Reuse native account support
 
-| Integration | Verified upstream documentation | Design consequence |
-| --- | --- | --- |
-| Claude Code | Separate `CLAUDE_CONFIG_DIR` values isolate claude.ai logins or API keys, settings, and history. Two keyless Console sign-ins are an explicit exception. | Use native sign-in and supported isolation for the selected authentication mode. Do not treat a directory as proof of isolation for every mode. |
-| Codex | Credential storage can use an OS credential store, a file under `CODEX_HOME`, or process memory. App-server exposes active-account and ChatGPT rate-limit operations. | Verify the actual account before dispatch. Test isolation for the chosen version and storage backend; a configuration profile alone does not establish an independent login. |
-| Agent Deck | Existing Claude account slots and a documented stop, transcript-copy, and resume flow. | Evaluate this implementation before building account management or native conversation migration. Documented behavior still needs integration and fault testing. |
-| Other harnesses and runtimes | Authentication, session portability, quota APIs, and credential precedence vary. | Advertise account discovery, isolation, quota visibility, and continuation as separate tested capabilities. Unsupported behavior stays visible. |
+| Integration                  | Verified upstream documentation                                                                                                                                       | Design consequence                                                                                                                                                           |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code                  | Separate `CLAUDE_CONFIG_DIR` values isolate claude.ai logins or API keys, settings, and history. Two keyless Console sign-ins are an explicit exception.              | Use native sign-in and supported isolation for the selected authentication mode. Do not treat a directory as proof of isolation for every mode.                              |
+| Codex                        | Credential storage can use an OS credential store, a file under `CODEX_HOME`, or process memory. App-server exposes active-account and ChatGPT rate-limit operations. | Verify the actual account before dispatch. Test isolation for the chosen version and storage backend; a configuration profile alone does not establish an independent login. |
+| Agent Deck                   | Existing Claude account slots and a documented stop, transcript-copy, and resume flow.                                                                                | Evaluate this implementation before building account management or native conversation migration. Documented behavior still needs integration and fault testing.             |
+| Other harnesses and runtimes | Authentication, session portability, quota APIs, and credential precedence vary.                                                                                      | Advertise account discovery, isolation, quota visibility, and continuation as separate tested capabilities. Unsupported behavior stays visible.                              |
 
 Native login owns credential creation and refresh. Avoid overwriting a shared live auth file to change accounts. Launch only the selected native account context, check the effective identity and provider after native configuration precedence applies, and keep unrelated credentials out of the child environment. Credential-store isolation does not isolate workspace files; file access still follows the existing execution host and native permissions.
 

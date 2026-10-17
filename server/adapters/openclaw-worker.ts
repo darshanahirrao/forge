@@ -21,6 +21,7 @@ import { z } from 'zod';
 import type { Account } from '../../shared/types.js';
 import { version } from '../../shared/version.js';
 import { assert } from '../errors.js';
+import { credentialValue, type CredentialMaterial } from '../credentials.js';
 import { findBinary } from './discovery.js';
 import { acquireProfileLease } from './profile-lease.js';
 
@@ -51,10 +52,17 @@ export interface OpenClawConnection {
   /** A receipt for the actual native process exit, after its own cleanup budget. */
   stop(): Promise<{ clean: boolean }>;
 }
-export type OpenClawFactory = (account: Account, cwd: string) => Promise<OpenClawConnection>;
+export type OpenClawFactory = (
+  account: Account,
+  cwd: string,
+  credentials?: CredentialMaterial,
+) => Promise<OpenClawConnection>;
 
 /** A dedicated native execution profile. Other accounts' ambient provider keys are excluded. */
-export function openClawEnvironment(account: Account): NodeJS.ProcessEnv {
+export function openClawEnvironment(
+  account: Account,
+  credentials?: CredentialMaterial,
+): NodeJS.ProcessEnv {
   assert(account.nativeHome, 409, 'Choose an explicit native OpenClaw execution profile.');
   const env: NodeJS.ProcessEnv = {};
   for (const key of [
@@ -96,11 +104,11 @@ export function openClawEnvironment(account: Account): NodeJS.ProcessEnv {
       'Choose a provider credential variable, not a native runtime setting.',
     );
     assert(
-      process.env[account.credentialEnv],
+      credentialValue(account, account.credentialEnv, credentials),
       409,
       `Set ${account.credentialEnv} before launching.`,
     );
-    env[account.credentialEnv] = process.env[account.credentialEnv];
+    env[account.credentialEnv] = credentialValue(account, account.credentialEnv, credentials);
   }
   return env;
 }
@@ -275,8 +283,12 @@ async function unusedPort(): Promise<number> {
 }
 
 /** Supervise the installed native CLI; the official SDK owns framing, auth and correlation. */
-export async function openClawWorker(account: Account, cwd: string): Promise<OpenClawConnection> {
-  const env = openClawEnvironment(account);
+export async function openClawWorker(
+  account: Account,
+  cwd: string,
+  credentials?: CredentialMaterial,
+): Promise<OpenClawConnection> {
+  const env = openClawEnvironment(account, credentials);
   const installation = await openClawInstallation(env);
   const release = await acquireProfileLease(account.nativeHome);
   let handedOff = false;
@@ -520,8 +532,11 @@ export async function openClawWorker(account: Account, cwd: string): Promise<Ope
 }
 
 /** Native setup validation only: status checks never start a Gateway or activate a turn. */
-export async function probeOpenClawAccount(account: Account): Promise<Account> {
-  const env = openClawEnvironment(account);
+export async function probeOpenClawAccount(
+  account: Account,
+  credentials?: CredentialMaterial,
+): Promise<Account> {
+  const env = openClawEnvironment(account, credentials);
   const installation = await openClawInstallation(env);
   await assertOpenClawExecutionProfile(installation, env);
   return {

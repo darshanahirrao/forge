@@ -2204,6 +2204,7 @@ label small,
   font-size: 12px;
   color: var(--accent);
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 .native-facts {
   display: grid;

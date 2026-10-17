@@ -13,6 +13,7 @@ import { requestDigest } from './adapters/sources.js';
 import { captureWorker } from './processes.js';
 import { Spending } from './spending.js';
 import { accountBinding } from './adapters/binding.js';
+import type { CredentialMaterial } from './credentials.js';
 import type {
   DriverContext,
   DriverFactory,
@@ -27,6 +28,7 @@ interface PendingControl {
   abort: () => void;
 }
 interface Active {
+  credentials?: CredentialMaterial;
   authorizeAccount: (account: Account) => void;
   driver: NativeDriver;
   run: Run;
@@ -50,6 +52,7 @@ export class ExecutionController {
     private prepareContext?: (work: Work, reviewDigest?: string) => Promise<ContextReview>,
     private admissionCheck?: () => Promise<void>,
     private authorizeLaunch?: (work: Work, account: Account, allowMetered: boolean) => void,
+    private prepareCredentials?: (account: Account) => Promise<CredentialMaterial | undefined>,
   ) {
     this.spending = new Spending(store);
     this.spending.recover();
@@ -151,8 +154,11 @@ export class ExecutionController {
         prepared = resolve;
       }),
     };
+    let material: CredentialMaterial | undefined;
+    let retained = false;
     try {
       const review = await this.prepareContext?.(work, reviewDigest);
+      material = await this.prepareCredentials?.(account);
       await this.admissionCheck?.();
       companion?.authorize();
       assert(
@@ -190,6 +196,7 @@ export class ExecutionController {
         ...(review ? { contextReceipt: review.receipt } : {}),
       };
       const context: DriverContext = {
+        credentials: material,
         work: effectiveWork,
         account,
         run,
@@ -224,6 +231,7 @@ export class ExecutionController {
         run.settlement = { ...driver.settlement };
       }
       const active: Active = {
+        credentials: material,
         authorizeAccount: (observed) => {
           if (companion) {
             assert(
@@ -272,8 +280,10 @@ export class ExecutionController {
       void driver.start(context, this.sink(active)).catch((error) => {
         void this.finish(active, 'failed', 'Native attempt could not complete', safeMessage(error));
       });
+      retained = true;
       return run;
     } finally {
+      if (!retained) material?.dispose();
       this.preparing = null;
       prepared();
     }
@@ -724,6 +734,8 @@ export class ExecutionController {
           'The work remains reserved. Reconcile its exact native run before another attempt.',
         );
         return;
+      } finally {
+        active.credentials?.dispose();
       }
       active.run.status = status;
       active.run.endedAt = now();
@@ -795,6 +807,7 @@ export class ExecutionController {
           `Native state: ${receipt.state}. No message or approval was replayed.`,
         );
       });
+      this.active.get(run.workId)?.credentials?.dispose();
       this.active.delete(run.workId);
       return receipt;
     } finally {

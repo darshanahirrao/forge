@@ -18,6 +18,6 @@ Functional tests cover aging, malformed/replayed contracts, admission, concurren
 
 ## Remaining controls
 
-Pause/resume and scheduler ownership transfer remain open. The installed Hermes CLI supports ID-based controls but exposes no expected-revision parameter. A preview/read followed by an unfenced command has a concurrency window; this release does not present it as an exact reviewed mutation or silently edit `jobs.json`. Codex and other scheduler providers need their own supported health/control contracts. No second scheduler or synthetic liveness timer is added.
+Version 0.22 adds separate [reviewed native pause/resume controls](NATIVE_SCHEDULE_CONTROLS.md) for the evaluated builtin Hermes contract. It holds the native reentrant cross-process lock across definition validation and the public operation. The observation route above remains read-only and invokes no job loader/control. Scheduler ownership transfer, Codex and other providers still need their own supported health/control contracts. No second scheduler or synthetic liveness timer is added.
 
 Primary references: [native cron status and controls](https://hermes-agent.nousresearch.com/docs/user-guide/features/cron), [cron internals](https://hermes-agent.nousresearch.com/docs/developer-guide/cron-internals/), [evaluated marker readers](https://github.com/NousResearch/hermes-agent/blob/3aebdb1d2349f1b228aa0478fce2e2fe91827278/cron/jobs.py) and [evaluated config parser](https://github.com/NousResearch/hermes-agent/blob/3aebdb1d2349f1b228aa0478fce2e2fe91827278/hermes_cli/config.py).

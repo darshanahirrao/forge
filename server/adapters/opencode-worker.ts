@@ -6,6 +6,7 @@ import { DatabaseSync } from 'node:sqlite';
 import type { OpenCodeClient } from '@opencode/client';
 import type { Account } from '../../shared/types.js';
 import { assert, ForgeError } from '../errors.js';
+import { credentialValue, type CredentialMaterial } from '../credentials.js';
 import { findBinary } from './discovery.js';
 
 export interface OpenCodeConnection {
@@ -16,7 +17,11 @@ export interface OpenCodeConnection {
   readonly version?: string;
   stop(): Promise<void>;
 }
-export type OpenCodeFactory = (account: Account, cwd: string) => Promise<OpenCodeConnection>;
+export type OpenCodeFactory = (
+  account: Account,
+  cwd: string,
+  credentials?: CredentialMaterial,
+) => Promise<OpenCodeConnection>;
 
 /** Read native recovery metadata only. Never edit claims or let startup replay an uncertain turn. */
 export async function assertIdleOpenCodeProfile(root: string) {
@@ -60,7 +65,10 @@ export async function assertIdleOpenCodeProfile(root: string) {
 }
 
 /** An explicit native profile, not a copy of another client's credentials or database. */
-export function openCodeEnvironment(account: Account): NodeJS.ProcessEnv {
+export function openCodeEnvironment(
+  account: Account,
+  credentials?: CredentialMaterial,
+): NodeJS.ProcessEnv {
   assert(account.nativeHome, 409, 'Choose an OpenCode profile root before launching.');
   const env: NodeJS.ProcessEnv = {};
   for (const key of [
@@ -93,11 +101,11 @@ export function openCodeEnvironment(account: Account): NodeJS.ProcessEnv {
       'Use a provider credential variable, not a native runtime setting.',
     );
     assert(
-      process.env[account.credentialEnv],
+      credentialValue(account, account.credentialEnv, credentials),
       409,
       `Set ${account.credentialEnv} before launching.`,
     );
-    env[account.credentialEnv] = process.env[account.credentialEnv];
+    env[account.credentialEnv] = credentialValue(account, account.credentialEnv, credentials);
   }
   return env;
 }
@@ -107,11 +115,12 @@ export async function openCodeWorker(
   account: Account,
   cwd: string,
   binaryOverride?: string,
+  credentials?: CredentialMaterial,
 ): Promise<OpenCodeConnection> {
   const binary = binaryOverride ?? (await findBinary('opencode'));
   assert(binary, 409, 'Install OpenCode v2 through its native setup before launching.');
   const password = randomBytes(32).toString('hex');
-  const env = { ...openCodeEnvironment(account), OPENCODE_SERVER_PASSWORD: password };
+  const env = { ...openCodeEnvironment(account, credentials), OPENCODE_SERVER_PASSWORD: password };
   const lease = new DatabaseSync(join(account.nativeHome, '.forge-native-owner.sqlite'));
   try {
     await chmod(join(account.nativeHome, '.forge-native-owner.sqlite'), 0o600);

@@ -1,6 +1,6 @@
 import { unknownPressure } from '../dist/server/memory-pressure.js';
 import { readFileSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 import { createServer as createHttpsServer } from 'node:https';
 import { request as proxyRequest, createServer } from 'node:http';
 import { execFileSync } from 'node:child_process';
@@ -17,6 +17,7 @@ const t3 = await t3Fixture();
 const delivered = [];
 let notificationFailure = false;
 let schedulerState = 'success-stale';
+let nativeControlMode = 'normal';
 const notificationServer = createServer(async (request, response) => {
   let body = '';
   for await (const chunk of request) body += chunk;
@@ -36,6 +37,10 @@ mkdirSync(join(nativeHome, 'cron'));
 const memoryPath = join(directory, 'MEMORY.md');
 const memoryProject = join(directory, 'project');
 mkdirSync(memoryProject);
+const credentialPath = join(directory, 'owned-browser-private.json');
+writeFileSync(credentialPath, JSON.stringify({ selected: 'public-owned-browser-synthetic-key' }), {
+  mode: 0o600,
+});
 writeFileSync(
   memoryPath,
   '# Public\nBrowser shared memory marker.\n# Private\nPRIVATE-BROWSER-EXCLUDED\n',
@@ -70,6 +75,47 @@ const fixtureRpc = (options = {}) =>
   });
 const { app } = await createApp({
   memoryPressureReader: unknownPressure,
+  nativeControlBridge: async (_source, request) => {
+    const filename = join(nativeHome, 'cron', 'jobs.json');
+    const raw = readFileSync(filename, 'utf8');
+    const jobs = JSON.parse(raw);
+    const job = jobs.jobs.find((item) => item.id === request.jobId);
+    const digest = createHash('sha256').update(raw).digest('hex');
+    if (request.mode === 'preview')
+      return {
+        state: 'preview',
+        contract: 'hermes-builtin-native-flock/1',
+        jobsDigest: digest,
+        configDigest: null,
+        job: {
+          id: job.id,
+          title: job.name,
+          prompt: job.prompt,
+          script: null,
+          rule: JSON.stringify(job.schedule),
+          definition: JSON.stringify(job, null, 2),
+          noAgent: false,
+          state: job.state,
+          enabled: job.enabled ?? true,
+          nextRunAt: job.next_run_at,
+        },
+      };
+    if (nativeControlMode === 'changed' || request.jobsDigest !== digest)
+      return { state: 'rejected', code: 'changed' };
+    job.enabled = request.action === 'resume';
+    job.state = job.enabled ? 'scheduled' : 'paused';
+    writeFileSync(filename, JSON.stringify(jobs));
+    if (nativeControlMode === 'lost') throw new Error('Owned fixture lost its acknowledgement.');
+    return {
+      state: 'applied',
+      observed: {
+        state: job.state,
+        enabled: job.enabled,
+        nextRunAt: job.next_run_at,
+        jobsDigest: createHash('sha256').update(JSON.stringify(jobs)).digest('hex'),
+      },
+    };
+  },
   phoneBridge,
   filename: join(directory, 'workspace.sqlite'),
   port: 4711,
@@ -112,6 +158,16 @@ const { app } = await createApp({
   rpcFactory: fixtureRpc,
 });
 app.get('/api/fixture/memory', async () => ({ path: memoryPath, project: memoryProject }));
+app.get('/api/fixture/credentials', async () => ({
+  path: credentialPath,
+  key: 'selected',
+  project: memoryProject,
+  nativeHome,
+}));
+app.post('/api/fixture/native-controls', async (request) => {
+  nativeControlMode = request.body.mode;
+  return { ok: true };
+});
 app.get('/api/fixture/notifications', async () => ({ origin: notificationOrigin, delivered }));
 app.post('/api/fixture/notifications', async (request) => {
   notificationFailure = request.body.fail === true;

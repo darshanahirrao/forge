@@ -16,6 +16,8 @@ import { Dialog, Empty, FormError, IconButton } from '../components/primitives';
 import { age, names } from '../lib/format';
 import { NativeSessionDialog } from '../components/NativeSessionDialog';
 import { schedulerEvidence } from '../../shared/scheduler';
+import type { ScheduleReview } from '../../shared/native-controls';
+import { NativeScheduleControl, NativeControlReceipts } from '../components/NativeScheduleControl';
 
 const sourceNames: Record<NativeSourceKind, string> = {
   codex: 'Codex chats',
@@ -48,6 +50,7 @@ export function ActivityPage({
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [control, setControl] = useState<ScheduleReview | null>(null);
   const managedActive = data.work.some((work) => work.activeRunId);
   const local = data.mode === 'local';
   const sources = new Map(data.nativeSources.map((source) => [source.id, source]));
@@ -417,6 +420,34 @@ export function ActivityPage({
                     <p>Observed: {nativeDate(schedule.observedAt)}</p>
                     <p className="mono">ID: {schedule.id}</p>
                   </details>
+                  {sources.get(schedule.sourceId)?.kind === 'hermes-schedules' && (
+                    <div className="activity-actions">
+                      {(['pause', 'resume'] as const).map((action) => (
+                        <button
+                          key={action}
+                          className="button secondary small"
+                          disabled={!local || managedActive || !!busy}
+                          onClick={() =>
+                            void perform(
+                              `control-${schedule.id}`,
+                              async () => {
+                                setControl(
+                                  await mutate<ScheduleReview>('/native/controls/prepare', 'POST', {
+                                    sourceId: schedule.sourceId,
+                                    jobId: schedule.id,
+                                    action,
+                                  }),
+                                );
+                              },
+                              'Current native definition loaded for review.',
+                            )
+                          }
+                        >
+                          Review {action}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </article>
             ))}
@@ -442,6 +473,25 @@ export function ActivityPage({
           </p>
         )}
       </section>
+      {tab === 'schedules' && (
+        <NativeControlReceipts
+          receipts={data.nativeControls?.receipts ?? []}
+          mutate={mutate}
+          disabled={!local || managedActive || !!busy}
+        />
+      )}
+      {control && (
+        <NativeScheduleControl
+          plan={control}
+          source={label(control.sourceId)}
+          mutate={mutate}
+          onClose={() => setControl(null)}
+          onApplied={(receipt) => {
+            setControl(null);
+            setNotice(receipt.detail);
+          }}
+        />
+      )}
       {adding && (
         <SourceForm
           mutate={mutate}

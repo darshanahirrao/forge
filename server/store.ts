@@ -27,6 +27,7 @@ type Collection =
   | 'work_outcomes'
   | 'account_routes'
   | 'notifications'
+  | 'native_controls'
   | 'settings'
   | 'config';
 export const now = () => new Date().toISOString();
@@ -45,7 +46,7 @@ export class Store {
     try {
       const version = this.db.prepare('PRAGMA user_version').get() as { user_version: number };
       assert(
-        version.user_version <= 5,
+        version.user_version <= 6,
         409,
         'This workspace was created by a newer Forge version. Open it with that version.',
       );
@@ -63,10 +64,11 @@ export class Store {
       CREATE INDEX IF NOT EXISTS spend_by_work ON records(json_extract(data,'$.workId')) WHERE collection='spend_attempts';
       CREATE INDEX IF NOT EXISTS companion_operations_by_grant ON records(json_extract(data,'$.grantId')) WHERE collection='companion_operations';
       CREATE INDEX IF NOT EXISTS notifications_by_state ON records(json_extract(data,'$.state')) WHERE collection='notifications';
+      CREATE INDEX IF NOT EXISTS native_controls_by_job ON records(json_extract(data,'$.sourceId'), json_extract(data,'$.jobId'), json_extract(data,'$.state')) WHERE collection='native_controls';
       `);
       let backup: string | null = null;
-      if (version.user_version > 0 && version.user_version < 5 && filename !== ':memory:') {
-        backup = `${filename}.before-v5.${randomUUID()}.sqlite`;
+      if (version.user_version > 0 && version.user_version < 6 && filename !== ':memory:') {
+        backup = `${filename}.before-v6.${randomUUID()}.sqlite`;
         writeFileSync(backup, '', { flag: 'wx', mode: 0o600 });
         try {
           this.db.prepare('VACUUM INTO ?').run(backup);
@@ -75,7 +77,7 @@ export class Store {
           throw error;
         }
       }
-      this.db.exec('PRAGMA user_version = 5');
+      this.db.exec('PRAGMA user_version = 6');
       this.migrationBackup = backup;
     } catch (error) {
       this.db.close();

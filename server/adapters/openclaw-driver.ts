@@ -125,7 +125,7 @@ export class OpenClawDriver implements NativeDriver {
     this.context = context;
     this.sink = sink;
     if (this.closing) return;
-    this.starting = this.factory(context.account, context.work.cwd);
+    this.starting = this.factory(context.account, context.work.cwd, context.credentials);
     this.worker = await this.starting;
     if (this.closing) {
       await this.stop();

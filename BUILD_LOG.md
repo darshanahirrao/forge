@@ -1,5 +1,15 @@
 # Build log
 
+## 2026-10-17 · forge-v0.22.0
+
+Added per-account private JSON/macOS Keychain credential references for foreground/background native execution. Values are invocation-local, binding/variable scoped, excluded from state/exports and disposed after use; missing references hold before worker/reservation creation without ambient fallback. Existing native authentication stays upstream. Local account setup/checks use references only, with fixed action footers and no secret field. All five native adapters accept the selected material; T3 secrets remain native. State version 6 creates a private before-v6 SQLite rollback copy and refuses newer readers. Existing no-reference account bindings are unchanged.
+
+Added reviewed builtin Hermes pause/resume through native public operations under the deployed reentrant OS flock. Reviews bind raw job/config hashes, exact ID/home and a two-minute deadline. Cross-descriptor lock verification refuses native in-process-only fallback; bounded full-record review refuses truncated execution content. Durable submitted/applied/rejected/uncertain receipts preserve actor/evidence. Lost acknowledgements and restart never replay; an uncertain job/source holds another control/removal until fresh native state and a human outcome note are recorded. Native removal can be observed as not-found without losing the original uncertainty. Resume shares pressure admission; running jobs/deliveries retain native ownership and managed-work budgets do not govern this separate scheduler.
+
+Validation: 200 functional checks, 3 compiled-package checks, 25 browser flows with axe, TypeScript, formatting, production build and diff/link checks. Actual installed Hermes conformance proves native pause/resume, unchanged preview bytes, stale definition/config refusal, unavailable-lock refusal, an owned helper SIGKILL after the native write, no replay and native-removal review. Actual synthetic Keychain create/read/exact cleanup, Claude SDK/private-file native approval/artifact/usage and launchd reference reads across graceful/abnormal restarts pass. All providers/receivers are owned loopback fixtures; zero paid calls, scheduler ticks or deliveries. Light/dark narrow dialog captures were visually reviewed.
+
+Private foreground workspace upgraded to v0.22/state 6 with owned mode-0600 rollback copy; the actual previous compiled v5 reader refuses it. One profile, three memory refs, four native sources, 114 chats and 13 schedule observations remain; zero accounts/work/grants/backends/workers or native control receipts. Notifications remain off. No real native job, provider credential, public destination or login startup item was changed. Other scheduler/companion lifecycle, memory-provider migration, extension packaging, whole-stack resource governance and live provider/device acceptance remain open. Checkpoint reference: the commit containing this entry and durable rollback tag forge-v0.22.0.
+
 ## 2026-10-17 · forge-v0.14.0
 
 Reworked the workspace around the user's explicit preference for minimal, efficient daily agent operation. Primary-source review of T3 Code, OpenCode, Superset and cmux is recorded in docs/UI_EXPERIENCE.md. Workspace now shows managed work and saved native chats together, with text/type filters, bounded row rendering, direct metadata details, exact pending decisions and direct schedule navigation. Compact resource and saved-usage evidence replaces the home summary cards. Daily views and configuration are grouped; marketing headings and the sidebar slogan were removed. Existing theme tokens and native ownership boundaries remain intact.
@@ -199,7 +209,6 @@ Validation: local Markdown links, source-hygiene audit, SVG XML and layout check
 - Validation: type checks, formatting, build, 134 functional checks, 3 package checks and 17 browser flows pass. Both themes, mobile overflow and accessibility pass. The production-API native T3/Codex test proves two exact approvals, two artifacts, two distinct synthetic credentials and one work, with four synthetic inference requests and zero paid calls. Native teardown confirms exit of the root and 11 observed descendants. The private foreground upgrade retains 1 profile, 4 sources, 114 saved native sessions and 13 schedule definitions, with a mode-0600 before-v4 copy. No private T3 account was connected.
 - Limitation: the strict native-history gate remains failing. T3 v0.1.0 with Codex 0.159.3 reports an active native writer and falls back to `full_thread_summary`; the isolated T3-pinned 0.156.1 check also falls back. Forge records portable coverage, not a lossless native resume. Full framework completion, native crash proof, companion orchestration, automatic quota routing and the remaining audit are still open. This entry is referenced by checkpoint/tag `forge-v0.15.0` and the commit containing it.
 
-
 ## 2026-10-17 · Checkpoint native-crash-20261017
 
 Extended the production T3 conformance fixture to launch the compiled Forge service, kill that exact owned process while a native approval is pending, and restart against the same SQLite workspace. It verifies stale-decision invalidation, preserved exact thread/message/run references, blocked unrelated admission and exact native interruption/settlement. The unapproved artifact remains absent and recovery makes no extra model request.
@@ -207,7 +216,6 @@ Extended the production T3 conformance fixture to launch the compiled Forge serv
 Validation: native T3 v0.1.0/Codex 0.159.3 passes with two approved artifacts, two distinct synthetic account credentials, one held crash request, five synthetic inference requests and zero paid calls. Graceful teardown confirms all 13 observed native processes have exited. Type checks and Git diff checks pass. The fixture controls only its isolated observe-only pressure setting; the actual workspace protection remains enabled and correctly blocked the first test attempt at reported macOS warning pressure. Both v0.15 GitHub CI runs passed.
 
 Limitations: strict native-history resume still fails and reports portable summary coverage. This test covers a pending native approval crash boundary, not arbitrary provider crashes or full companion recovery. Checkpoint reference: the commit containing this entry; durable tag `native-crash-20261017`.
-
 
 ## 2026-10-17 · Checkpoint forge-v0.16.0
 
@@ -219,7 +227,6 @@ Limitations: strict native-history resume still fails and reports portable summa
 - Installed foreground validation: v0.16.0/state 4 serves JavaScript/CSS with correct MIME types and retains 1 profile, 4 native sources, 114 saved native sessions and 13 schedule definitions. There are no private managed work/accounts/grants, and protected memory admission remains enabled. No private native configuration or schedule was changed. Previous native-crash checkpoint main/tag and both GitHub CI runs are verified.
 - Limitations: the finite run limit is not a dollar budget. Strict T3 native-history resume still reports its active-writer/summary fallback; planner/heartbeat lifecycle, memory-provider migration, automatic routing, full blueprint activation, notifications and other full-audit gates remain open. This is a framework milestone, not 100% completion. Checkpoint reference: the commit containing this entry; durable tag `forge-v0.16.0`.
 
-
 ## 2026-10-17 · Checkpoint forge-v0.17.0
 
 - Extended the existing version-1 setup blueprint with reviewed local import, named profiles/instructions and optional ready work templates. Roles bind existing native accounts, selected memory references, companion activity references and canonical directories. Open native harness IDs are retained; no provider implementation or second scheduler/agent loop is introduced.
@@ -230,7 +237,6 @@ Limitations: strict native-history resume still fails and reports portable summa
 - Private foreground upgrade retains 1 profile, 4 native sources, 114 saved chats and 13 schedule definitions at state version 4, with zero private accounts/work/grants/imports and protected admission enabled. Built JavaScript/CSS MIME checks pass. Observed v0.16 idle Forge RSS was about 63 MiB on this host; SDKs already load on demand. This is an idle observation, not a whole-stack performance guarantee.
 - Limitations: blueprint import covers profiles/references/work templates and selected preferences. General extension/host/layout/policy packaging, native memory migration, automatic quota routing, dollar budgets, background notifications and strict T3 native-history preservation remain open in the full audit. Checkpoint reference: the commit containing this entry; durable tag `forge-v0.17.0`.
 
-
 ## 2026-10-17 · Checkpoint forge-v0.18.0
 
 Added workspace UTC-month and per-work spending admission with atomic attempt reservations. Every managed path, including scoped companion dispatch, passes current policy after asynchronous preparation and before native driver construction. Claude receives its supported native query budget. Native session-counter baselines produce per-attempt deltas without duplicating resumed/repeated reports. Missing dollars/baselines, decreasing counters, scope bounds, crashes and overspent reservations retain explicit holds. Settled human reviews retain original usage and actor/evidence; they cannot release unresolved native ownership. Work acceptance is separately attributed and becomes stale after context or execution changes. Accounts and work panels reuse existing compact components and themes. No native keys, user account, grant or schedule was configured.
@@ -240,7 +246,6 @@ Validation: formatting, TypeScript, 159 functional checks, production build, thr
 Full-browser integration also corrected synthetic thread-ID reuse and changed the demo-isolation check to compare retained local receipts. Scrollable native usage/commands now have keyboard focus. Private foreground v0.18/state 4 and both hashed asset MIME types were checked; one profile, three memory refs, four native sources, 114 saved native sessions and 13 schedules are retained. Zero private work/accounts/grants, pressure protection enabled.
 
 Limits: reservations govern admission and are not a universal provider charge ceiling. The new ledger excludes external sessions, imported/earlier usage and invoices. Full provider billing/price reconciliation, automatic quota fallback, notifications, native memory migration, hard resource governance and strict T3 history portability remain open. Checkpoint reference: the commit containing this entry; durable tag `forge-v0.18.0`.
-
 
 ## 2026-10-17 · Checkpoint forge-v0.19.0
 
@@ -256,7 +261,6 @@ The private foreground v0.19/state 5 upgrade and both hashed JS/CSS asset MIME t
 
 Both v0.18 GitHub runs are green (39025614060 and 39025612639). Full framework work remains open: background notifications/credentials, native companion planner/schedule lifecycle, provider memory search/migration, extension/policy packaging, owned recovery, whole-stack resource evidence and actual provider/device verification. Checkpoint reference: the commit containing this entry; durable tag `forge-v0.19.0`.
 
-
 ## 2026-10-17 · Checkpoint forge-v0.20.0
 
 Added optional ntfy attention alerts over the existing publishing service and native subscriber apps. Notifications remain off until explicit local setup. Transactional store observers publish after commit and cannot roll back native state. A small durable outbox deduplicates source receipts, rechecks current native approval generation/owner/expiry and suppresses changed destinations. HTTP sends are sequential, bounded and refuse redirects. Missing acknowledgements and sending-at-crash become uncertain without automatic retry; failed private setup stays distinct from an attempted send. Acknowledgement preserves delivery evidence and has no native execution authority.
@@ -269,7 +273,6 @@ Private foreground Forge 0.20/state 5 and both hashed asset MIME types were veri
 
 Limits: HTTP acceptance does not establish actual ntfy authentication, device push, tailnet access, human review, native settlement or accepted work. Those live integrations and secure background provider-key references, native companion/schedule lifecycle, provider memory migration, extension packaging, reviewed recovery, whole-stack resource evidence and strict T3 native-history compatibility remain open. Checkpoint reference: the commit containing this entry; durable tag forge-v0.20.0.
 
-
 ## 2026-10-17 · Checkpoint forge-v0.21.0
 
 Added an explicit native Hermes ticker check in Activity, reusing its installed raw configuration parser, public marker readers and cadence. The short-lived child has an isolated profile/environment, bounded output/timeout and no provider-key inheritance or bytecode writes. It invokes no job loader/repair, migration, provider resolver/plugin, native tick or model. Saved evidence ages from recent to stale, distinguishes recent-loop/stale-success, and keeps missing/external/unsupported coverage explicit. Invalid/future/nonfinite/oversized/symlinked marker validation prevents native zero-age clamping from becoming false freshness. Unavailable checks retain earlier evidence with its original timestamp and a separate latest-check status.
@@ -281,7 +284,6 @@ Validation: TypeScript/format/build, 188 functional checks, three compiled-packa
 Private foreground Forge 0.21/state 5 and final JS/CSS MIME types are verified. One profile, three memory refs, four native sources, 114 saved sessions, 13 schedules and protected admission remain, with zero work/accounts/backends/grants/native workers. Notifications remain off; no real destination, startup item or phone route was installed. Both v0.20 GitHub checks passed (39028347882 and 39028346480).
 
 Limits: saved native ticker evidence is not ongoing gateway availability, per-job completion, native process exit or confirmed channel delivery. The installed native CLI exposes pause/resume without an expected-revision argument, so exact reviewed mutation/ownership transfer remain open. Other scheduler providers, full companion lifecycle, secure background provider credentials, memory-provider migration, general extension packaging, reviewed recovery, whole-stack resource governance, live provider/device acceptance and strict native-history portability remain full-framework gates. Checkpoint reference: the commit containing this entry; durable tag forge-v0.21.0.
-
 
 ## 2026-10-17 · Checkpoint forge-v0.21.0-verified
 

@@ -54,6 +54,8 @@ import { registerCompanionMcp } from './companion-mcp.js';
 import { Blueprints, blueprintSchema } from './blueprints.js';
 import { AccountRouting, routePrepareSchema } from './routing.js';
 import { Notifications } from './notifications.js';
+import { NativeControls, type NativeControlBridge } from './native-controls.js';
+import { credentialReferenceSchema, credentialTarget, resolveCredential } from './credentials.js';
 
 const builtinHarness = z.enum(['codex', 'claude', 'opencode', 'hermes', 'openclaw']);
 const harness = z.string().regex(/^[a-zA-Z][a-zA-Z0-9._-]{0,79}$/);
@@ -81,10 +83,12 @@ const accountSchema = z
       .string()
       .regex(/^[A-Za-z_][A-Za-z0-9_]{0,127}$/)
       .optional(),
+    credentialReference: credentialReferenceSchema.optional(),
     billingMode: z.enum(['native', 'subscription', 'api']).default('native'),
   })
   .strict();
 export interface AppOptions {
+  nativeControlBridge?: NativeControlBridge;
   notificationFetch?: typeof fetch;
   notificationTimeoutMs?: number;
   filename: string;
@@ -142,6 +146,7 @@ export async function createApp(options: AppOptions) {
       checkMemoryAdmission(local.settings(), pressure);
     },
     (work, account, allowMetered) => routing.authorize(work, account, allowMetered),
+    resolveCredential,
   );
   const profiles: Profiles = new Profiles(local, () => controller.activeCount > 0);
   const demoProfiles = new Profiles(demo);
@@ -167,6 +172,15 @@ export async function createApp(options: AppOptions) {
     ...options.nativeSourcesOptions,
     isManagedBusy: () => controller.activeCount > 0 || probing.size > 0,
   });
+  const nativeControls = new NativeControls(
+    local,
+    nativeSources,
+    options.nativeControlBridge,
+    async () => {
+      const pressure = await machine.freshPressure();
+      checkMemoryAdmission(local.settings(), pressure);
+    },
+  );
   const blueprints = new Blueprints(
     local,
     profiles,
@@ -348,6 +362,7 @@ export async function createApp(options: AppOptions) {
       mode: mode(request),
       spending: mode(request) === 'demo' ? undefined : controller.spending.snapshot(),
       notifications: mode(request) === 'demo' ? undefined : notifications.snapshot(),
+      nativeControls: mode(request) === 'demo' ? undefined : nativeControls.snapshot(),
       outcomes: mode(request) === 'demo' ? [] : controller.spending.outcomes(),
       version,
       csrf,
@@ -771,6 +786,13 @@ export async function createApp(options: AppOptions) {
   });
   app.post('/api/accounts', async (request, reply) => {
     const body = accountSchema.parse(request.body);
+    assert(
+      !body.credentialReference ||
+        (mode(request) === 'local' &&
+          bridgeActor(request.headers, options.phoneBridge).kind === 'local'),
+      403,
+      'Link private credential references from the local Forge host.',
+    );
     const db = store(request);
     const nativeHome = mode(request) === 'demo' ? '' : await directory(body.nativeHome);
     const account: Account = {
@@ -786,17 +808,56 @@ export async function createApp(options: AppOptions) {
       quotas: [],
       createdAt: now(),
     };
+    if (account.credentialReference) credentialTarget(account);
     db.put('accounts', account.id, account);
     return reply.code(201).send(account);
   });
   async function refreshAccount(account: Account) {
-    const result = account.backend
-      ? await backends.refresh(account.backend.id).then(() => local.account(account.id))
-      : await (options.accountProbe ?? probeAccount)(account).catch((error) =>
-          failedProbe(account, error),
-        );
+    let credentials: Awaited<ReturnType<typeof resolveCredential>>;
+    const result = await (async () => {
+      if (account.backend)
+        return backends.refresh(account.backend.id).then(() => local.account(account.id));
+      credentials = await resolveCredential(account);
+      return (options.accountProbe ?? probeAccount)(account, credentials);
+    })()
+      .catch((error) => failedProbe(account, error))
+      .finally(() => credentials?.dispose());
     return local.put('accounts', account.id, result);
   }
+  app.post('/api/accounts/:id/credential/check', async (request) => {
+    assert(
+      mode(request) === 'local' &&
+        bridgeActor(request.headers, options.phoneBridge).kind === 'local',
+      403,
+      'Check private credentials from the local Forge host.',
+    );
+    assert(
+      probing.size === 0 && controller.activeCount === 0 && !nativeSources.isReading,
+      409,
+      'Wait for the current native operation before checking a private reference.',
+    );
+    const account = local.account((request.params as { id: string }).id);
+    assert(
+      account.credentialReference,
+      409,
+      'This slot uses native configuration or its original environment. Check the native account instead.',
+    );
+    probing.add(account.id);
+    try {
+      const material = await resolveCredential(account);
+      material?.dispose();
+      return {
+        available: true,
+        kind: account.credentialReference.kind,
+        target: credentialTarget(account),
+        checkedAt: now(),
+        coverage:
+          'Private reference only; native account identity and allowance require their own check.',
+      };
+    } finally {
+      probing.delete(account.id);
+    }
+  });
   app.post('/api/accounts/:id/probe', async (request) => {
     const db = store(request);
     const account = db.account((request.params as { id: string }).id);
@@ -1107,6 +1168,38 @@ export async function createApp(options: AppOptions) {
     assert(mode(request) === 'local', 409, 'Demo sources never inspect native schedulers.');
     return nativeSources.scheduler((request.params as { id: string }).id);
   });
+  app.post('/api/native/controls/prepare', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo schedules have no native controls.');
+    return nativeControls.prepare(request.body);
+  });
+  app.post('/api/native/controls/:id/apply', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo schedules have no native controls.');
+    z.object({ reviewed: z.literal(true) })
+      .strict()
+      .parse(request.body);
+    return nativeControls.apply(
+      z
+        .string()
+        .uuid()
+        .parse((request.params as { id: string }).id),
+      bridgeActor(request.headers, options.phoneBridge),
+    );
+  });
+  app.post('/api/native/controls/:id/review', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo schedules have no native controls.');
+    const input = z
+      .object({ note: z.string().trim().min(8).max(2000) })
+      .strict()
+      .parse(request.body);
+    return nativeControls.review(
+      z
+        .string()
+        .uuid()
+        .parse((request.params as { id: string }).id),
+      bridgeActor(request.headers, options.phoneBridge),
+      input.note,
+    );
+  });
   app.delete('/api/native/sources/:id', async (request) => {
     assert(mode(request) === 'local', 409, 'Demo sources never disconnect native profiles.');
     const sourceId = (request.params as { id: string }).id;
@@ -1275,5 +1368,16 @@ export async function createApp(options: AppOptions) {
     local.close();
     demo.close();
   });
-  return { app, local, demo, controller, csrf, companions, blueprints, routing, notifications };
+  return {
+    app,
+    local,
+    demo,
+    controller,
+    csrf,
+    companions,
+    blueprints,
+    routing,
+    notifications,
+    nativeControls,
+  };
 }

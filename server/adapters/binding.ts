@@ -9,6 +9,9 @@ export const accountBinding = (account: Account) =>
         harness: account.harness,
         home: account.nativeHome,
         credential: account.credentialEnv,
+        ...(account.credentialReference
+          ? { credentialReference: account.credentialReference }
+          : {}),
         billing: account.billingMode,
         backend: account.backend,
         identity: account.identityKey,

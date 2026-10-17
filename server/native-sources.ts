@@ -170,7 +170,31 @@ export class NativeSources {
       this.reading.delete(sourceId);
     }
   }
+  async atSource<T>(sourceId: string, action: (source: NativeSource) => Promise<T>): Promise<T> {
+    const source = this.store.get<NativeSource>('native_sources', sourceId);
+    assert(source, 404, 'This native source was not found.');
+    assert(
+      !this.reading.size && !this.options.isManagedBusy?.(),
+      409,
+      'Wait for current native work and source operations to finish.',
+    );
+    this.reading.add(sourceId);
+    try {
+      return await action(source);
+    } finally {
+      this.reading.delete(sourceId);
+    }
+  }
   remove(sourceId: string) {
+    assert(
+      !this.store.db
+        .prepare(
+          "SELECT 1 FROM records WHERE collection='native_controls' AND json_extract(data,'$.sourceId')=? AND json_extract(data,'$.state') IN ('submitted','uncertain') AND json_type(data,'$.review') IS NULL LIMIT 1",
+        )
+        .get(sourceId),
+      409,
+      'Review uncertain native controls before forgetting this source.',
+    );
     assert(
       !this.reading.has(sourceId),
       409,

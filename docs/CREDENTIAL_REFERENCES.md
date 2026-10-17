@@ -1,0 +1,23 @@
+# Private credential references
+
+An account slot can reference one existing provider credential without copying its value into Forge records, the service receipt, its launchd plist, a blueprint or the browser. This lets the same slot work outside the terminal that originally started Forge. Native sign-ins remain in the harness. This bridge supplies a native environment variable; it is not a login or secret manager.
+
+In Accounts, add a slot and expand **Background credential reference**. Select an owned private JSON file and a root field name, or an existing macOS Keychain generic-password item identified by service and account. An optional absolute Keychain file narrows the native search. Enter names and paths only. Forge provides no field for pasting a key and never creates or changes production Keychain items. Keep the reference outside the repository.
+
+For a JSON reference, prepare the existing file through your own secret workflow. It must be an owned regular file, mode 0600 on Unix, at an absolute path. Final symlinks, broad permissions, unowned/nonregular/oversized files, missing fields and malformed values fail closed. Keychain uses `/usr/bin/security find-generic-password` with exact arguments, bounded output and a five-second timeout. The selected item must already be accessible to that command in the intended login/background context. Locked or denied access holds launch; Forge does not bypass Keychain consent or prompt for a replacement in the browser.
+
+Choose the provider's native credential variable. Claude API slots default to `ANTHROPIC_API_KEY`; Codex API slots default to `OPENAI_API_KEY`. OpenCode, Hermes and OpenClaw use the variable expected by the selected native provider. Runtime/home/preload/proxy variables cannot be supplied through this bridge. Claude subscription slots keep their native authentication, and T3 backend credentials stay with T3. The reference does not establish account identity, a distinct subscription allowance or extra quota.
+
+**Check private reference** is a local human action that reads and immediately discards the selected value. It confirms readability only. **Check native account** separately reads native identity/allowance where supported. Missing references do not fall back to another process credential. The resolved value is bound to the exact account, runtime configuration and variable for that invocation; it is never put in the server's global environment. Native SDK/child environment receives the selected value. JavaScript cannot guarantee heap zeroization, and an authorized native tool can necessarily use its own credential.
+
+Reference metadata is part of the account binding, so a changed reference invalidates a pinned account route or companion grant. Existing slots without a reference keep their earlier binding. Create another slot and use the existing reviewed handoff when changing a used account. Rotating a value at the same external reference affects future reads. An active native invocation keeps its original material until it closes.
+
+Local humans can configure/check references; demo, companion bearers and phone provisioning cannot. The authenticated phone can still review managed native requests. The reference field names, service/account and path are private workspace metadata, not public blueprint requirements. Values never enter snapshots or exports.
+
+## Evidence and limits
+
+Functional tests cover per-account isolation, variable/binding fencing, rotation/disposal, all five environment adapters, unsafe files, no ambient fallback, pre-factory admission, API authority and export exclusion. Browser tests exercise the optional form, fixed footer, local read check and both themes/mobile with axe.
+
+`npm run test:native:credentials` creates a uniquely named public synthetic Keychain fixture, reads it through the actual native command, then deletes that exact item. It never reads or edits the operator's items. The actual Claude SDK conformance uses a private-file reference against an owned loopback provider and verifies native approval, artifact and usage. Native launchd conformance checks a private-file reference across graceful and abnormal restarts. These are synthetic credentials, zero paid calls. Real provider authorization, subscription isolation, a locked login Keychain and device/login transitions still require environment-specific acceptance.
+
+State version 6 makes this semantic boundary explicit. A v1–v5 file workspace receives a private `before-v6` SQLite rollback copy before opening; newer state versions are refused. Restore the copy while Forge is stopped if reverting to a reader that understands only v5. A source checkout rollback is insufficient for a newer workspace.

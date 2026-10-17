@@ -10,8 +10,12 @@ import { probeHermesAccount } from './hermes-driver.js';
 import { openCodeWorker } from './opencode-worker.js';
 import { probeOpenClawAccount } from './openclaw-worker.js';
 const exec = promisify(execFile);
+import { credentialValue, type CredentialMaterial } from '../credentials.js';
 
-export function nativeEnvironment(account: Account): NodeJS.ProcessEnv {
+export function nativeEnvironment(
+  account: Account,
+  credentials?: CredentialMaterial,
+): NodeJS.ProcessEnv {
   const env = { ...process.env };
   if (account.nativeHome && account.harness === 'codex') env.CODEX_HOME = account.nativeHome;
   if (account.nativeHome && account.harness === 'claude')
@@ -19,11 +23,11 @@ export function nativeEnvironment(account: Account): NodeJS.ProcessEnv {
   if (account.harness === 'claude' && account.billingMode === 'api') {
     const reference = account.credentialEnv || 'ANTHROPIC_API_KEY';
     assert(
-      Boolean(process.env[reference]),
+      Boolean(credentialValue(account, reference, credentials)),
       409,
       `Set the ${reference} environment variable for this API slot before launching.`,
     );
-    env.ANTHROPIC_API_KEY = process.env[reference];
+    env.ANTHROPIC_API_KEY = credentialValue(account, reference, credentials);
     env.CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST = '1';
     // This route supports explicit API-key authentication only, never subscription OAuth fallback.
     for (const key of [
@@ -34,6 +38,10 @@ export function nativeEnvironment(account: Account): NodeJS.ProcessEnv {
       'CLAUDE_CODE_USE_FOUNDRY',
     ])
       delete env[key];
+  }
+  if (account.credentialReference && account.harness !== 'claude') {
+    const reference = account.credentialEnv!;
+    env[reference] = credentialValue(account, reference, credentials);
   }
   return env;
 }
@@ -121,8 +129,11 @@ export async function readCodexAccount(rpc: NativeRpc, account: Account): Promis
     error: null,
   };
 }
-export async function probeAccount(account: Account): Promise<Account> {
-  if (account.harness === 'openclaw') return probeOpenClawAccount(account);
+export async function probeAccount(
+  account: Account,
+  credentials?: CredentialMaterial,
+): Promise<Account> {
+  if (account.harness === 'openclaw') return probeOpenClawAccount(account, credentials);
   const binary = await findBinary(account.harness);
   assert(
     binary,
@@ -130,7 +141,11 @@ export async function probeAccount(account: Account): Promise<Account> {
     `Install ${account.harness} through its native setup, then check this slot again.`,
   );
   if (account.harness === 'codex') {
-    const rpc = new NativeRpc({ binary, env: nativeEnvironment(account), timeoutMs: 10000 });
+    const rpc = new NativeRpc({
+      binary,
+      env: nativeEnvironment(account, credentials),
+      timeoutMs: 10000,
+    });
     rpc.on('message', (message) => {
       if (message.id !== undefined) rpc.refuse(message.id);
     });
@@ -143,7 +158,7 @@ export async function probeAccount(account: Account): Promise<Account> {
   }
   if (account.harness === 'claude') {
     const result = await exec(binary, ['auth', 'status'], {
-      env: nativeEnvironment(account),
+      env: nativeEnvironment(account, credentials),
       timeout: 10000,
       maxBuffer: 512 * 1024,
     }).catch((error) => {
@@ -178,9 +193,9 @@ export async function probeAccount(account: Account): Promise<Account> {
       quotas: [],
     };
   }
-  if (account.harness === 'hermes') return probeHermesAccount(account);
+  if (account.harness === 'hermes') return probeHermesAccount(account, credentials);
   if (account.harness === 'opencode') {
-    const worker = await openCodeWorker(account, account.nativeHome);
+    const worker = await openCodeWorker(account, account.nativeHome, undefined, credentials);
     try {
       await worker.client.location.get({ location: { directory: account.nativeHome } });
       return {

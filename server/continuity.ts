@@ -357,6 +357,8 @@ export class Continuity {
             currentAccount.nativeHome === account.nativeHome &&
             currentAccount.billingMode === account.billingMode &&
             currentAccount.credentialEnv === account.credentialEnv &&
+            JSON.stringify(currentAccount.credentialReference) ===
+              JSON.stringify(account.credentialReference) &&
             JSON.stringify(currentAccount.backend) === JSON.stringify(account.backend),
           409,
           'The destination account configuration changed during verification. Review the target again.',

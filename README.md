@@ -6,7 +6,7 @@ Forge is an open-source local workspace for people who work across AI runtimes a
 
 We call the product concept **Persistent Agency**: your agent profile, memory, workspace, work history, shared connections, schedules, and policies remain in Forge while you change a compatible execution harness at a verified checkpoint.
 
-**Status: early local application, v0.21.0.** Persistent work/profiles, scoped native memory, reviewed setup blueprints, account routing, spending admission, native activity, machine telemetry, optional ntfy alerts and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic continuation after uncertain effects, always-on companion lifecycle, native schedule controls, full memory-provider migration, live device/provider acceptance and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md) and [full completion audit](docs/COMPLETION_AUDIT.md).
+**Status: early local application, v0.22.0.** Persistent work/profiles, scoped native memory, reviewed setup blueprints, account routing, private credential references, spending admission, native activity, machine telemetry, optional ntfy alerts, reviewed Hermes pause/resume and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic continuation after uncertain effects, full companion lifecycle, other scheduler controls/ownership transfer, full memory-provider migration, live device/provider acceptance and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md) and [full completion audit](docs/COMPLETION_AUDIT.md).
 
 The workspace now starts with your managed work and existing native chats, compact resource/usage status and exact pending approvals. Ctrl/Cmd K searches work and commands; optional creation fields stay folded until needed. See [the experience decisions and upstream references](docs/UI_EXPERIENCE.md).
 
@@ -84,6 +84,7 @@ The defining demonstration is a real task checkpointed in one harness, continued
 
 - [Current implementation, setup, and limits](docs/RUNTIME.md)
 - [Background operation and macOS service setup](docs/BACKGROUND_SERVICE.md)
+- [Private file/Keychain references for background account credentials](docs/CREDENTIAL_REFERENCES.md)
 - [Native resource ownership and observation limits](docs/RESOURCES.md)
 - [Private phone access and native approval review](docs/PHONE_ACCESS.md)
 - [Optional ntfy alerts, private setup and delivery evidence](docs/NOTIFICATIONS.md)
@@ -93,6 +94,7 @@ The defining demonstration is a real task checkpointed in one harness, continued
 - [Native capability boundary](docs/NATIVE_BOUNDARY.md)
 - [Native chats, schedules, sources and coverage](docs/NATIVE_ACTIVITY.md)
 - [Native scheduler evidence, aging and remaining controls](docs/SCHEDULER_EVIDENCE.md)
+- [Reviewed native Hermes pause/resume and outcome receipts](docs/NATIVE_SCHEDULE_CONTROLS.md)
 - [Profiles, scoped native memory and corrections](docs/MEMORY.md)
 - [Initial existing-solution audit](docs/REUSE_AUDIT.md)
 - [Customizable workspace blueprints](docs/BLUEPRINTS.md)
