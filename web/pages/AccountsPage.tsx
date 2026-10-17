@@ -4,6 +4,7 @@ import { HarnessMark, Status, Empty } from '../components/primitives';
 import { harnessName, age } from '../lib/format';
 import { SpendingPanel } from '../components/SpendingPanel';
 import type { Mutate } from '../api';
+import { managedHarnesses } from '../../shared/harnesses';
 
 export function AccountsPage({
   data,
@@ -145,14 +146,14 @@ export function AccountsPage({
                   disabled={
                     busy === a.id ||
                     data.mode === 'demo' ||
-                    !['codex', 'claude'].includes(a.harness)
+                    !(a.backend || managedHarnesses.includes(a.harness))
                   }
                   onClick={() => onProbe(a)}
                   title={
                     data.mode === 'demo'
                       ? 'Demo accounts never contact native tools'
-                      : !['codex', 'claude'].includes(a.harness)
-                        ? 'Native identity adapter is planned'
+                      : !(a.backend || managedHarnesses.includes(a.harness))
+                        ? 'No supported native status adapter'
                         : 'Read native authentication status'
                   }
                 >

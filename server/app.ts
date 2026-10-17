@@ -52,6 +52,7 @@ import { T3Driver } from './backends/t3-driver.js';
 import { Companions } from './companions.js';
 import { registerCompanionMcp } from './companion-mcp.js';
 import { Blueprints, blueprintSchema } from './blueprints.js';
+import { AccountRouting, routePrepareSchema } from './routing.js';
 
 const builtinHarness = z.enum(['codex', 'claude', 'opencode', 'hermes', 'openclaw']);
 const harness = z.string().regex(/^[a-zA-Z][a-zA-Z0-9._-]{0,79}$/);
@@ -137,12 +138,14 @@ export async function createApp(options: AppOptions) {
       const pressure = await machine.freshPressure();
       checkMemoryAdmission(local.settings(), pressure);
     },
+    (work, account, allowMetered) => routing.authorize(work, account, allowMetered),
   );
   const profiles: Profiles = new Profiles(local, () => controller.activeCount > 0);
   const demoProfiles = new Profiles(demo);
   const companions = new Companions(local, profiles, controller);
   const machine = new MachineMonitor(options.memoryPressureReader);
   const continuity = new Continuity(local, controller);
+  const routing = new AccountRouting(local, controller, continuity);
   const probing = new Set<string>();
   const t3 = new T3Connections(
     local,
@@ -370,6 +373,96 @@ export async function createApp(options: AppOptions) {
         )
         .slice(0, 20),
     };
+  });
+  app.get('/api/work/:id/route', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo cannot inspect native account routing.');
+    return routing.review((request.params as { id: string }).id);
+  });
+  app.put('/api/work/:id/route', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo cannot authorize native account routing.');
+    assert(
+      !nativeSources.isReading && probing.size === 0,
+      409,
+      'Wait for native account checks before changing routing.',
+    );
+    return routing.configure((request.params as { id: string }).id, request.body);
+  });
+  app.delete('/api/work/:id/route', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo has no native account routing.');
+    const body = z
+      .object({ expectedRevision: z.number().int().nonnegative() })
+      .strict()
+      .parse(request.body);
+    return routing.remove((request.params as { id: string }).id, body.expectedRevision);
+  });
+  app.post('/api/work/:id/route/prepare', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo cannot prepare native account routing.');
+    assert(
+      !nativeSources.isReading && probing.size === 0,
+      409,
+      'Wait for native catalogue checks before preparing a routed handoff.',
+    );
+    return routing.prepare(
+      (request.params as { id: string }).id,
+      routePrepareSchema.parse(request.body),
+    );
+  });
+  app.post('/api/work/:id/route/refresh', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo does not check native routing evidence.');
+    assert(
+      controller.activeCount === 0 &&
+        !controller.hasLiveExecution &&
+        !nativeSources.isReading &&
+        probing.size === 0,
+      409,
+      'Wait for native execution and other native account checks before refreshing a route.',
+    );
+    const workId = (request.params as { id: string }).id;
+    const policy = routing.policy(workId);
+    assert(policy, 409, 'Authorize an account route first.');
+    probing.add(`route:${workId}`);
+    const checked: string[] = [],
+      backendsRead = new Set<string>();
+    try {
+      // Bounded, sequential native checks. No resident router or parallel worker burst.
+      for (const accountId of policy.accountIds) {
+        const review = routing.review(workId);
+        const first = review.candidates.find((candidate) => candidate.eligible);
+        if (
+          first &&
+          policy.accountIds.indexOf(first.accountId) < policy.accountIds.indexOf(accountId)
+        )
+          break;
+        const account = local.account(accountId);
+        const staleEvidence = (timestamp: string | null) => {
+          const elapsed = Date.now() - Date.parse(timestamp ?? '');
+          return (
+            !Number.isFinite(elapsed) ||
+            elapsed < -5000 ||
+            elapsed > policy.maxEvidenceAgeSeconds * 1000
+          );
+        };
+        const stale =
+          staleEvidence(account.checkedAt) ||
+          account.ordinaryUsageAllowed === false ||
+          account.quotas.some(
+            (quota) => staleEvidence(quota.observedAt) || quota.usedPercent >= 100,
+          );
+        if (!stale && account.state !== 'unavailable' && !account.error) continue;
+        if (checked.length >= 4) break;
+        if (account.backend && backendsRead.has(account.backend.id)) continue;
+        if (account.backend) backendsRead.add(account.backend.id);
+        try {
+          await refreshAccount(account);
+        } catch (error) {
+          local.put('accounts', account.id, failedProbe(account, error));
+        }
+        checked.push(accountId);
+      }
+      return { ...routing.review(workId), refreshedAccountIds: checked };
+    } finally {
+      probing.delete(`route:${workId}`);
+    }
   });
   app.get('/api/spending', async (request) => {
     assert(mode(request) === 'local', 409, 'Demo has no managed spending ledger.');
@@ -657,6 +750,14 @@ export async function createApp(options: AppOptions) {
     db.put('accounts', account.id, account);
     return reply.code(201).send(account);
   });
+  async function refreshAccount(account: Account) {
+    const result = account.backend
+      ? await backends.refresh(account.backend.id).then(() => local.account(account.id))
+      : await (options.accountProbe ?? probeAccount)(account).catch((error) =>
+          failedProbe(account, error),
+        );
+    return local.put('accounts', account.id, result);
+  }
   app.post('/api/accounts/:id/probe', async (request) => {
     const db = store(request);
     const account = db.account((request.params as { id: string }).id);
@@ -678,13 +779,7 @@ export async function createApp(options: AppOptions) {
     );
     probing.add(account.id);
     try {
-      const result = account.backend
-        ? await backends.refresh(account.backend.id).then(() => db.account(account.id))
-        : await (options.accountProbe ?? probeAccount)(account).catch((error) =>
-            failedProbe(account, error),
-          );
-      db.put('accounts', account.id, result);
-      return result;
+      return await refreshAccount(account);
     } finally {
       probing.delete(account.id);
     }
@@ -694,7 +789,11 @@ export async function createApp(options: AppOptions) {
     const account = db.account((request.params as { id: string }).id);
     assert(!probing.has(account.id), 409, 'Wait for this native account check to finish.');
     assert(
-      !db.all<Work>('work').some((w) => w.accountId === account.id),
+      !db.all<Work>('work').some((w) => w.accountId === account.id) &&
+        !db.all<Run>('runs').some((run) => run.accountId === account.id) &&
+        !db
+          .all<import('../shared/routing.js').AccountRoute>('account_routes')
+          .some((route) => route.accountIds.includes(account.id)),
       409,
       'This slot is referenced by work history. Keep it to preserve account attribution.',
     );
@@ -1132,5 +1231,5 @@ export async function createApp(options: AppOptions) {
     local.close();
     demo.close();
   });
-  return { app, local, demo, controller, csrf, companions, blueprints };
+  return { app, local, demo, controller, csrf, companions, blueprints, routing };
 }

@@ -5,12 +5,13 @@ import {
   type MemoryPressure,
 } from '../../shared/types';
 import { type Mutate } from '../api';
-import { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, useRef, type FormEvent } from 'react';
 import { Dialog, HarnessMark, FormError } from './primitives';
 import { Folder, ShieldCheck, LoaderCircle, Play } from 'lucide-react';
 import { executionName, canExecuteAccount } from '../../shared/harnesses';
 import type { SpendReview } from '../../shared/spending';
 import { currency } from '../lib/format';
+import type { RouteReview } from '../../shared/routing';
 
 export function LaunchDialog({
   work,
@@ -21,6 +22,8 @@ export function LaunchDialog({
   memoryPressure,
   memoryProtection = true,
   onResources,
+  onRouted,
+  onSpending,
 }: {
   work: Work;
   account?: Account;
@@ -30,6 +33,8 @@ export function LaunchDialog({
   memoryPressure?: MemoryPressure;
   memoryProtection?: boolean;
   onResources?: () => void;
+  onRouted: (work: Work) => void;
+  onSpending: () => void;
 }) {
   const [metered, setMetered] = useState(false);
   const [reconciled, setReconciled] = useState(false);
@@ -39,26 +44,36 @@ export function LaunchDialog({
   const [confirmed, setConfirmed] = useState(false);
   const [reading, setReading] = useState(false);
   const [spending, setSpending] = useState<SpendReview | null>(null);
+  const [route, setRoute] = useState<RouteReview | null>(null);
+  const reviewRequest = useRef(0);
   async function readContext() {
+    const requestId = ++reviewRequest.current;
     setReading(true);
     setError('');
     setReview(null);
     setSpending(null);
+    setRoute(null);
     setConfirmed(false);
     try {
       const result = await mutate<ContextReview>(`/work/${work.id}/context-review`, 'POST');
       const cost = await mutate<{ review: SpendReview }>(`/work/${work.id}/spending`, 'GET');
+      const route = await mutate<RouteReview>(`/work/${work.id}/route`, 'GET');
+      if (requestId !== reviewRequest.current) return;
       setSpending(cost.review);
+      setRoute(route);
       setReview(result);
       setConfirmed(work.contextReceipt?.contentDigest === result.receipt.contentDigest);
     } catch (cause) {
-      setError((cause as Error).message);
+      if (requestId === reviewRequest.current) setError((cause as Error).message);
     } finally {
-      setReading(false);
+      if (requestId === reviewRequest.current) setReading(false);
     }
   }
   useEffect(() => {
     void readContext();
+    return () => {
+      reviewRequest.current++;
+    };
   }, [work.id, work.revision]);
   const needsReview = ['failed', 'interrupted'].includes(work.status);
   const claude = work.harness === 'claude';
@@ -69,6 +84,25 @@ export function LaunchDialog({
   const compatible = canExecuteAccount(account);
   const pressureHigh =
     memoryProtection && ['warning', 'critical'].includes(memoryPressure?.state ?? 'unknown');
+  const routeMismatch = Boolean(route?.policy && route.recommendedAccountId !== work.accountId);
+  async function prepareRoute() {
+    if (!route?.planId) return;
+    setBusy(true);
+    setError('');
+    try {
+      onRouted(
+        await mutate<Work>(`/work/${work.id}/route/prepare`, 'POST', {
+          planId: route.planId,
+          digest: route.digest,
+          reconciled,
+        }),
+      );
+    } catch (cause) {
+      setError((cause as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   async function start(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
@@ -94,171 +128,221 @@ export function LaunchDialog({
       subtitle={`START A ${executionName(work.harness).toUpperCase()} ATTEMPT`}
       onClose={onClose}
     >
-      <form className="dialog-body form-stack" onSubmit={start}>
-        <div className="binding-box">
-          <HarnessMark harness={work.harness} />
-          <div>
-            <strong>{account?.label}</strong>
-            <p>
-              {account?.identity ??
-                (opencode || hermes || openclaw
-                  ? 'Native profile and model are checked before input. Provider identity and quotas remain unknown.'
-                  : 'Native identity will be checked before the turn starts.')}
-            </p>
-          </div>
-        </div>
-        <p>
-          <strong>{work.title}</strong>
-        </p>
-        <p>
-          {executionName(work.harness)} receives this task's goal, acceptance criteria, context and
-          checkpoints, with access to the selected project. Native tools and permission rules apply.
-          Supported permission requests arrive in Forge.
-        </p>
-        <div className="path-line">
-          <Folder size={16} />
-          <code>{work.cwd}</code>
-        </div>
-        {pressureHigh && (
-          <div className="notice" role="status">
+      <form className="dialog-form" onSubmit={start}>
+        <div className="dialog-body form-stack">
+          <div className="binding-box">
+            <HarnessMark harness={work.harness} />
             <div>
-              <strong>New native work is waiting for memory headroom.</strong>
+              <strong>{account?.label}</strong>
               <p>
-                macOS reports {memoryPressure?.state} pressure. Wait for it to ease, or review your
-                resource policy before launching.
+                {account?.identity ??
+                  (opencode || hermes || openclaw
+                    ? 'Native profile and model are checked before input. Provider identity and quotas remain unknown.'
+                    : 'Native identity will be checked before the turn starts.')}
               </p>
-              <button type="button" className="text-button" onClick={onResources}>
-                Review Resources
-              </button>
             </div>
           </div>
-        )}
-        {memoryProtection && (!memoryPressure || memoryPressure.state === 'unknown') && (
-          <p className="source-note">
-            Automatic memory pressure detection is unavailable here. Quiet mode can still pause new
-            managed work.
+          <p>
+            <strong>{work.title}</strong>
           </p>
-        )}
-        <section className="memory-launch-review">
-          <h3>{review ? `Profile: ${review.receipt.profileName}` : 'Reading selected context'}</h3>
-          {review && (
-            <>
-              <p className="source-note">
-                {review.memories.length} applicable memory{' '}
-                {review.memories.length === 1 ? 'reference' : 'references'}.{' '}
-                {review.skipped.length
-                  ? `${review.skipped.length} references outside this scope were excluded.`
-                  : 'Native sources are checked again when you launch.'}
+          <p>
+            {executionName(work.harness)} receives this task's goal, acceptance criteria, context
+            and checkpoints, with access to the selected project. Native tools and permission rules
+            apply. Supported permission requests arrive in Forge.
+          </p>
+          <div className="path-line">
+            <Folder size={16} />
+            <code>{work.cwd}</code>
+          </div>
+          {routeMismatch && (
+            <section className="detail-section" aria-label="Recommended account">
+              <h3>Account routing</h3>
+              <p>
+                {route?.recommendedAccountId
+                  ? `The approved route recommends ${route.candidates.find((candidate) => candidate.accountId === route.recommendedAccountId)?.label}. Prepare that binding before its context review and launch.`
+                  : 'No account meets the approved route. Refresh evidence or review the route in this work panel.'}
               </p>
-              {work.nativeSessionId &&
-                work.contextReceipt?.contentDigest !== review.receipt.contentDigest &&
-                (work.contextReceipt || review.requiresReview) && (
-                  <p className="source-note">
-                    Selected memory changed. This launch starts a fresh native conversation and
-                    retains the earlier work history.
-                  </p>
-                )}
-              {review.instructions && (
-                <details className="native-details">
-                  <summary>Profile instructions</summary>
-                  <pre className="memory-excerpt">{review.instructions}</pre>
-                </details>
+              {route?.recommendedAccountId && (
+                <>
+                  {Boolean(work.generation || work.nativeSessionId || work.capsuleId) && (
+                    <label className="checkbox-label">
+                      <input
+                        type="checkbox"
+                        checked={reconciled}
+                        onChange={(event) => setReconciled(event.target.checked)}
+                      />
+                      <span>
+                        I reviewed native activity and external effects before this routed handoff.
+                      </span>
+                    </label>
+                  )}
+                  <button
+                    className="button secondary small"
+                    type="button"
+                    disabled={
+                      busy ||
+                      (Boolean(work.generation || work.nativeSessionId || work.capsuleId) &&
+                        !reconciled)
+                    }
+                    onClick={() => void prepareRoute()}
+                  >
+                    Prepare recommended account
+                  </button>
+                </>
               )}
-              {review.memories.map((memory) => (
-                <details key={memory.sourceId} className="native-details">
-                  <summary>{memory.label}</summary>
-                  <pre className="memory-excerpt" tabIndex={0}>
-                    {memory.content}
-                  </pre>
-                </details>
-              ))}
-              {review.requiresReview && (
-                <label className="checkbox-label">
-                  <input
-                    type="checkbox"
-                    checked={confirmed}
-                    onChange={(event) => setConfirmed(event.target.checked)}
-                  />
-                  <span>I reviewed this profile and selected memory for the native launch.</span>
-                </label>
-              )}
-            </>
+              <button type="button" className="text-button" onClick={onClose}>
+                Review account route
+              </button>
+            </section>
           )}
-          <button
-            type="button"
-            className="text-button"
-            disabled={reading}
-            onClick={() => void readContext()}
-          >
-            {reading && <LoaderCircle size={14} className="spin" />}Refresh context review
-          </button>
-        </section>
-        {spending && (
-          <section className="detail-section" aria-label="Launch spending review">
-            <h3>Spending admission</h3>
-            <p>
-              {spending.reserveUsd === null
-                ? 'Budget admission is off. Native usage is still recorded.'
-                : `${currency(spending.reserveUsd)} will be reserved for this attempt. ${currency(spending.monthAccountedUsd)} is accounted for in ${spending.period} UTC.`}
+          {pressureHigh && (
+            <div className="notice" role="status">
+              <div>
+                <strong>New native work is waiting for memory headroom.</strong>
+                <p>
+                  macOS reports {memoryPressure?.state} pressure. Wait for it to ease, or review
+                  your resource policy before launching.
+                </p>
+                <button type="button" className="text-button" onClick={onResources}>
+                  Review Resources
+                </button>
+              </div>
+            </div>
+          )}
+          {memoryProtection && (!memoryPressure || memoryPressure.state === 'unknown') && (
+            <p className="source-note">
+              Automatic memory pressure detection is unavailable here. Quiet mode can still pause
+              new managed work.
             </p>
-            {spending.reason && (
-              <p className="form-error" role="status">
-                {spending.reason} Review spending in Accounts.
-              </p>
+          )}
+          <section className="memory-launch-review">
+            <h3>
+              {review ? `Profile: ${review.receipt.profileName}` : 'Reading selected context'}
+            </h3>
+            {review && (
+              <>
+                <p className="source-note">
+                  {review.memories.length} applicable memory{' '}
+                  {review.memories.length === 1 ? 'reference' : 'references'}.{' '}
+                  {review.skipped.length
+                    ? `${review.skipped.length} references outside this scope were excluded.`
+                    : 'Native sources are checked again when you launch.'}
+                </p>
+                {work.nativeSessionId &&
+                  work.contextReceipt?.contentDigest !== review.receipt.contentDigest &&
+                  (work.contextReceipt || review.requiresReview) && (
+                    <p className="source-note">
+                      Selected memory changed. This launch starts a fresh native conversation and
+                      retains the earlier work history.
+                    </p>
+                  )}
+                {review.instructions && (
+                  <details className="native-details">
+                    <summary>Profile instructions</summary>
+                    <pre className="memory-excerpt">{review.instructions}</pre>
+                  </details>
+                )}
+                {review.memories.map((memory) => (
+                  <details key={memory.sourceId} className="native-details">
+                    <summary>{memory.label}</summary>
+                    <pre className="memory-excerpt" tabIndex={0}>
+                      {memory.content}
+                    </pre>
+                  </details>
+                ))}
+                {review.requiresReview && (
+                  <label className="checkbox-label">
+                    <input
+                      type="checkbox"
+                      checked={confirmed}
+                      onChange={(event) => setConfirmed(event.target.checked)}
+                    />
+                    <span>I reviewed this profile and selected memory for the native launch.</span>
+                  </label>
+                )}
+              </>
             )}
+            <button
+              type="button"
+              className="text-button"
+              disabled={reading}
+              onClick={() => void readContext()}
+            >
+              {reading && <LoaderCircle size={14} className="spin" />}Refresh context review
+            </button>
           </section>
-        )}
-        <label className="checkbox-label">
-          <input
-            type="checkbox"
-            checked={metered}
-            onChange={(e) => setMetered(e.target.checked)}
-            required={requiresMetered}
-          />
-          <span>
-            Allow metered API, external-provider billing, or additional credits for this launch.
-            <small>Provider charges are separate from any reported cost estimate.</small>
-          </span>
-        </label>
-        {needsReview && (
+          {spending && (
+            <section className="detail-section" aria-label="Launch spending review">
+              <h3>Spending admission</h3>
+              <p>
+                {spending.reserveUsd === null
+                  ? 'Budget admission is off. Native usage is still recorded.'
+                  : `${currency(spending.reserveUsd)} will be reserved for this attempt. ${currency(spending.monthAccountedUsd)} is accounted for in ${spending.period} UTC.`}
+              </p>
+              {spending.reason && (
+                <>
+                  <p className="form-error" role="status">
+                    {spending.reason}
+                  </p>
+                  <button type="button" className="text-button" onClick={onSpending}>
+                    Review spending in Accounts
+                  </button>
+                </>
+              )}
+            </section>
+          )}
           <label className="checkbox-label">
             <input
               type="checkbox"
-              checked={reconciled}
-              onChange={(e) => setReconciled(e.target.checked)}
-              required
+              checked={metered}
+              onChange={(e) => setMetered(e.target.checked)}
+              required={requiresMetered}
             />
             <span>
-              I reviewed the previous native attempt, detached tools, and external effects before
-              retrying.
+              Allow metered API, external-provider billing, or additional credits for this launch.
+              <small>Provider charges are separate from any reported cost estimate.</small>
             </span>
           </label>
-        )}
-        <div className="notice">
-          <ShieldCheck size={18} />
-          <p>
-            {account?.backend
-              ? 'T3 owns this provider instance, native conversation and tools. Forge starts one supervised run with T3’s approval-required mode. Supported exact requests appear here; other native decisions remain in T3. Native provider billing applies.'
-              : openclaw
-                ? compatible
-                  ? 'OpenClaw owns its native tools, memory and model routing. This dedicated Gateway uses guarded permissions: file operations inside the project can run without a prompt. Supported exact command approvals appear here. Existing companion channels and schedules retain their native owner.'
-                  : 'Choose an explicit dedicated OpenClaw execution profile and native or API billing. Subscription allowance cannot be verified.'
-                : hermes
+          {needsReview && (
+            <label className="checkbox-label">
+              <input
+                type="checkbox"
+                checked={reconciled}
+                onChange={(e) => setReconciled(e.target.checked)}
+                required
+              />
+              <span>
+                I reviewed the previous native attempt, detached tools, and external effects before
+                retrying.
+              </span>
+            </label>
+          )}
+          <div className="notice">
+            <ShieldCheck size={18} />
+            <p>
+              {account?.backend
+                ? 'T3 owns this provider instance, native conversation and tools. Forge starts one supervised run with T3’s approval-required mode. Supported exact requests appear here; other native decisions remain in T3. Native provider billing applies.'
+                : openclaw
                   ? compatible
-                    ? 'Hermes owns its tools, skills, memory and provider settings. Native default edit review is checked before input; native command policies still apply. Requests can expire in under a minute. Provider identity, allowance and final task acceptance remain separate.'
-                    : 'Choose an explicit Hermes home and native or API billing. Forge cannot require an unverified subscription allowance.'
-                  : opencode
+                    ? 'OpenClaw owns its native tools, memory and model routing. This dedicated Gateway uses guarded permissions: file operations inside the project can run without a prompt. Supported exact command approvals appear here. Existing companion channels and schedules retain their native owner.'
+                    : 'Choose an explicit dedicated OpenClaw execution profile and native or API billing. Subscription allowance cannot be verified.'
+                  : hermes
                     ? compatible
-                      ? 'OpenCode v2 owns tools and native permissions. Session allow rules request review while native denials stay in order. These permissions use your host authority. Provider billing and saved native grants remain native.'
-                      : 'Choose an explicit OpenCode profile root and native or API billing. Forge cannot verify or require subscription allowance for this route.'
-                    : claude
+                      ? 'Hermes owns its tools, skills, memory and provider settings. Native default edit review is checked before input; native command policies still apply. Requests can expire in under a minute. Provider identity, allowance and final task acceptance remain separate.'
+                      : 'Choose an explicit Hermes home and native or API billing. Forge cannot require an unverified subscription allowance.'
+                    : opencode
                       ? compatible
-                        ? 'This route uses API authentication and native manual permission mode. Existing native rules can allow tools without a prompt. API credentials stay in the referenced environment variable.'
-                        : 'Managed Claude turns require an API slot. Native claude.ai subscription sessions continue through their native client under Anthropic’s integration rules.'
-                      : 'Forge requests the native untrusted approval policy and workspace-write sandbox. Launch stops if the server does not confirm these settings.'}
-          </p>
+                        ? 'OpenCode v2 owns tools and native permissions. Session allow rules request review while native denials stay in order. These permissions use your host authority. Provider billing and saved native grants remain native.'
+                        : 'Choose an explicit OpenCode profile root and native or API billing. Forge cannot verify or require subscription allowance for this route.'
+                      : claude
+                        ? compatible
+                          ? 'This route uses API authentication and native manual permission mode. Existing native rules can allow tools without a prompt. API credentials stay in the referenced environment variable.'
+                          : 'Managed Claude turns require an API slot. Native claude.ai subscription sessions continue through their native client under Anthropic’s integration rules.'
+                        : 'Forge requests the native untrusted approval policy and workspace-write sandbox. Launch stops if the server does not confirm these settings.'}
+            </p>
+          </div>
+          <FormError error={error} />
         </div>
-        <FormError error={error} />
         <div className="form-footer">
           <button className="button secondary" type="button" onClick={onClose}>
             Keep as ready
@@ -271,6 +355,8 @@ export function LaunchDialog({
               !compatible ||
               !review ||
               !spending?.allowed ||
+              !route ||
+              routeMismatch ||
               reading ||
               (review.requiresReview && !confirmed) ||
               (requiresMetered && !metered) ||

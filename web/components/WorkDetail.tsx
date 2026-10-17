@@ -12,6 +12,7 @@ import { useState, type FormEvent } from 'react';
 import { Dialog, Status, HarnessMark, FormError } from './primitives';
 import { harnessName, age } from '../lib/format';
 import { OutcomeReview } from './OutcomeReview';
+import { RoutingPanel } from './RoutingPanel';
 import {
   ChevronRight,
   ShieldCheck,
@@ -167,6 +168,7 @@ export function WorkDetail({
           </section>
         )}
         <OutcomeReview work={work} runs={runs} data={data} mutate={mutate} />
+        <RoutingPanel work={work} data={data} mutate={mutate} />
         {work.cwd && (
           <div className="path-line">
             <Folder size={15} />

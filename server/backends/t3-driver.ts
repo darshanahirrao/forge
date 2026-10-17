@@ -78,6 +78,7 @@ export class T3Driver implements NativeDriver {
       409,
       'This native provider or model is unavailable. Refresh its catalogue in Connections.',
     );
+    sink.account(this.backends.observeAccount(context.account, config));
     const projects = await this.backends.projects(this.rpc);
     const candidates = projects.filter(
       (project) =>

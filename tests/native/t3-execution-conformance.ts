@@ -16,7 +16,6 @@ import type {
   Run,
   Work,
   WorkspaceBackend,
-  WorkCapsule,
   Snapshot,
 } from '../../shared/types.js';
 import { processTable, type ProcessObservation } from '../../server/processes.js';
@@ -237,7 +236,7 @@ async function http<T>(url: string, body?: unknown, expectedStatus?: number): Pr
 const request = async <T>(
   url: string,
   body: unknown = {},
-  method: 'POST' | 'PATCH' = 'POST',
+  method: 'POST' | 'PATCH' | 'PUT' = 'POST',
 ): Promise<T> => {
   const response = await app.app.inject({
     method,
@@ -419,14 +418,24 @@ try {
     'PATCH',
   );
   stage = 'same-work native account handoff';
-  const prepared = await request<{ work: Work; capsule: WorkCapsule }>(
-    `/work/${work.id}/capsules`,
-    { expectedRevision: app.local.work(work.id).revision, paths: ['phase-one.txt'] },
+  await request(
+    `/work/${work.id}/route`,
+    {
+      expectedRevision: app.local.work(work.id).revision,
+      expectedPolicyRevision: 0,
+      accountIds: [second.id, account.id],
+      allowMetered: true,
+      allowUnreportedQuota: true,
+      maxEvidenceAgeSeconds: 900,
+    },
+    'PUT',
   );
-  await request(`/work/${work.id}/handoff`, {
-    expectedRevision: prepared.work.revision,
-    capsuleId: prepared.capsule.id,
-    targetAccountId: second.id,
+  const route = app.routing.review(work.id);
+  assert.equal(route.recommendedAccountId, second.id);
+  await request(`/work/${work.id}/route/prepare`, {
+    planId: route.planId,
+    digest: route.digest,
+    paths: ['phase-one.txt'],
     reconciled: true,
   });
   assert.equal(app.local.work(work.id).nativeSessionId, settled.settlement.threadId);
@@ -613,6 +622,7 @@ try {
     unapprovedEffectAbsent: true,
     companionDispatch: 'MCP',
     repeatedDispatchAfterRestart: 'same-run',
+    nativeAccountRouting: 'ordered-pool and verified handoff',
   };
 } catch (error) {
   console.error('T3 execution conformance failed', {

@@ -1,6 +1,6 @@
 # Multiple accounts, one continuous workspace
 
-Design proposal, 16 October 2026, with an initial implementation on 17 October. A person should be able to connect several authorized accounts for the same harness and choose among compatible accounts without creating a separate Forge workspace or manually reconstructing the task. Account slots and native Codex/Claude status probes are implemented. An experimental managed Codex task binds one selected account. Automatic switching and native binding transfer are not implemented; see [RUNTIME.md](RUNTIME.md).
+Version 0.19 implements explicit native account slots, exact work continuity and scoped ordered account routing. [ACCOUNT_ROUTING.md](ACCOUNT_ROUTING.md) describes pinned bindings, fresh/shared quota evidence, opt-in billing and reviewed native handoff. Routing recommends an eligible binding before input and never retries a failed or uncertain native effect automatically. Native hidden-state compatibility and live provider verification remain separate gates.
 
 ## The experience
 

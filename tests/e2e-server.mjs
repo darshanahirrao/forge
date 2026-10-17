@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../dist/server/app.js';
 import { NativeRpc } from '../dist/server/adapters/rpc.js';
+import { readCodexAccount } from '../dist/server/adapters/accounts.js';
 import { t3Fixture } from './fixtures/t3-mcp.ts';
 const t3 = await t3Fixture();
 const directory = mkdtempSync(join(tmpdir(), 'forge-browser-'));
@@ -44,22 +45,42 @@ writeFileSync(
 );
 const phoneOrigin = 'https://127.0.0.1:4713';
 const phoneBridge = { origin: phoneOrigin, proof: randomBytes(32).toString('hex') };
+const fixtureRpc = (options = {}) =>
+  new NativeRpc({
+    ...options,
+    binary: process.execPath,
+    args: [fileURLToPath(new URL('./fixtures/codex-app-server.mjs', import.meta.url))],
+    env: { PATH: process.env.PATH },
+  });
 const { app } = await createApp({
   memoryPressureReader: unknownPressure,
   phoneBridge,
   filename: join(directory, 'workspace.sqlite'),
   port: 4711,
   codexBinary: process.execPath,
+  accountProbe: async (account) => {
+    if (account.harness !== 'codex')
+      return {
+        ...account,
+        state: 'configured',
+        checkedAt: new Date().toISOString(),
+        identity: null,
+        identityKey: null,
+        quotas: [],
+        error: null,
+      };
+    const rpc = fixtureRpc();
+    try {
+      await rpc.initialize();
+      return await readCodexAccount(rpc, account);
+    } finally {
+      await rpc.stop();
+    }
+  },
   nativeSourcesOptions: {
     homes: { codex: nativeHome, claude: join(directory, 'missing-claude'), hermes: nativeHome },
   },
-  rpcFactory: (options) =>
-    new NativeRpc({
-      ...options,
-      binary: process.execPath,
-      args: [fileURLToPath(new URL('./fixtures/codex-app-server.mjs', import.meta.url))],
-      env: { PATH: process.env.PATH },
-    }),
+  rpcFactory: fixtureRpc,
 });
 app.get('/api/fixture/memory', async () => ({ path: memoryPath, project: memoryProject }));
 app.get('/api/test/t3', () => ({ endpoint: t3.origin }));

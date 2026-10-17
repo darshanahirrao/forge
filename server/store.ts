@@ -25,6 +25,7 @@ type Collection =
   | 'spend_attempts'
   | 'spend_counters'
   | 'work_outcomes'
+  | 'account_routes'
   | 'settings'
   | 'config';
 export const now = () => new Date().toISOString();
@@ -41,7 +42,7 @@ export class Store {
     try {
       const version = this.db.prepare('PRAGMA user_version').get() as { user_version: number };
       assert(
-        version.user_version <= 4,
+        version.user_version <= 5,
         409,
         'This workspace was created by a newer Forge version. Open it with that version.',
       );
@@ -60,8 +61,8 @@ export class Store {
       CREATE INDEX IF NOT EXISTS companion_operations_by_grant ON records(json_extract(data,'$.grantId')) WHERE collection='companion_operations';
       `);
       let backup: string | null = null;
-      if (version.user_version > 0 && version.user_version < 4 && filename !== ':memory:') {
-        backup = `${filename}.before-v4.${randomUUID()}.sqlite`;
+      if (version.user_version > 0 && version.user_version < 5 && filename !== ':memory:') {
+        backup = `${filename}.before-v5.${randomUUID()}.sqlite`;
         writeFileSync(backup, '', { flag: 'wx', mode: 0o600 });
         try {
           this.db.prepare('VACUUM INTO ?').run(backup);
@@ -70,7 +71,7 @@ export class Store {
           throw error;
         }
       }
-      this.db.exec('PRAGMA user_version = 4');
+      this.db.exec('PRAGMA user_version = 5');
       this.migrationBackup = backup;
     } catch (error) {
       this.db.close();

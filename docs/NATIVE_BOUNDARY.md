@@ -33,4 +33,4 @@ New productive schedules should use an existing selected scheduler where possibl
 
 Switching Hermes to OpenClaw, or Claude Code to Codex, resolves required capabilities against the target's existing implementations. Forge keeps identity, work state, references, and history. It does not promise that a native browser session, skill, permission, or tool can be copied unchanged to an incompatible engine. Any required retained source service is explicit and remains resource-accounted.
 
-All of this is an architectural requirement. No runtime integration has been implemented in Forge yet.
+Current native integrations and their tested boundaries are recorded in [NATIVE_DRIVERS.md](NATIVE_DRIVERS.md), [NATIVE_BACKENDS.md](NATIVE_BACKENDS.md) and [COMPANION_ACCESS.md](COMPANION_ACCESS.md). The remaining architecture remains a requirement, not an implemented capability.

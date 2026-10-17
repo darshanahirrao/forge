@@ -21,6 +21,7 @@ class Driver implements NativeDriver {
   async start(context: DriverContext, sink: DriverSink) {
     this.context = context;
     this.sink = sink;
+    sink.account(context.account);
     sink.session(`fixture-${context.run.id}`);
     sink.turn('turn-1');
   }
@@ -492,6 +493,32 @@ test('companion dispatch inherits human spending holds without acquiring budget 
     assert.equal(f.controller.spending.attempts()[0].reservedUsd, 1);
     await f.controller.interrupt(work.id);
     assert.equal(f.controller.spending.attempts()[0].state, 'unknown');
+  } finally {
+    await f.close();
+  }
+});
+
+test('native account revalidation preserves finite companion admission and rejects changed or revoked authority', async () => {
+  const f = await fixture();
+  try {
+    const { grant } = await f.grant(true);
+    const work = await f.createWork(grant.id),
+      context = await f.companions.context(grant.id, work.id);
+    await f.companions.start(grant.id, {
+      requestId: 'native-check',
+      workId: work.id,
+      expectedRevision: context.revision,
+      contextDigest: context.reviewDigest,
+    });
+    assert.equal(f.drivers.length, 1);
+    assert.equal(f.companions.list()[0].runsStarted, 1);
+    assert.throws(
+      () => f.drivers[0].sink.account({ ...f.account, identityKey: 'new-native-login' }),
+      /changed its companion grant binding/,
+    );
+    assert.equal(f.local.account(f.account.id).identityKey, f.account.identityKey);
+    f.companions.revoke(grant.id);
+    assert.throws(() => f.drivers[0].sink.account(f.account), /revoked/);
   } finally {
     await f.close();
   }

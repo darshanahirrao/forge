@@ -123,3 +123,10 @@ The [companion MCP contract](COMPANION_ACCESS.md) connects native Hermes, OpenCl
 ## Blueprint activation at v0.17
 
 The existing version-1 setup format now has [reviewed local import and unused rollback](BLUEPRINTS.md), with optional profile instructions and work templates. Bindings reuse existing native accounts, memory references and directories. Selected content and native identity/model/home are rechecked; profiles/ready work/receipt commit together, and repeated activation stays idempotent. Later work, grants, references or preference changes protect the import from rollback. No native executor, account, grant or scheduler is created by import. General extension packaging and the full audit remain open.
+
+
+## Policy compatibility at version 0.19
+
+State version 5 prevents older Forge releases from opening a workspace and ignoring its spending or account-routing policies. A v1-v4 file workspace receives a mode-0600 native SQLite `workspace.sqlite.before-v5.UUID.sqlite` copy before upgrade. The active database retains native account/source references, grants, work, receipts, policies and observed activity. In-memory and new workspaces start directly at version 5. Future versions are rejected without rewriting their version.
+
+Stop Forge before restoring a rollback copy with its corresponding application checkpoint. Preserve the current database first, and keep its newer SQLite sidecars separate. A rollback is explicit recovery of earlier policy and work state, not authority to replay previously submitted native input.

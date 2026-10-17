@@ -20,6 +20,47 @@ type Credential = z.infer<typeof credential>;
 const fingerprint = (text: string) => createHash('sha256').update(text).digest('hex');
 export const driverHarness = (driver: string) =>
   driver === 'claudeAgent' ? 'claude' : driver === 'openCode' ? 'opencode' : driver;
+function accountEvidence(
+  environmentId: string,
+  backendId: string,
+  provider: z.output<typeof t3Config>['providers'][number],
+) {
+  const identity =
+    provider.auth?.workspaceId ||
+    provider.usageLimits?.credentialFingerprint ||
+    provider.auth?.profileId;
+  const ready =
+    provider.enabled &&
+    provider.installed &&
+    ['ready', 'warning'].includes(provider.status) &&
+    provider.auth?.status !== 'unauthenticated' &&
+    provider.models.length > 0;
+  return {
+    nativeHome: provider.runtimePaths?.homePath ?? '',
+    providerReady: ready,
+    identity: provider.auth?.email ?? provider.auth?.label ?? provider.auth?.profileId ?? null,
+    identityKey: identity
+      ? `t3:${environmentId}:${provider.driver}:${fingerprint(identity)}`
+      : null,
+    state: ready
+      ? provider.auth?.status === 'authenticated'
+        ? ('verified' as const)
+        : ('configured' as const)
+      : ('unavailable' as const),
+    checkedAt: now(),
+    error: ready ? null : 'Check this provider instance in T3.',
+    quotas: (provider.usageLimits?.windows ?? []).map((window) => ({
+      label: window.label,
+      usedPercent: window.usedPercent,
+      resetsAt: window.resetsAt ?? null,
+      scope: identity
+        ? `t3:${environmentId}:${provider.driver}:${fingerprint(identity)}:${window.id}`
+        : `t3:unknown:${backendId}:${provider.instanceId}:${window.id}`,
+      source: 'native' as const,
+      observedAt: provider.usageLimits!.checkedAt,
+    })),
+  };
+}
 
 /** Human native-app authority is separate from the read-only MCP source and never forwarded to agents. */
 export class T3Backends {
@@ -37,6 +78,22 @@ export class T3Backends {
   }
   list() {
     return this.store.all<WorkspaceBackend>('backends');
+  }
+  observeAccount(account: Account, config: z.output<typeof t3Config>): Account {
+    const backend = this.list().find((value) => value.id === account.backend?.id);
+    const provider = config.providers.find(
+      (value) => value.instanceId === account.backend?.instanceId,
+    );
+    assert(
+      backend && provider && config.environment.environmentId === backend.environmentId,
+      409,
+      'The native account observation changed backend identity.',
+    );
+    return {
+      ...account,
+      ...accountEvidence(backend.environmentId, backend.id, provider),
+      harness: driverHarness(provider.driver),
+    };
   }
   private filename(id: string) {
     return join(this.directory!, `.forge-t3-control-${id}.json`);
@@ -221,17 +278,6 @@ export class T3Backends {
         const old = this.store.get<Account>('accounts', accountId);
         if (!provider.installed && !old) continue;
         seen.add(accountId);
-        const ready =
-          provider.installed &&
-          ['ready', 'warning'].includes(provider.status) &&
-          provider.auth?.status !== 'unauthenticated' &&
-          provider.models.length > 0;
-        const identity =
-          provider.auth?.email ?? provider.auth?.label ?? provider.auth?.profileId ?? null;
-        const identityKey =
-          provider.auth?.workspaceId ||
-          provider.usageLimits?.credentialFingerprint ||
-          provider.auth?.profileId;
         const model =
           old?.backend && provider.models.some((m) => m.id === old.backend!.model)
             ? old.backend.model
@@ -242,7 +288,7 @@ export class T3Backends {
           id: accountId,
           label: provider.displayName ?? provider.instanceId,
           harness: driverHarness(provider.driver),
-          nativeHome: provider.runtimePaths?.homePath ?? '',
+          ...accountEvidence(backend.environmentId, backend.id, provider),
           billingMode: 'native',
           backend: {
             id: backend.id,
@@ -251,29 +297,7 @@ export class T3Backends {
             ...(old?.backend?.projectId ? { projectId: old.backend.projectId } : {}),
           },
           models: provider.models.map((m) => m.id),
-          providerReady: ready,
-          state: ready
-            ? provider.auth?.status === 'authenticated'
-              ? 'verified'
-              : 'configured'
-            : 'unavailable',
-          identity,
-          identityKey: identityKey
-            ? `t3:${backend.environmentId}:${provider.driver}:${fingerprint(identityKey)}`
-            : null,
           plan: null,
-          checkedAt: now(),
-          error: ready ? null : 'Check this provider instance in T3.',
-          quotas: (provider.usageLimits?.windows ?? []).map((window) => ({
-            label: window.label,
-            usedPercent: window.usedPercent,
-            resetsAt: window.resetsAt ?? null,
-            scope: identityKey
-              ? `t3:${backend.environmentId}:${provider.driver}:${fingerprint(identityKey)}:${window.id}`
-              : `t3:unknown:${backend.id}:${provider.instanceId}:${window.id}`,
-            source: 'native',
-            observedAt: provider.usageLimits!.checkedAt,
-          })),
           createdAt: old?.createdAt ?? now(),
         };
         this.store.put('accounts', accountId, account);

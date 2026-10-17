@@ -16,17 +16,9 @@ import { assert, ForgeError, safeMessage } from './errors.js';
 import { ExecutionController } from './execution.js';
 import { Profiles } from './memory.js';
 import { Store, id, now } from './store.js';
+import { accountBinding as binding } from './adapters/binding.js';
 
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
-const binding = (account: Account) =>
-  digest({
-    harness: account.harness,
-    home: account.nativeHome,
-    credential: account.credentialEnv,
-    billing: account.billingMode,
-    backend: account.backend,
-    identity: account.identityKey,
-  });
 const within = (root: string, directory: string) => {
   const path = relative(root, directory);
   return (
@@ -559,11 +551,17 @@ export class Companions {
         assert(work.accountId, 409, 'Choose a granted native account in Forge first.');
         const directory = await this.directory(grant, work.cwd);
         assert(directory === work.cwd, 409, 'The saved directory changed. Review it in Forge.');
-        const authorize = () => {
+        const authorize = (startedRunId?: string) => {
           const current = this.authorize(grantId, 'work:dispatch', work.id);
           this.account(current, work.accountId!);
+          const started = startedRunId ? this.store.get<Run>('runs', startedRunId) : null;
+          const ownReservedRun = Boolean(
+            started?.requestedBy?.grantId === grantId &&
+            started.requestedBy.requestId === input.requestId,
+          );
           assert(
-            current.dispatch && this.public(current).runsStarted < current.dispatch.maxRuns,
+            current.dispatch &&
+              this.public(current).runsStarted - Number(ownReservedRun) < current.dispatch.maxRuns,
             409,
             'This companion reached its finite native run limit.',
           );

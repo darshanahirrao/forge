@@ -170,7 +170,7 @@ export function App() {
     if (!snapshot || snapshot.mode !== mode)
       throw new Error('Wait for this workspace to finish loading.');
     const result = await request<T>(path, mode, snapshot.csrf, method, body);
-    await load();
+    if (method !== 'GET') await load();
     return result;
   }
   async function act(key: string, operation: () => Promise<unknown>, message?: string) {
@@ -602,6 +602,12 @@ export function App() {
       {snapshot && launch && (
         <LaunchDialog
           work={launch}
+          onRouted={setLaunch}
+          onSpending={() => {
+            setLaunch(null);
+            setSelected(null);
+            navigate('accounts');
+          }}
           account={snapshot.accounts.find((a) => a.id === launch.accountId)}
           memoryPressure={snapshot.machine.memoryPressure}
           memoryProtection={snapshot.settings.memoryPressurePolicy !== 'observe'}

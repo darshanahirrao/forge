@@ -303,6 +303,7 @@ export class Continuity {
     capsuleId: string,
     targetAccountId: string,
     reconciled: boolean,
+    authorize?: () => void,
   ) {
     return this.execution.atCheckpoint(workId, revision, async (work) => {
       const capsule = this.store.get<WorkCapsule>('capsules', capsuleId);
@@ -348,6 +349,7 @@ export class Continuity {
         'Project files changed after the checkpoint. Prepare a fresh checkpoint before switching.',
       );
       return this.store.transaction(() => {
+        authorize?.();
         const current = this.store.work(workId);
         const currentAccount = this.store.account(targetAccountId);
         assert(

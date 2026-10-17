@@ -2,6 +2,7 @@ import type {
   ApprovalActor,
   Approval,
   ContextReview,
+  Account,
   Run,
   Work,
   WorkCapsule,
@@ -11,6 +12,7 @@ import { Store, id, now } from './store.js';
 import { requestDigest } from './adapters/sources.js';
 import { captureWorker } from './processes.js';
 import { Spending } from './spending.js';
+import { accountBinding } from './adapters/binding.js';
 import type {
   DriverContext,
   DriverFactory,
@@ -25,6 +27,7 @@ interface PendingControl {
   abort: () => void;
 }
 interface Active {
+  authorizeAccount: (account: Account) => void;
   driver: NativeDriver;
   run: Run;
   sessionId: string | null;
@@ -46,6 +49,7 @@ export class ExecutionController {
     private factory: DriverFactory,
     private prepareContext?: (work: Work, reviewDigest?: string) => Promise<ContextReview>,
     private admissionCheck?: () => Promise<void>,
+    private authorizeLaunch?: (work: Work, account: Account, allowMetered: boolean) => void,
   ) {
     this.spending = new Spending(store);
     this.spending.recover();
@@ -89,7 +93,10 @@ export class ExecutionController {
     reconciled: boolean,
     expectedRevision?: number,
     reviewDigest?: string,
-    companion?: { actor: NonNullable<Run['requestedBy']>; authorize: () => void },
+    companion?: {
+      actor: NonNullable<Run['requestedBy']>;
+      authorize: (startedRunId?: string) => void;
+    },
     expectedSpendingRevision?: number,
   ): Promise<Run> {
     companion?.authorize();
@@ -190,6 +197,14 @@ export class ExecutionController {
         prompt: this.continuation(effectiveWork, review),
       };
       const spending = this.spending.prepare(run);
+      const currentAccount = this.store.account(account.id);
+      assert(
+        accountBinding(currentAccount) === accountBinding(account),
+        409,
+        'The native account binding changed during launch preparation. Review it again.',
+      );
+      context.account = currentAccount;
+      this.authorizeLaunch?.(work, currentAccount, allowMetered);
       assert(
         expectedSpendingRevision === undefined ||
           expectedSpendingRevision === this.spending.policy().revision,
@@ -209,6 +224,17 @@ export class ExecutionController {
         run.settlement = { ...driver.settlement };
       }
       const active: Active = {
+        authorizeAccount: (observed) => {
+          if (companion) {
+            assert(
+              accountBinding(observed) === accountBinding(currentAccount),
+              409,
+              'The observed native account changed its companion grant binding. Renew access after checking the native account.',
+            );
+            companion.authorize(run.id);
+          }
+          this.authorizeLaunch?.(this.store.work(workId), observed, allowMetered);
+        },
         driver,
         run,
         sessionId: null,
@@ -390,8 +416,10 @@ export class ExecutionController {
         this.store.put('runs', active.run.id, active.run);
       },
       account: (account) => {
-        if (live() && account.id === active.run.accountId)
+        if (live() && account.id === active.run.accountId) {
+          active.authorizeAccount(account);
           this.store.put('accounts', account.id, account);
+        }
       },
       activity: (kind, title, detail = '') => {
         if (live())

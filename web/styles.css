@@ -20,6 +20,23 @@
   --body-font: 'Avenir Next', Avenir, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --mono-font: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 }
+.routing-list {
+  display: grid;
+  gap: 12px;
+  padding-inline-start: 24px;
+}
+.routing-list li {
+  overflow-wrap: anywhere;
+}
+.routing-list li > span {
+  display: block;
+  color: var(--muted);
+}
+.routing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
@@ -2452,6 +2469,22 @@ label small,
   padding: 25px;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+.dialog-form {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.dialog-form > .form-footer {
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  padding: 14px 25px;
+  border-top: 1px solid var(--line);
+}
+.dialog-form > .form-footer .button {
+  max-width: 100%;
+  white-space: normal;
 }
 .form-stack {
   display: flex;

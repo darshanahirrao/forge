@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, rm, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Store } from '../server/store.js';
@@ -191,7 +191,7 @@ test('opening a future workspace version fails without rewriting its version', a
   const directory = await mkdtemp(join(tmpdir(), 'forge-future-'));
   const filename = join(directory, 'test.sqlite');
   const store = new Store(filename);
-  store.db.exec('PRAGMA user_version = 5');
+  store.db.exec('PRAGMA user_version = 6');
   store.close();
   try {
     assert.throws(() => new Store(filename), /newer Forge version/);
@@ -200,7 +200,7 @@ test('opening a future workspace version fails without rewriting its version', a
     try {
       assert.equal(
         (unchanged.prepare('PRAGMA user_version').get() as { user_version: number }).user_version,
-        5,
+        6,
       );
     } finally {
       unchanged.close();
@@ -223,7 +223,7 @@ test('upgrading a legacy workspace preserves its records and creates a native SQ
     assert.equal(store.work(work.id).goal, work.goal);
     assert.equal(
       (store.db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version,
-      4,
+      5,
     );
     const { DatabaseSync } = await import('node:sqlite');
     const backup = new DatabaseSync(store.migrationBackup!, { readOnly: true });
@@ -241,5 +241,58 @@ test('upgrading a legacy workspace preserves its records and creates a native SQ
   } finally {
     store.close();
     await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('v4 spending and routing policies survive a private v5 rollback copy and remain forward gated', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'forge-policy-upgrade-')),
+    filename = join(root, 'workspace.sqlite');
+  let store = new Store(filename);
+  const spending = {
+    version: 1,
+    revision: 2,
+    monthlyUsd: 10,
+    workUsd: 5,
+    attemptUsd: 1,
+    updatedAt: '2026-10-17T00:00:00.000Z',
+  };
+  const route = {
+    version: 1,
+    workId: work.id,
+    revision: 1,
+    accountIds: ['account'],
+    bindings: { account: 'opaque-native-binding' },
+  };
+  store.put('config', 'spending-policy', spending);
+  store.put('account_routes', work.id, route);
+  store.put('work', work.id, work);
+  store.db.exec('PRAGMA user_version = 4');
+  store.close();
+  store = new Store(filename);
+  try {
+    assert.match(store.migrationBackup!, /before-v5/);
+    if (process.platform !== 'win32')
+      assert.equal((await stat(store.migrationBackup!)).mode & 0o777, 0o600);
+    assert.deepEqual(store.get('config', 'spending-policy'), spending);
+    assert.deepEqual(store.get('account_routes', work.id), route);
+    assert.equal(store.work(work.id).goal, work.goal);
+    const { DatabaseSync } = await import('node:sqlite');
+    const backup = new DatabaseSync(store.migrationBackup!, { readOnly: true });
+    try {
+      assert.equal(
+        (backup.prepare('PRAGMA user_version').get() as { user_version: number }).user_version,
+        4,
+      );
+      assert.ok(backup.prepare("SELECT data FROM records WHERE collection='account_routes'").get());
+    } finally {
+      backup.close();
+    }
+    assert.equal(
+      (store.db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version,
+      5,
+    );
+  } finally {
+    store.close();
+    await rm(root, { recursive: true, force: true });
   }
 });
