@@ -8,7 +8,7 @@ import {
 import { type Mutate } from '../api';
 import { useState, type FormEvent } from 'react';
 import { Dialog, FormError } from './primitives';
-import { names } from '../lib/format';
+import { names, harnessName } from '../lib/format';
 import { LoaderCircle } from 'lucide-react';
 
 export function WorkForm({
@@ -101,9 +101,11 @@ export function WorkForm({
                 setAccountId('');
               }}
             >
-              {Object.entries(names).map(([key, name]) => (
+              {[
+                ...new Set([...Object.keys(names), ...accounts.map((account) => account.harness)]),
+              ].map((key) => (
                 <option key={key} value={key}>
-                  {name}
+                  {harnessName(key)}
                 </option>
               ))}
             </select>

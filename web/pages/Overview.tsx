@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Snapshot, Approval, NativeSession, WorkSummary, Harness } from '../../shared/types';
+import type { Snapshot, Approval, NativeSession, WorkSummary } from '../../shared/types';
 import { usageSummary } from '../../shared/usage';
 import {
   ArrowRight,
@@ -11,7 +11,7 @@ import {
   MessageSquare,
   FileText,
 } from 'lucide-react';
-import { currency, compact, age, gb, names } from '../lib/format';
+import { currency, compact, age, gb, harnessName } from '../lib/format';
 import { Status } from '../components/primitives';
 
 type Entry =
@@ -213,7 +213,7 @@ export function Overview({
           <ul className="workspace-entries" role="list">
             {matches.slice(0, limit).map((entry) => {
               const value = entry.value;
-              const harness = names[value.harness as Harness] ?? value.harness;
+              const harness = harnessName(value.harness);
               const account =
                 entry.kind === 'managed'
                   ? (data.accounts.find((item) => item.id === entry.value.accountId)?.label ??

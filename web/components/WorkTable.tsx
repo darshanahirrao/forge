@@ -1,7 +1,7 @@
 import { type WorkSummary, type Account, type Usage } from '../../shared/types';
 import { Folder, ChevronRight } from 'lucide-react';
 import { HarnessMark, Status, IconButton } from './primitives';
-import { names, currency } from '../lib/format';
+import { harnessName, currency } from '../lib/format';
 
 export function WorkTable({
   work,
@@ -48,7 +48,7 @@ export function WorkTable({
                   <div className="work-binding">
                     <HarnessMark harness={w.harness} />
                     <span>
-                      {names[w.harness]}
+                      {harnessName(w.harness)}
                       <small>
                         {accounts.find((a) => a.id === w.accountId)?.label ??
                           'Account not selected'}

@@ -1,11 +1,12 @@
-import type { Harness } from '../../shared/types';
-export const names: Record<Harness, string> = {
+import type { BuiltinHarness } from '../../shared/types';
+export const names: Record<BuiltinHarness, string> = {
   codex: 'Codex',
   claude: 'Claude Code',
   opencode: 'OpenCode',
   hermes: 'Hermes',
   openclaw: 'OpenClaw',
 };
+export const harnessName = (id: string) => (names as Record<string, string>)[id] ?? id;
 export const statusNames: Record<string, string> = {
   ready: 'Ready',
   running: 'Running',

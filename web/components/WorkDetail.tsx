@@ -4,12 +4,13 @@ import {
   type WorkspaceMode,
   type Approval,
   type WorkEvent,
+  type Run,
 } from '../../shared/types';
 import { type Mutate } from '../api';
-import { executionName, managedHarnesses } from '../../shared/harnesses';
+import { executionName, managedHarnesses, canExecuteAccount } from '../../shared/harnesses';
 import { useState, type FormEvent } from 'react';
 import { Dialog, Status, HarnessMark, FormError } from './primitives';
-import { names, age } from '../lib/format';
+import { harnessName, age } from '../lib/format';
 import {
   ChevronRight,
   ShieldCheck,
@@ -25,6 +26,7 @@ import {
 export function WorkDetail({
   work,
   events,
+  runs,
   data,
   mode,
   mutate,
@@ -39,6 +41,7 @@ export function WorkDetail({
 }: {
   work: Work;
   events: WorkEvent[];
+  runs: Run[];
   data: Snapshot;
   mode: WorkspaceMode;
   mutate: Mutate;
@@ -69,9 +72,47 @@ export function WorkDetail({
   }
   const account = data.accounts.find((a) => a.id === work.accountId);
   const pending = data.approvals.find((a) => a.workId === work.id && a.status === 'pending');
+  const unsettled = runs.find((run) => run.settlement && !run.settlement.confirmed);
+  async function reconcile(interrupt: boolean) {
+    if (!unsettled) return;
+    setSaving(true);
+    setError('');
+    try {
+      await mutate(`/runs/${unsettled.id}/reconcile`, 'POST', { interrupt });
+    } catch (cause) {
+      setError((cause as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
   return (
     <Dialog title={work.title} subtitle={work.project} onClose={onClose} sheet>
       <div className="dialog-body detail-body">
+        {unsettled && work.status === 'interrupted' && (
+          <section className="form-stack" aria-label="Native run recovery">
+            <h3>Native outcome needs reconciliation</h3>
+            <p>
+              T3 may still own this run. Check its exact outcome before launching more work. Neither
+              action sends another message or grants a pending approval.
+            </p>
+            <div className="connection-actions">
+              <button
+                className="button secondary small"
+                disabled={saving}
+                onClick={() => void reconcile(false)}
+              >
+                Check native outcome
+              </button>
+              <button
+                className="button secondary small"
+                disabled={saving}
+                onClick={() => void reconcile(true)}
+              >
+                Stop native run and reconcile
+              </button>
+            </div>
+          </section>
+        )}
         <div className="detail-state">
           <Status value={work.status} />
           <span className="source-note">
@@ -92,7 +133,7 @@ export function WorkDetail({
         <div className="binding-box">
           <HarnessMark harness={work.harness} />
           <div>
-            <strong>{names[work.harness]}</strong>
+            <strong>{harnessName(work.harness)}</strong>
             <p>{account?.label ?? 'Choose a native account to run this task.'}</p>
           </div>
           <button className="text-button" disabled={Boolean(work.activeRunId)} onClick={onEdit}>
@@ -196,7 +237,8 @@ export function WorkDetail({
             <Pause size={16} />
             {work.stopRequestedAt ? 'Waiting for native shutdown' : 'Stop managed attempt'}
           </button>
-        ) : managedHarnesses.includes(work.harness) && mode !== 'demo' ? (
+        ) : (canExecuteAccount(account) || managedHarnesses.includes(work.harness)) &&
+          mode !== 'demo' ? (
           <button
             className="button primary"
             onClick={onLaunch}

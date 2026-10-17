@@ -1,6 +1,6 @@
 {
   "name": "@forge-workspace/forge",
-  "version": "0.14.0",
+  "version": "0.15.0",
   "description": "A local workspace for continuous work across agent harnesses.",
   "private": true,
   "type": "module",
@@ -18,7 +18,7 @@
     "check": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.tests.json",
     "format": "prettier --write --ignore-unknown web server shared tests bin *.json *.ts",
     "format:check": "prettier --check --ignore-unknown web server shared tests bin *.json *.ts",
-    "test": "tsx --test tests/*.test.ts",
+    "test": "tsx --test --test-concurrency=1 tests/*.test.ts",
     "test:e2e": "playwright test",
     "test:package": "node --test tests/package.test.mjs",
     "test:native:codex": "tsx tests/native/codex-conformance.ts",
@@ -31,7 +31,8 @@
     "test:native:openclaw": "tsx tests/native/openclaw-conformance.ts",
     "test:native:service": "node tests/native/service-conformance.mjs",
     "test:native:pressure": "node tests/native/pressure-conformance.mjs",
-    "test:native:t3": "tsx tests/native/t3-conformance.ts"
+    "test:native:t3": "tsx tests/native/t3-conformance.ts",
+    "test:native:t3-execution": "tsx tests/native/t3-execution-conformance.ts"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.9.0",

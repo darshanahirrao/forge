@@ -1,6 +1,8 @@
-# T3 Code connection
+# T3 Code activity connection
 
 Forge v0.13 reads activity from an existing local T3 Code server through its authenticated MCP interface. T3 keeps its projects, threads, execution, account instances, tools, approvals and schedules. Forge stores bounded observations beside its other native sources. This is the first implemented gate in the [foundation review](T3_CODE_REVIEW.md); full adoption remains unproven.
+
+Execution uses a separate, explicitly paired [native backend](NATIVE_BACKENDS.md). The read-only activity scope described here is unchanged.
 
 ## Connect
 

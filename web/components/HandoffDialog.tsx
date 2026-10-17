@@ -4,7 +4,7 @@ import { canExecuteAccount } from '../../shared/harnesses';
 import { type Mutate, download } from '../api';
 import { Dialog, FormError, HarnessMark } from './primitives';
 import { ArrowRightLeft, Check, FolderCheck, LoaderCircle, ArrowDownToLine } from 'lucide-react';
-import { names } from '../lib/format';
+import { harnessName } from '../lib/format';
 
 export function HandoffDialog({
   work,
@@ -92,7 +92,10 @@ export function HandoffDialog({
               <HarnessMark harness={work.harness} />
               <div>
                 <strong>{work.title}</strong>
-                <p>{accounts.find((a) => a.id === work.accountId)?.label ?? names[work.harness]}</p>
+                <p>
+                  {accounts.find((a) => a.id === work.accountId)?.label ??
+                    harnessName(work.harness)}
+                </p>
               </div>
             </div>
             <label>
@@ -106,7 +109,7 @@ export function HandoffDialog({
                 {eligible.length ? (
                   eligible.map((a) => (
                     <option key={a.id} value={a.id}>
-                      {a.label} · {names[a.harness]}
+                      {a.label} · {harnessName(a.harness)}
                     </option>
                   ))
                 ) : (
@@ -154,7 +157,14 @@ export function HandoffDialog({
                 <HarnessMark harness={destination.harness} />
                 <div>
                   <strong>{destination.label}</strong>
-                  <p>{names[destination.harness]} · A new native session</p>
+                  <p>
+                    {harnessName(destination.harness)} ·{' '}
+                    {destination.backend &&
+                    accounts.find((account) => account.id === work.accountId)?.backend?.id ===
+                      destination.backend.id
+                      ? 'T3 manages native continuation'
+                      : 'A new native session'}
+                  </p>
                 </div>
               </div>
             )}

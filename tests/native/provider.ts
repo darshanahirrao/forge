@@ -9,7 +9,7 @@ export type FixtureReply =
 export async function fixtureProvider(
   protocol: 'responses' | 'messages' | 'chat',
   program: (body: any) => FixtureReply,
-  expectedKey?: string,
+  expectedKey?: string | (() => string),
 ) {
   let requests = 0;
   let failure: string | null = null;
@@ -35,8 +35,12 @@ export async function fixtureProvider(
       }
       if (expectedKey)
         assert.equal(
-          protocol === 'chat' ? request.headers.authorization : request.headers['x-api-key'],
-          protocol === 'chat' ? `Bearer ${expectedKey}` : expectedKey,
+          protocol === 'messages' ? request.headers['x-api-key'] : request.headers.authorization,
+          protocol === 'messages'
+            ? typeof expectedKey === 'function'
+              ? expectedKey()
+              : expectedKey
+            : `Bearer ${typeof expectedKey === 'function' ? expectedKey() : expectedKey}`,
           'The selected synthetic native credential did not reach its provider.',
         );
       requests++;

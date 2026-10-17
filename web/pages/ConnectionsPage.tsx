@@ -15,6 +15,7 @@ import {
   ArrowDownToLine,
 } from 'lucide-react';
 import { compact, currency } from '../lib/format';
+import { BackendsPanel } from '../components/BackendsPanel';
 
 export function ConnectionsPage({
   data,
@@ -51,6 +52,7 @@ export function ConnectionsPage({
   }
   return (
     <div className="page-stack">
+      <BackendsPanel data={data} mutate={mutate} />
       <section className="panel resource-controls" aria-label="Workspace availability">
         <div>
           <span className="eyebrow">WORKSPACE AVAILABILITY</span>

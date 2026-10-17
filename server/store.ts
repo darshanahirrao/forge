@@ -9,6 +9,7 @@ type Collection =
   | 'work'
   | 'work_summaries'
   | 'accounts'
+  | 'backends'
   | 'events'
   | 'runs'
   | 'approvals'
@@ -34,7 +35,7 @@ export class Store {
     try {
       const version = this.db.prepare('PRAGMA user_version').get() as { user_version: number };
       assert(
-        version.user_version <= 3,
+        version.user_version <= 4,
         409,
         'This workspace was created by a newer Forge version. Open it with that version.',
       );
@@ -48,8 +49,8 @@ export class Store {
       CREATE INDEX IF NOT EXISTS events_by_work ON records(json_extract(data,'$.workId')) WHERE collection='events';
       `);
       let backup: string | null = null;
-      if (version.user_version > 0 && version.user_version < 3 && filename !== ':memory:') {
-        backup = `${filename}.before-v3.${randomUUID()}.sqlite`;
+      if (version.user_version > 0 && version.user_version < 4 && filename !== ':memory:') {
+        backup = `${filename}.before-v4.${randomUUID()}.sqlite`;
         writeFileSync(backup, '', { flag: 'wx', mode: 0o600 });
         try {
           this.db.prepare('VACUUM INTO ?').run(backup);
@@ -58,7 +59,7 @@ export class Store {
           throw error;
         }
       }
-      this.db.exec('PRAGMA user_version = 3');
+      this.db.exec('PRAGMA user_version = 4');
       this.migrationBackup = backup;
     } catch (error) {
       this.db.close();
@@ -205,7 +206,9 @@ export class Store {
           ...run,
           status: 'interrupted',
           endedAt: now(),
-          exitConfirmed: false,
+          ...(run.settlement
+            ? { settlement: { ...run.settlement, confirmed: false, observedAt: now() } }
+            : { exitConfirmed: false }),
         });
         this.invalidateApprovals(run.id);
         this.updateWork(run.workId, {

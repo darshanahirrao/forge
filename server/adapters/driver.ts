@@ -23,6 +23,7 @@ export interface NativeApproval {
   respond(decision: 'accept' | 'decline'): void | Promise<void>;
 }
 export interface DriverSink {
+  delegated?(receipt: NonNullable<Run['settlement']>): void;
   /** Register the actual supervised native process before model input. PIDs are provenance, not control authority. */
   worker?(pid: number): Promise<void>;
   session(id: string, routingKey?: string): void;
@@ -35,11 +36,13 @@ export interface DriverSink {
   ended(status: 'completed' | 'failed' | 'interrupted', title: string, detail: string): void;
 }
 export interface NativeDriver {
+  readonly ownership?: 'delegated-run';
+  readonly settlement?: Run['settlement'];
   readonly harness: Harness;
   readonly closed: boolean;
   start(context: DriverContext, sink: DriverSink): Promise<void>;
   interrupt(): Promise<void>;
-  /** Resolves after the owned native worker has exited. A closed transport alone is insufficient. */
+  /** Resolves only after owned-process exit or an independently confirmed delegated run settlement. */
   close(): Promise<void>;
 }
 export type DriverFactory = (context: DriverContext) => NativeDriver;

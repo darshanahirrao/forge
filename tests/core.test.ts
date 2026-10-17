@@ -191,7 +191,7 @@ test('opening a future workspace version fails without rewriting its version', a
   const directory = await mkdtemp(join(tmpdir(), 'forge-future-'));
   const filename = join(directory, 'test.sqlite');
   const store = new Store(filename);
-  store.db.exec('PRAGMA user_version = 4');
+  store.db.exec('PRAGMA user_version = 5');
   store.close();
   try {
     assert.throws(() => new Store(filename), /newer Forge version/);
@@ -200,7 +200,7 @@ test('opening a future workspace version fails without rewriting its version', a
     try {
       assert.equal(
         (unchanged.prepare('PRAGMA user_version').get() as { user_version: number }).user_version,
-        4,
+        5,
       );
     } finally {
       unchanged.close();
@@ -223,7 +223,7 @@ test('upgrading a legacy workspace preserves its records and creates a native SQ
     assert.equal(store.work(work.id).goal, work.goal);
     assert.equal(
       (store.db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version,
-      3,
+      4,
     );
     const { DatabaseSync } = await import('node:sqlite');
     const backup = new DatabaseSync(store.migrationBackup!, { readOnly: true });

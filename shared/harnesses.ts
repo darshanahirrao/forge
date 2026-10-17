@@ -22,6 +22,7 @@ export function executionName(harness: Harness) {
 }
 
 export function canExecuteAccount(account?: Account): boolean {
+  if (account?.backend) return Boolean(account.providerReady && account.backend.model);
   if (!account || !managedHarnesses.includes(account.harness)) return false;
   if (account.harness === 'claude') return account.billingMode === 'api';
   if (

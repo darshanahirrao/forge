@@ -167,7 +167,11 @@ export class Continuity {
     assert(
       !this.store
         .all<Run>('runs')
-        .some((run) => run.workId === work.id && run.exitConfirmed === false),
+        .some(
+          (run) =>
+            run.workId === work.id &&
+            (run.settlement ? !run.settlement.confirmed : run.exitConfirmed === false),
+        ),
       409,
       'A prior native worker exit was not confirmed. A later attempt cannot replace that ownership receipt.',
     );
@@ -195,7 +199,7 @@ export class Continuity {
     );
     assert(
       run &&
-        run.exitConfirmed &&
+        (run.settlement?.confirmed || run.exitConfirmed) &&
         run.endedAt &&
         ['completed', 'failed', 'interrupted'].includes(run.status),
       409,
@@ -261,6 +265,7 @@ export class Continuity {
             nativeSessionId: work.nativeSessionId,
             nativeSessionKey: work.nativeSessionKey ?? null,
             runId: run?.id ?? null,
+            ...(run?.settlement ? { settlement: run.settlement } : {}),
           },
           title: work.title,
           goal: work.goal,
@@ -312,6 +317,13 @@ export class Continuity {
         'Review native activity, detached tools and external effects at this checkpoint before switching.',
       );
       const account = this.store.account(targetAccountId);
+      const sourceAccount = work.accountId ? this.store.account(work.accountId) : null;
+      const retainT3Thread = Boolean(
+        work.nativeSessionId &&
+        sourceAccount?.backend &&
+        account.backend?.id === sourceAccount.backend.id &&
+        work.nativeSessionKey === sourceAccount.backend.id,
+      );
       assert(account.id !== work.accountId, 400, 'Choose a different native account or harness.');
       assert(
         canExecuteAccount(account),
@@ -336,7 +348,8 @@ export class Continuity {
           currentAccount.harness === account.harness &&
             currentAccount.nativeHome === account.nativeHome &&
             currentAccount.billingMode === account.billingMode &&
-            currentAccount.credentialEnv === account.credentialEnv,
+            currentAccount.credentialEnv === account.credentialEnv &&
+            JSON.stringify(currentAccount.backend) === JSON.stringify(account.backend),
           409,
           'The destination account configuration changed during verification. Review the target again.',
         );
@@ -351,8 +364,8 @@ export class Continuity {
         const updated = this.store.updateWork(workId, {
           harness: account.harness,
           accountId: account.id,
-          nativeSessionId: null,
-          nativeSessionKey: null,
+          nativeSessionId: retainT3Thread ? work.nativeSessionId : null,
+          nativeSessionKey: retainT3Thread ? work.nativeSessionKey : null,
           status: 'ready',
           generation: work.generation + 1,
         });
@@ -360,7 +373,7 @@ export class Continuity {
           workId,
           'handoff',
           'Work moved to a new native binding',
-          `Continue with ${account.label}. ${capsule.artifacts.length} selected file states verified; goals, checkpoints and usage history retained. The original native session remains linked to checkpoint ${capsule.id}.`,
+          `Continue with ${account.label}. ${capsule.artifacts.length} selected file states verified; goals, checkpoints and usage history retained. ${retainT3Thread ? 'The same T3 thread is retained. T3 chooses compatible native resume or its bounded context handoff; hidden provider state is not guaranteed portable.' : `The original native session remains linked to checkpoint ${capsule.id}.`}`,
           {
             version: 1,
             capsuleId,

@@ -108,6 +108,128 @@ class FixtureDriver implements NativeDriver {
   }
 }
 
+class DelegatedFixture extends FixtureDriver {
+  readonly ownership = 'delegated-run' as const;
+  readonly settlement: NonNullable<import('../shared/types.js').Run['settlement']>;
+  constructor(context: DriverContext) {
+    super(context.work.harness);
+    this.settlement = {
+      kind: 'delegated-run',
+      backendId: 'native-backend',
+      threadId: `thread-${context.work.id}`,
+      messageId: `message-${context.run.id}`,
+      runId: `native-${context.run.id}`,
+      state: 'running',
+      confirmed: false,
+      observedAt: now(),
+    };
+  }
+  async close() {
+    this.closed = true;
+    assert(this.settlement.confirmed, 'A closed socket does not settle native work.');
+  }
+}
+
+test('delegated native runs retain one durable lease through disconnect; exact reconciliation releases it without a process-exit claim or replay', async () => {
+  const store = new Store(':memory:');
+  const { work } = prepared(store, 'codex');
+  const other = prepared(store, 'opencode');
+  let driver!: DelegatedFixture;
+  const execution = new ExecutionController(
+    store,
+    (context) => (driver = new DelegatedFixture(context)),
+  );
+  try {
+    const run = await execution.launch(work.id, true, false);
+    await waitFor(() => Boolean(driver.sink), 'native execution connection');
+    assert.equal(
+      store.get<import('../shared/types.js').Run>('runs', run.id)?.settlement?.messageId,
+      driver.settlement.messageId,
+    );
+    driver.sink.ended('interrupted', 'Connection lost', 'Native work may still be running.');
+    await waitFor(() => store.work(work.id).status === 'interrupted', 'uncertain native outcome');
+    assert.equal(store.work(work.id).activeRunId, run.id);
+    assert.equal(execution.activeCount, 1);
+    await assert.rejects(execution.launch(other.work.id, true, false), /occupied/);
+    await assert.rejects(
+      execution.reconcileDelegated(run.id, async () => ({
+        ...driver.settlement,
+        confirmed: false,
+      })),
+      /did not match/,
+    );
+    await assert.rejects(
+      execution.reconcileDelegated(run.id, async () => ({
+        ...driver.settlement,
+        threadId: 'different-thread',
+        confirmed: true,
+      })),
+      /did not match/,
+    );
+    assert.equal(execution.activeCount, 1);
+    await execution.reconcileDelegated(run.id, async () => ({
+      ...driver.settlement,
+      state: 'interrupted',
+      confirmed: true,
+    }));
+    assert.equal(execution.activeCount, 0);
+    assert.equal(store.work(work.id).activeRunId, null);
+    const reconciled = store.get<import('../shared/types.js').Run>('runs', run.id)!;
+    assert(reconciled.settlement?.confirmed);
+    assert.equal(reconciled.exitConfirmed, undefined);
+    assert.equal(store.all('runs').length, 1, 'Reconciliation must not create another attempt.');
+  } finally {
+    await execution.close();
+    store.close();
+  }
+});
+
+test('restart preserves delegated references and blocks all managed admission until the exact native run settles', async () => {
+  const store = new Store(':memory:');
+  const { work, account } = prepared(store, 'codex');
+  const other = prepared(store, 'hermes');
+  const reference = {
+    kind: 'delegated-run' as const,
+    backendId: 'backend',
+    threadId: 'thread',
+    messageId: 'stable-message',
+    runId: 'native-run',
+    state: 'running',
+    confirmed: false,
+    observedAt: now(),
+  };
+  store.put('runs', 'crashed', {
+    id: 'crashed',
+    workId: work.id,
+    accountId: account.id,
+    generation: 1,
+    nativeSessionId: 'thread',
+    nativeTurnId: 'native-run',
+    status: 'running',
+    startedAt: now(),
+    endedAt: null,
+    settlement: reference,
+  });
+  store.recoverInterruptedRuns();
+  const execution = new ExecutionController(store, () => {
+    throw Error('No replacement worker may start.');
+  });
+  try {
+    assert.equal(
+      store.get<import('../shared/types.js').Run>('runs', 'crashed')?.settlement?.messageId,
+      'stable-message',
+    );
+    await assert.rejects(execution.launch(other.work.id, true, false), /unconfirmed/);
+    assert.equal(
+      store.get<import('../shared/types.js').Run>('runs', 'crashed')?.exitConfirmed,
+      undefined,
+    );
+  } finally {
+    await execution.close();
+    store.close();
+  }
+});
+
 test('native session routing remains bound to the stable session ID across run persistence', async () => {
   const store = new Store(':memory:');
   const { work } = prepared(store, 'openclaw');

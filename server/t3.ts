@@ -1,6 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
-import { constants } from 'node:fs';
-import { open, rename, unlink } from 'node:fs/promises';
+import { unlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import type { OAuthClientProvider } from '@modelcontextprotocol/sdk/client/auth.js';
@@ -16,6 +15,7 @@ import { assert, ForgeError } from './errors.js';
 import { Store, now } from './store.js';
 import { loopbackEndpoint } from './adapters/sources.js';
 import { version } from '../shared/version.js';
+import { readPrivateJson, writePrivateJson } from './private-json.js';
 
 const MAX_RESPONSE = 2 * 1024 * 1024;
 const LIFETIME = 10 * 60 * 1000;
@@ -324,64 +324,27 @@ export class T3Connections {
       assert(value, 409, 'Reconnect T3 Code from Activity to restore its read-only sign-in.');
       return value;
     }
-    let handle;
     try {
-      handle = await open(
-        filename,
-        constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0),
-      );
-      const info = await handle.stat();
-      assert(
-        info.isFile() &&
-          info.size <= 32768 &&
-          (process.platform === 'win32' ||
-            ((info.mode & 0o077) === 0 && info.uid === process.getuid?.())),
-        409,
-        'The T3 Code credential reference must be a private, owned regular file.',
-      );
-      const buffer = Buffer.alloc(32769);
-      let length = 0;
-      while (length < buffer.length) {
-        const { bytesRead } = await handle.read(buffer, length, buffer.length - length, null);
-        if (!bytesRead) break;
-        length += bytesRead;
-      }
-      assert(length <= 32768, 409, 'The T3 Code credential file is too large.');
-      return credentialSchema.parse(JSON.parse(buffer.subarray(0, length).toString('utf8')));
+      return credentialSchema.parse(await readPrivateJson(filename));
     } catch (error) {
       throw error instanceof ForgeError
         ? error
         : new ForgeError(409, 'T3 Code sign-in is unavailable. Reconnect from Activity.');
-    } finally {
-      await handle?.close();
     }
   }
 
   private async save(id: string, value: Credential) {
-    const encoded = JSON.stringify(value);
     assert(
-      Buffer.byteLength(encoded) <= 32768,
+      Buffer.byteLength(JSON.stringify(value)) <= 32768,
       502,
-      'T3 Code returned oversized sign-in metadata.',
+      'The private reference exceeds its size limit.',
     );
     const filename = this.filename(id);
     if (!filename) {
       this.memory.set(id, value);
       return;
     }
-    const temporary = `${filename}.${randomUUID()}.tmp`;
-    try {
-      const handle = await open(temporary, 'wx', 0o600);
-      try {
-        await handle.writeFile(encoded);
-        await handle.sync();
-      } finally {
-        await handle.close();
-      }
-      await rename(temporary, filename);
-    } finally {
-      await unlink(temporary).catch(() => {});
-    }
+    await writePrivateJson(filename, value);
   }
 
   private async session<T>(

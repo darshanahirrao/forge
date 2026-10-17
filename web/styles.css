@@ -1745,6 +1745,38 @@ dd {
   padding: 28px;
   gap: 36px;
 }
+.backend-instance,
+.backend-panel > form {
+  padding: 16px 18px;
+  border-top: 1px solid var(--line);
+}
+.backend-instance {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.backend-instance > .section-heading {
+  padding: 0;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.backend-instance .connection-actions {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+.backend-instance > label {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(180px, 2fr);
+  align-items: center;
+}
+.backend-panel > .form-error {
+  padding: 0 18px 16px;
+}
+@media (max-width: 640px) {
+  .backend-instance > label {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
 .runtime-copy {
   display: flex;
   flex-direction: column;

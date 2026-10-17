@@ -1,8 +1,8 @@
-# Forge v0.14.0
+# Forge v0.15.0
 
 The v0.14 workspace puts existing activity first: one searchable managed/native list, inline attention, compact resource and usage evidence, keyboard commands, shorter work setup and browser history. Native observations retain their native controls. Read [the experience plan](UI_EXPERIENCE.md) for interaction references and scope.
 
-The latest addition is an optional [native T3 Code connection](T3_CODE.md): supported SDK OAuth/PKCE, a strictly read-only grant, bounded project/thread observations and private restart-persistent credentials. Stable T3 v0.1.0 passes isolated authentication, metadata, mutation-denial and revocation checks. The source retains T3's ownership; account execution, quota, approval and schedule controls are not imported. Whole-product adoption remains open.
+The latest addition is an optional [T3 native execution backend](NATIVE_BACKENDS.md), separate from the strictly read-only [activity source](T3_CODE.md). It imports native provider instances and models, forwards exact supported approvals and retains delegated run receipts and recovery leases. Two actual native Codex instances produce linked artifacts with distinct synthetic credentials. T3's native summary fallback is reported explicitly; full native-history preservation remains open.
 
 Implementation checkpoint, 17 October 2026. New managed launches now check native macOS memory pressure before creating a worker, with explicit unknown coverage and observe-only policy. Opt-in macOS user-service operation now reuses native launchd, including actual graceful/crash restart evidence. Managed native work now has OS-checked resource attribution across Codex, Claude API, OpenCode v2, Hermes ACP and OpenClaw Gateway. Stable native UUID/routing-key bindings and asynchronous shutdown retain ownership through native cleanup. Private phone access still reuses native Tailscale Serve and the same workspace/inbox, with recorded reviewer identity. The full Persistent Agency architecture remains a delivery plan rather than a claim of completed interoperability.
 

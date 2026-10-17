@@ -48,6 +48,13 @@ export class ExecutionController {
   get activeCount() {
     return this.active.size + (this.preparing ? 1 : 0);
   }
+  get hasLiveExecution() {
+    return Boolean(
+      this.preparing ||
+      this.checkpointOwner ||
+      [...this.active.values()].some((active) => !active.ending),
+    );
+  }
   async atCheckpoint<T>(
     workId: string,
     revision: number,
@@ -109,7 +116,11 @@ export class ExecutionController {
     assert(
       !this.store
         .all<Run>('runs')
-        .some((run) => run.workId === workId && run.exitConfirmed === false),
+        .some((run) =>
+          run.settlement
+            ? !run.settlement.confirmed
+            : run.workId === workId && run.exitConfirmed === false,
+        ),
       409,
       'A prior native worker exit remains unconfirmed. Reconcile its ownership before starting another attempt for this work.',
     );
@@ -171,6 +182,14 @@ export class ExecutionController {
       // Factory construction is synchronous; capacity is reserved before native discovery can yield.
       const driver = this.factory(context);
       assert(driver.harness === work.harness, 500, 'The adapter does not match this work binding.');
+      if (driver.ownership === 'delegated-run') {
+        assert(
+          driver.settlement,
+          500,
+          'The delegated backend omitted its durable execution reference.',
+        );
+        run.settlement = { ...driver.settlement };
+      }
       const active: Active = {
         driver,
         run,
@@ -259,6 +278,21 @@ export class ExecutionController {
   private sink(active: Active): DriverSink {
     const live = () => !active.ending && this.active.get(active.run.workId) === active;
     return {
+      delegated: (receipt) => {
+        if (!live() || active.driver.ownership !== 'delegated-run') return;
+        const previous = active.run.settlement;
+        assert(
+          previous &&
+            previous.backendId === receipt.backendId &&
+            previous.threadId === receipt.threadId &&
+            previous.messageId === receipt.messageId &&
+            (!previous.runId || previous.runId === receipt.runId),
+          502,
+          'The delegated execution reference changed unexpectedly.',
+        );
+        active.run.settlement = { ...receipt };
+        this.store.put('runs', active.run.id, active.run);
+      },
       worker: async (pid) => {
         assert(
           live() && Number.isSafeInteger(pid) && pid > 1 && pid !== process.pid,
@@ -609,18 +643,33 @@ export class ExecutionController {
           }
         }
         await active.driver.close();
+        if (active.driver.ownership === 'delegated-run') {
+          assert(
+            active.driver.settlement?.confirmed,
+            500,
+            'Native run settlement was not confirmed.',
+          );
+          active.run.settlement = { ...active.driver.settlement };
+        }
       } catch {
+        active.run.status = 'interrupted';
+        active.run.endedAt = now();
+        if (active.driver.ownership === 'delegated-run' && active.driver.settlement)
+          active.run.settlement = { ...active.driver.settlement };
+        else active.run.exitConfirmed = false;
+        this.store.put('runs', active.run.id, active.run);
+        this.store.updateWork(active.run.workId, { status: 'interrupted' });
         this.store.event(
           active.run.workId,
           'recovery',
-          'Native worker exit could not be confirmed',
-          'The work remains reserved. Inspect native activity before restarting Forge.',
+          'Native settlement could not be confirmed',
+          'The work remains reserved. Reconcile its exact native run before another attempt.',
         );
         return;
       }
       active.run.status = status;
       active.run.endedAt = now();
-      active.run.exitConfirmed = true;
+      if (active.driver.ownership !== 'delegated-run') active.run.exitConfirmed = true;
       this.store.transaction(() => {
         this.store.put('runs', active.run.id, active.run);
         this.store.updateWork(active.run.workId, {
@@ -633,6 +682,63 @@ export class ExecutionController {
       this.active.delete(active.run.workId);
     });
     return active.finishing;
+  }
+  async reconcileDelegated(
+    runId: string,
+    inspect: (run: Run) => Promise<NonNullable<Run['settlement']>>,
+  ) {
+    const run = this.store.get<Run>('runs', runId);
+    assert(
+      run?.settlement && !run.settlement.confirmed,
+      409,
+      'This run does not need delegated reconciliation.',
+    );
+    const active = this.active.get(run.workId);
+    assert(
+      !this.closing &&
+        !this.preparing &&
+        !this.checkpointOwner &&
+        [...this.active.values()].every((item) => item === active && item.ending),
+      409,
+      'Wait for active native execution before reconciling this run.',
+    );
+    this.checkpointOwner = run.workId;
+    try {
+      await active?.finishing;
+      const receipt = await inspect(run);
+      assert(
+        receipt.confirmed &&
+          receipt.backendId === run.settlement.backendId &&
+          receipt.threadId === run.settlement.threadId &&
+          receipt.messageId === run.settlement.messageId &&
+          (!run.settlement.runId || receipt.runId === run.settlement.runId),
+        409,
+        'Native reconciliation did not match this exact run.',
+      );
+      const status =
+        receipt.state === 'completed'
+          ? 'completed'
+          : receipt.state === 'failed'
+            ? 'failed'
+            : 'interrupted';
+      this.store.transaction(() => {
+        this.store.put('runs', run.id, { ...run, settlement: receipt, status, endedAt: now() });
+        const work = this.store.work(run.workId);
+        if (!work.activeRunId || work.activeRunId === run.id)
+          this.store.updateWork(work.id, { status, activeRunId: null, stopRequestedAt: null });
+        this.store.invalidateApprovals(run.id);
+        this.store.event(
+          run.workId,
+          'recovery',
+          'Exact native run reconciled',
+          `Native state: ${receipt.state}. No message or approval was replayed.`,
+        );
+      });
+      this.active.delete(run.workId);
+      return receipt;
+    } finally {
+      this.checkpointOwner = null;
+    }
   }
   interrupt(workId: string) {
     const active = this.active.get(workId);

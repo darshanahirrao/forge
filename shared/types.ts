@@ -1,7 +1,30 @@
 export type WorkspaceMode = 'local' | 'demo';
 export type WorkStatus = 'ready' | 'running' | 'waiting' | 'completed' | 'failed' | 'interrupted';
-export type Harness = 'codex' | 'claude' | 'opencode' | 'hermes' | 'openclaw';
+export type BuiltinHarness = 'codex' | 'claude' | 'opencode' | 'hermes' | 'openclaw';
+export type Harness = string;
+export interface BackendAccountReference {
+  id: string;
+  instanceId: string;
+  model: string;
+  projectId?: string;
+}
+export interface WorkspaceBackend {
+  contractVersion: 1;
+  id: string;
+  kind: 't3';
+  label: string;
+  endpoint: string;
+  environmentId: string;
+  state: 'connected' | 'error' | 'disconnected';
+  checkedAt: string;
+  error: string | null;
+  providerCount: number;
+}
+
 export interface Account {
+  backend?: BackendAccountReference;
+  models?: string[];
+  providerReady?: boolean;
   id: string;
   label: string;
   harness: Harness;
@@ -82,6 +105,22 @@ export interface Run {
   startedAt: string;
   endedAt: string | null;
   exitConfirmed?: boolean;
+  settlement?: {
+    kind: 'delegated-run';
+    backendId: string;
+    threadId: string;
+    messageId: string;
+    runId: string | null;
+    state: string;
+    confirmed: boolean;
+    observedAt: string;
+    continuity?: {
+      mode: 'fresh' | 'native-resume' | 'portable-handoff' | 'unverified';
+      nativeThreadId: string;
+      sourceNativeThreadId?: string;
+      strategy?: string;
+    };
+  };
   contextReceipt?: ContextReceipt;
   nativeWorker?: NativeWorkerIdentity;
 }
@@ -126,6 +165,7 @@ export interface WorkCapsule {
     nativeSessionId: string | null;
     nativeSessionKey?: string | null;
     runId: string | null;
+    settlement?: Run['settlement'];
   };
   title: string;
   goal: string;
@@ -234,6 +274,7 @@ export interface Usage {
     | 'opencode/v2'
     | 'hermes/acp'
     | 'openclaw/gateway'
+    | 't3/native'
     | 'ccusage'
     | 'example';
   scope: string;
@@ -351,6 +392,7 @@ export interface BackgroundRuntime {
   scope?: 'user-login';
 }
 export interface Snapshot {
+  backends?: WorkspaceBackend[];
   service?: BackgroundRuntime;
   nativeWorkers?: NativeWorkerResources[];
   access?: ApprovalActor;

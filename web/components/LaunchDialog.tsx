@@ -59,7 +59,7 @@ export function LaunchDialog({
   const opencode = work.harness === 'opencode';
   const hermes = work.harness === 'hermes';
   const openclaw = work.harness === 'openclaw';
-  const requiresMetered = claude || opencode || hermes || openclaw;
+  const requiresMetered = Boolean(account?.backend) || claude || opencode || hermes || openclaw;
   const compatible = canExecuteAccount(account);
   const pressureHigh =
     memoryProtection && ['warning', 'critical'].includes(memoryPressure?.state ?? 'unknown');
@@ -215,23 +215,25 @@ export function LaunchDialog({
         <div className="notice">
           <ShieldCheck size={18} />
           <p>
-            {openclaw
-              ? compatible
-                ? 'OpenClaw owns its native tools, memory and model routing. This dedicated Gateway uses guarded permissions: file operations inside the project can run without a prompt. Supported exact command approvals appear here. Existing companion channels and schedules retain their native owner.'
-                : 'Choose an explicit dedicated OpenClaw execution profile and native or API billing. Subscription allowance cannot be verified.'
-              : hermes
+            {account?.backend
+              ? 'T3 owns this provider instance, native conversation and tools. Forge starts one supervised run with T3’s approval-required mode. Supported exact requests appear here; other native decisions remain in T3. Native provider billing applies.'
+              : openclaw
                 ? compatible
-                  ? 'Hermes owns its tools, skills, memory and provider settings. Native default edit review is checked before input; native command policies still apply. Requests can expire in under a minute. Provider identity, allowance and final task acceptance remain separate.'
-                  : 'Choose an explicit Hermes home and native or API billing. Forge cannot require an unverified subscription allowance.'
-                : opencode
+                  ? 'OpenClaw owns its native tools, memory and model routing. This dedicated Gateway uses guarded permissions: file operations inside the project can run without a prompt. Supported exact command approvals appear here. Existing companion channels and schedules retain their native owner.'
+                  : 'Choose an explicit dedicated OpenClaw execution profile and native or API billing. Subscription allowance cannot be verified.'
+                : hermes
                   ? compatible
-                    ? 'OpenCode v2 owns tools and native permissions. Session allow rules request review while native denials stay in order. These permissions use your host authority. Provider billing and saved native grants remain native.'
-                    : 'Choose an explicit OpenCode profile root and native or API billing. Forge cannot verify or require subscription allowance for this route.'
-                  : claude
+                    ? 'Hermes owns its tools, skills, memory and provider settings. Native default edit review is checked before input; native command policies still apply. Requests can expire in under a minute. Provider identity, allowance and final task acceptance remain separate.'
+                    : 'Choose an explicit Hermes home and native or API billing. Forge cannot require an unverified subscription allowance.'
+                  : opencode
                     ? compatible
-                      ? 'This route uses API authentication and native manual permission mode. Existing native rules can allow tools without a prompt. API credentials stay in the referenced environment variable.'
-                      : 'Managed Claude turns require an API slot. Native claude.ai subscription sessions continue through their native client under Anthropic’s integration rules.'
-                    : 'Forge requests the native untrusted approval policy and workspace-write sandbox. Launch stops if the server does not confirm these settings.'}
+                      ? 'OpenCode v2 owns tools and native permissions. Session allow rules request review while native denials stay in order. These permissions use your host authority. Provider billing and saved native grants remain native.'
+                      : 'Choose an explicit OpenCode profile root and native or API billing. Forge cannot verify or require subscription allowance for this route.'
+                    : claude
+                      ? compatible
+                        ? 'This route uses API authentication and native manual permission mode. Existing native rules can allow tools without a prompt. API credentials stay in the referenced environment variable.'
+                        : 'Managed Claude turns require an API slot. Native claude.ai subscription sessions continue through their native client under Anthropic’s integration rules.'
+                      : 'Forge requests the native untrusted approval policy and workspace-write sandbox. Launch stops if the server does not confirm these settings.'}
           </p>
         </div>
         <FormError error={error} />

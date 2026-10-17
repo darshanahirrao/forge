@@ -7,6 +7,7 @@ import {
   type Work,
   type WorkEvent,
   type NativeSession,
+  type Run,
 } from '../shared/types';
 import { type View, nav } from './navigation';
 import { request, download } from './api';
@@ -78,7 +79,9 @@ export function App() {
   const [newAccount, setNewAccount] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [nativeSelected, setNativeSelected] = useState<NativeSession | null>(null);
-  const [detail, setDetail] = useState<{ work: Work; events: WorkEvent[] } | null>(null);
+  const [detail, setDetail] = useState<{ work: Work; events: WorkEvent[]; runs?: Run[] } | null>(
+    null,
+  );
   const [approval, setApproval] = useState<Approval | null>(null);
   const [launch, setLaunch] = useState<Work | null>(null);
   const [handoff, setHandoff] = useState(false);
@@ -190,7 +193,7 @@ export function App() {
       return;
     }
     let current = true;
-    void request<{ work: Work; events: WorkEvent[] }>(`/work/${selected}`, mode)
+    void request<{ work: Work; events: WorkEvent[]; runs?: Run[] }>(`/work/${selected}`, mode)
       .then((result) => {
         if (current) setDetail(result);
       })
@@ -539,6 +542,7 @@ export function App() {
         <WorkDetail
           work={selectedWork}
           events={detail!.events}
+          runs={detail!.runs ?? []}
           data={snapshot}
           mode={mode}
           mutate={mutate}

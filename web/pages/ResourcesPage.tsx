@@ -6,7 +6,7 @@ import {
   type Settings,
 } from '../../shared/types';
 import { Cpu, HardDrive, Activity, Play, Pause, Terminal } from 'lucide-react';
-import { gb, age, names } from '../lib/format';
+import { gb, age, harnessName } from '../lib/format';
 import { Empty } from '../components/primitives';
 
 export function ResourcesPage({
@@ -140,7 +140,7 @@ export function ResourcesPage({
                   <div className="native-worker-work">
                     <strong>{label}</strong>
                     <span>
-                      {names[row.harness]} · <span className="mono">PID {row.root.pid}</span>
+                      {harnessName(row.harness)} · <span className="mono">PID {row.root.pid}</span>
                     </span>
                     <small>{state}</small>
                   </div>

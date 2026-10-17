@@ -1,7 +1,7 @@
 import { type Snapshot, type Account } from '../../shared/types';
 import { UsersRound, Gauge, LoaderCircle, RefreshCw, Plus } from 'lucide-react';
 import { HarnessMark, Status, Empty } from '../components/primitives';
-import { names, age } from '../lib/format';
+import { harnessName, age } from '../lib/format';
 
 export function AccountsPage({
   data,
@@ -39,7 +39,7 @@ export function AccountsPage({
                 <HarnessMark harness={a.harness} />
                 <div>
                   <h2>{a.label}</h2>
-                  <p>{names[a.harness]}</p>
+                  <p>{harnessName(a.harness)}</p>
                 </div>
                 <Status
                   value={a.state}
@@ -127,7 +127,11 @@ export function AccountsPage({
               {a.error && <p className="form-error">{a.error}</p>}
               <div className="account-footer">
                 <span className="source-note">
-                  {a.nativeHome ? 'Separate native configuration' : 'Native default configuration'}
+                  {a.backend
+                    ? `T3 · ${a.backend.instanceId}`
+                    : a.nativeHome
+                      ? 'Separate native configuration'
+                      : 'Native default configuration'}
                 </span>
                 <button
                   className="button secondary small"

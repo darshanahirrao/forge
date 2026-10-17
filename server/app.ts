@@ -47,8 +47,11 @@ import { bridgeActor, type PhoneBridge } from './phone.js';
 import { seedDemo } from './demo.js';
 import { checkMemoryAdmission } from './memory-pressure.js';
 import { T3Connections, t3Endpoint } from './t3.js';
+import { T3Backends } from './backends/t3-backend.js';
+import { T3Driver } from './backends/t3-driver.js';
 
-const harness = z.enum(['codex', 'claude', 'opencode', 'hermes', 'openclaw']);
+const builtinHarness = z.enum(['codex', 'claude', 'opencode', 'hermes', 'openclaw']);
+const harness = z.string().regex(/^[a-zA-Z][a-zA-Z0-9._-]{0,79}$/);
 const text = (max: number) => z.string().trim().max(max);
 const workSchema = z
   .object({
@@ -67,7 +70,7 @@ const workSchema = z
 const accountSchema = z
   .object({
     label: text(80).min(1),
-    harness,
+    harness: builtinHarness,
     nativeHome: text(2000).default(''),
     credentialEnv: z
       .string()
@@ -102,10 +105,15 @@ export async function createApp(options: AppOptions) {
   local.recoverInterruptedRuns();
   const demo = new Store(':memory:');
   seedDemo(demo);
+  const backends = new T3Backends(
+    local,
+    options.filename === ':memory:' ? undefined : dirname(options.filename),
+  );
   const controller: ExecutionController = new ExecutionController(
     local,
     options.driverFactory ??
       ((context) => {
+        if (context.account.backend) return new T3Driver(backends, context);
         if (context.work.harness === 'codex')
           return new CodexDriver(
             options.rpcFactory,
@@ -251,6 +259,7 @@ export async function createApp(options: AppOptions) {
         return rank[a.status] - rank[b.status] || b.updatedAt.localeCompare(a.updatedAt);
       }),
       accounts: db.all<Account>('accounts'),
+      backends: mode(request) === 'demo' ? [] : backends.list(),
       approvals: db.all<Approval>('approvals'),
       events: db
         .recentEvents()
@@ -291,7 +300,20 @@ export async function createApp(options: AppOptions) {
   app.get('/api/work/:id', async (request) => {
     const workId = (request.params as { id: string }).id;
     const db = store(request);
-    return { work: db.work(workId), events: db.recentEvents(workId, 50) };
+    return {
+      work: db.work(workId),
+      events: db.recentEvents(workId, 50),
+      runs: db
+        .all<Run>('runs')
+        .filter((run) => run.workId === workId)
+        .sort(
+          (a, b) =>
+            Number(Boolean(b.settlement && !b.settlement.confirmed)) -
+              Number(Boolean(a.settlement && !a.settlement.confirmed)) ||
+            b.generation - a.generation,
+        )
+        .slice(0, 20),
+    };
   });
   async function directory(value: string, required = false) {
     if (!value && !required) return '';
@@ -304,9 +326,18 @@ export async function createApp(options: AppOptions) {
     );
     return canonical;
   }
+  function knownHarness(db: Store, value: string) {
+    assert(
+      builtinHarness.safeParse(value).success ||
+        db.all<Account>('accounts').some((account) => account.harness === value && account.backend),
+      400,
+      'Connect a native backend offering this harness first.',
+    );
+  }
   app.post('/api/work', async (request, reply) => {
     const body = workSchema.parse(request.body);
     const db = store(request);
+    knownHarness(db, body.harness);
     const cwd = mode(request) === 'demo' ? body.cwd : await directory(body.cwd);
     if (body.accountId)
       assert(
@@ -345,6 +376,7 @@ export async function createApp(options: AppOptions) {
       .extend({ expectedRevision: z.number().int().nonnegative() })
       .parse(request.body);
     const db = store(request);
+    if (body.harness) knownHarness(db, body.harness);
     const work = db.work((request.params as { id: string }).id);
     assert(
       work.revision === expectedRevision,
@@ -554,9 +586,11 @@ export async function createApp(options: AppOptions) {
     );
     probing.add(account.id);
     try {
-      const result = await (options.accountProbe ?? probeAccount)(account).catch((error) =>
-        failedProbe(account, error),
-      );
+      const result = account.backend
+        ? await backends.refresh(account.backend.id).then(() => db.account(account.id))
+        : await (options.accountProbe ?? probeAccount)(account).catch((error) =>
+            failedProbe(account, error),
+          );
       db.put('accounts', account.id, result);
       return result;
     } finally {
@@ -669,6 +703,103 @@ export async function createApp(options: AppOptions) {
       'Demo discovery never reads native profile directories.',
     );
     return nativeSources.discover();
+  });
+  async function backendChange<T>(
+    request: { headers: Record<string, unknown> },
+    action: () => Promise<T>,
+  ) {
+    assert(mode(request) === 'local', 409, 'Demo work cannot connect native execution.');
+    assert(
+      !controller.hasLiveExecution && !nativeSources.isReading && probing.size === 0,
+      409,
+      'Wait for native execution and catalogue reads before changing a backend.',
+    );
+    probing.add('backend');
+    try {
+      return await action();
+    } finally {
+      probing.delete('backend');
+    }
+  }
+  app.post('/api/backends/t3', async (request, reply) => {
+    const input = z
+      .object({
+        endpoint: t3Endpoint,
+        label: text(80).min(1),
+        code: z.string().trim().min(1).max(16384),
+      })
+      .strict()
+      .parse(request.body);
+    return reply.code(201).send(await backendChange(request, () => backends.connect(input)));
+  });
+  app.post('/api/backends/:id/refresh', async (request) =>
+    backendChange(request, () => backends.refresh((request.params as { id: string }).id)),
+  );
+  app.delete('/api/backends/:id', async (request) =>
+    backendChange(request, async () => {
+      const backendId = (request.params as { id: string }).id;
+      assert(
+        !local
+          .all<Run>('runs')
+          .some((run) => run.settlement?.backendId === backendId && !run.settlement.confirmed),
+        409,
+        'Reconcile the exact native run before disconnecting this backend.',
+      );
+      await backends.disconnect(backendId);
+      return { ok: true };
+    }),
+  );
+  app.patch('/api/accounts/:id/backend', async (request) =>
+    backendChange(request, async () => {
+      const input = z
+        .object({
+          model: z.string().min(1).max(500),
+          projectId: z.string().min(1).max(500).optional(),
+        })
+        .strict()
+        .parse(request.body);
+      const account = local.account((request.params as { id: string }).id);
+      assert(
+        account.backend && account.models?.includes(input.model),
+        400,
+        'Choose a model from this native provider catalogue.',
+      );
+      assert(
+        !local
+          .all<Run>('runs')
+          .some(
+            (run) => run.accountId === account.id && run.settlement && !run.settlement.confirmed,
+          ),
+        409,
+        'Reconcile this provider instance before changing its binding.',
+      );
+      const result = { ...account, backend: { ...account.backend, ...input } };
+      local.transaction(() => {
+        local.put('accounts', account.id, result);
+        if (JSON.stringify(account.backend) !== JSON.stringify(result.backend)) {
+          for (const work of local
+            .all<Work>('work')
+            .filter((work) => work.accountId === account.id))
+            local.updateWork(work.id, {});
+        }
+      });
+      return result;
+    }),
+  );
+  app.post('/api/runs/:id/reconcile', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo work has no native run.');
+    const input = z
+      .object({ interrupt: z.boolean().default(false) })
+      .strict()
+      .parse(request.body);
+    assert(
+      !nativeSources.isReading && probing.size === 0,
+      409,
+      'Wait for native catalogue reads before reconciling.',
+    );
+    return controller.reconcileDelegated((request.params as { id: string }).id, (run) =>
+      backends.reconcile(run, input.interrupt),
+    );
   });
   app.post('/api/native/t3/authorize', async (request) => {
     assert(mode(request) === 'local', 409, 'Demo activity never connects to a native server.');
