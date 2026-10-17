@@ -124,6 +124,7 @@ export interface CompanionGrant {
   runsStarted: number;
 }
 export interface Run {
+  nativeResources?: import('./resource-governance.js').NativeResourceReceipt;
   requestedBy?: CompanionActor;
   id: string;
   workId: string;
@@ -259,6 +260,7 @@ export interface MemoryInspection {
   tooLarge: boolean;
 }
 export interface ContextReceipt {
+  nativeResourcePolicyDigest?: string;
   profileId: string;
   profileRevision: number;
   profileName: string;
@@ -280,6 +282,7 @@ export interface ContextReceipt {
   preparedAt: string;
 }
 export interface ContextReview {
+  nativeResources?: import('./resource-governance.js').NativeResourceReceipt;
   receipt: ContextReceipt;
   instructions: string;
   memories: { sourceId: string; label: string; content: string }[];
@@ -440,6 +443,7 @@ export interface BackgroundRuntime {
   definitionDirectory?: string;
 }
 export interface Snapshot {
+  nativeGovernance?: import('./resource-governance.js').NativeResourceSnapshot;
   companionHandoffs?: import('./companion-handoff.js').CompanionHandoff[];
   recovery?: import('./recovery.js').NativeRecoverySnapshot;
   resources?: import('./resources.js').ResourceObservation;

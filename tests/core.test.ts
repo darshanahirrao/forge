@@ -229,7 +229,7 @@ test('opening a future workspace version fails without rewriting its version', a
   const directory = await mkdtemp(join(tmpdir(), 'forge-future-'));
   const filename = join(directory, 'test.sqlite');
   const store = new Store(filename);
-  store.db.exec('PRAGMA user_version = 10');
+  store.db.exec('PRAGMA user_version = 11');
   store.close();
   try {
     assert.throws(() => new Store(filename), /newer Forge version/);
@@ -238,7 +238,7 @@ test('opening a future workspace version fails without rewriting its version', a
     try {
       assert.equal(
         (unchanged.prepare('PRAGMA user_version').get() as { user_version: number }).user_version,
-        10,
+        11,
       );
     } finally {
       unchanged.close();
@@ -261,7 +261,7 @@ test('upgrading a legacy workspace preserves its records and creates a native SQ
     assert.equal(store.work(work.id).goal, work.goal);
     assert.equal(
       (store.db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version,
-      9,
+      10,
     );
     const { DatabaseSync } = await import('node:sqlite');
     const backup = new DatabaseSync(store.migrationBackup!, { readOnly: true });
@@ -308,7 +308,7 @@ test('v4 spending and routing policies survive a private v8 rollback copy and re
   store.close();
   store = new Store(filename);
   try {
-    assert.match(store.migrationBackup!, /before-v9/);
+    assert.match(store.migrationBackup!, /before-v10/);
     if (process.platform !== 'win32')
       assert.equal((await stat(store.migrationBackup!)).mode & 0o777, 0o600);
     assert.deepEqual(store.get('config', 'spending-policy'), spending);
@@ -327,7 +327,7 @@ test('v4 spending and routing policies survive a private v8 rollback copy and re
     }
     assert.equal(
       (store.db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version,
-      9,
+      10,
     );
   } finally {
     store.close();

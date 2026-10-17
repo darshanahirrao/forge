@@ -21,6 +21,7 @@ import { z } from 'zod';
 import type { Account } from '../../shared/types.js';
 import { version } from '../../shared/version.js';
 import { assert } from '../errors.js';
+import { NativeStartRejected } from '../owned-native.js';
 import { credentialValue, type CredentialMaterial } from '../credentials.js';
 import { findBinary } from './discovery.js';
 import { acquireProfileLease } from './profile-lease.js';
@@ -311,34 +312,43 @@ export async function openClawWorker(
       spawnNative ??
       ((command, args, options) =>
         spawn(command, args, { ...options, stdio: ['ignore', 'pipe', 'pipe'] }));
-    const child = nativeSpawn(
-      installation.node,
-      [
-        installation.binary,
-        'gateway',
-        'run',
-        '--port',
-        String(port),
-        '--bind',
-        'loopback',
-        '--auth',
-        'token',
-        '--tailscale',
-        'off',
-      ],
-      {
-        cwd,
-        env: { ...env, OPENCLAW_GATEWAY_TOKEN: token },
-        windowsHide: true,
-      },
-      { input: 'ignore', graceMs: 335000 },
-    );
+    let child: ReturnType<typeof nativeSpawn>;
+    try {
+      child = nativeSpawn(
+        installation.node,
+        [
+          installation.binary,
+          'gateway',
+          'run',
+          '--port',
+          String(port),
+          '--bind',
+          'loopback',
+          '--auth',
+          'token',
+          '--tailscale',
+          'off',
+        ],
+        {
+          cwd,
+          env: { ...env, OPENCLAW_GATEWAY_TOKEN: token },
+          windowsHide: true,
+        },
+        { input: 'ignore', graceMs: 335000 },
+      );
+    } catch (error) {
+      if (error instanceof NativeStartRejected) {
+        identity.cleanExit = true;
+        await saveIdentity(filename, identity);
+      }
+      throw error;
+    }
     // Diagnostics are private and bounded; never return native logs or bootstrap credentials.
     child.stdout?.resume();
     child.stderr?.resume();
     let exited = false;
     const exit = new Promise<{ clean: boolean }>((resolve) => {
-      child.once('exit', (code, signal) => {
+      child.once('close', (code, signal) => {
         exited = true;
         resolve({ clean: code === 0 && signal === null });
       });
@@ -370,8 +380,19 @@ export async function openClawWorker(
         }, 335000);
         try {
           const receipt = await exit;
-          identity.cleanExit = receipt.clean;
+          // This legacy field guards unknown ownership, not successful outcomes.
+          // A supervised owner can itself be killed; its close alone is insufficient.
+          identity.cleanExit = spawnNative
+            ? Boolean(
+                (child as import('../owned-native.js').SupervisedChild).nativeExitConfirmed?.(),
+              )
+            : true;
           await saveIdentity(filename, identity);
+          assert(
+            identity.cleanExit,
+            409,
+            'Original native OpenClaw closure is unverified. Keep this profile held for exact exit review.',
+          );
           return receipt;
         } finally {
           clearTimeout(timer);

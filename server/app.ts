@@ -67,6 +67,7 @@ import { NativeControls, type NativeControlBridge } from './native-controls.js';
 import { NativeConnectors } from './connectors.js';
 import { Availability, type AvailabilityOptions } from './availability.js';
 import { MemoryPacks, memoryPackImportSchema } from './memory-packs.js';
+import { ResourceGovernance } from './resource-governance.js';
 import type { IncomingHttpHeaders } from 'node:http';
 import { credentialReferenceSchema, credentialTarget, resolveCredential } from './credentials.js';
 
@@ -134,6 +135,11 @@ export interface AppOptions {
 export async function createApp(options: AppOptions) {
   const app = Fastify({ logger: false, bodyLimit: 512 * 1024, requestTimeout: 35000 });
   const local = new Store(options.filename);
+  const resourceGovernance = new ResourceGovernance(
+    local,
+    options.filename !== ':memory:',
+    () => !controller.nativeStartPending && !companionRuntimes.isBusy,
+  );
   local.recoverInterruptedRuns();
   const supervisions = new WorkerSupervisions(
     local,
@@ -141,6 +147,7 @@ export async function createApp(options: AppOptions) {
       (options.filename === ':memory:'
         ? undefined
         : resolve(dirname(options.filename), 'worker-proofs')),
+    resourceGovernance,
   );
   const demo = new Store(':memory:');
   seedDemo(demo);
@@ -189,8 +196,13 @@ export async function createApp(options: AppOptions) {
       return resolveCredential(account);
     },
     supervisions,
+    resourceGovernance,
   );
-  const profiles: Profiles = new Profiles(local, () => controller.activeCount > 0);
+  const profiles: Profiles = new Profiles(
+    local,
+    () => controller.activeCount > 0,
+    () => resourceGovernance.review(),
+  );
   const demoProfiles = new Profiles(demo);
   const companions = new Companions(local, profiles, controller);
   const companionHandoffs = new CompanionHandoffs(local, companions, profiles, controller, () => {
@@ -332,6 +344,7 @@ export async function createApp(options: AppOptions) {
     },
     options.companionProviders,
     options.filename !== ':memory:',
+    resourceGovernance,
   );
   companionHandoffs.nativeRuntimeBoundary = (grantId) => companionRuntimes.sourceBoundary(grantId);
   const port = options.port ?? 4710;
@@ -696,6 +709,7 @@ export async function createApp(options: AppOptions) {
       notifications: mode(request) === 'demo' ? undefined : notifications.snapshot(),
       nativeControls: mode(request) === 'demo' ? undefined : nativeControls.snapshot(),
       recovery: mode(request) === 'demo' ? undefined : supervisions.snapshot(),
+      nativeGovernance: mode(request) === 'demo' ? undefined : resourceGovernance.snapshot(),
       outcomes: mode(request) === 'demo' ? [] : controller.spending.outcomes(),
       version,
       csrf,
@@ -1332,6 +1346,18 @@ export async function createApp(options: AppOptions) {
     const db = store(request);
     return db.put<Settings>('settings', 'workspace', { ...db.settings(), ...body });
   });
+  app.patch('/api/resources/policy', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo cannot change native resource policy.');
+    assert(
+      !controller.nativeStartPending,
+      409,
+      'Wait for native startup to finish before changing resource policy.',
+    );
+    return resourceGovernance.configure(
+      request.body,
+      bridgeActor(request.headers, options.phoneBridge),
+    );
+  });
   app.post('/api/connections/refresh', async () => {
     connections = await discover();
     return connections;
@@ -1849,6 +1875,7 @@ export async function createApp(options: AppOptions) {
     );
   }
   app.addHook('onClose', async () => {
+    await resourceGovernance.close();
     await memoryPacks.close();
     await companionRuntimes.close();
     await t3.close();
@@ -1866,6 +1893,7 @@ export async function createApp(options: AppOptions) {
     companions,
     companionHandoffs,
     companionRuntimes,
+    resourceGovernance,
     blueprints,
     routing,
     notifications,

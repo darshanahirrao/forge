@@ -412,3 +412,68 @@ nativeTest(
     }
   },
 );
+
+nativeTest(
+  'native gateway reviews bind resource policy and a running gateway retains its original policy through stop',
+  async (t) => {
+    const f = await fixture();
+    try {
+      if (!f.resourceGovernance.snapshot().supported) {
+        t.skip('Native policy is unsupported on this host.');
+        return;
+      }
+      await f.resourceGovernance.configure(
+        { expectedRevision: 0, lowPriority: true, rootMemoryMiB: 512, effectsReviewed: true },
+        { kind: 'local' },
+      );
+      const stale = await f.companionRuntimes.prepare(f.runtime.id);
+      assert.equal(stale.nativeResources?.rootMemoryMiB, 512);
+      await f.resourceGovernance.configure(
+        { expectedRevision: 1, lowPriority: true, rootMemoryMiB: 1024, effectsReviewed: true },
+        { kind: 'local' },
+      );
+      await assert.rejects(
+        f.companionRuntimes.start(
+          {
+            id: stale.id,
+            digest: stale.digest,
+            nativeActivityReviewed: true,
+            nativeSpendingAccepted: true,
+          },
+          { kind: 'local' },
+        ),
+        /changed after review/,
+      );
+      assert.equal(f.starts(), 0);
+      const { launch } = await f.start();
+      await until(
+        () => f.companionRuntimes.snapshot().launches[0].state === 'running',
+        'governed gateway readiness',
+      );
+      const current = f.companionRuntimes.snapshot().launches[0];
+      assert.equal(current.nativeResources?.policyRevision, 2);
+      assert.equal(current.nativeResources?.rootMemoryMiB, 1024);
+      await f.resourceGovernance.configure(
+        { expectedRevision: 2, lowPriority: false, rootMemoryMiB: null, effectsReviewed: true },
+        { kind: 'local' },
+      );
+      assert.equal(
+        f.companionRuntimes.snapshot().launches[0].nativeResources?.digest,
+        current.nativeResources?.digest,
+      );
+      f.companionRuntimes.stop(
+        f.runtime.id,
+        { launchId: launch.id, revision: current.revision },
+        { kind: 'local' },
+      );
+      await until(
+        () => f.companionRuntimes.snapshot().launches[0].exitConfirmed,
+        'governed gateway signed closure',
+      );
+      assert.equal(f.companionRuntimes.snapshot().launches[0].exit?.method, 'signed-native-close');
+      assert.equal(f.starts(), 1);
+    } finally {
+      await f.close();
+    }
+  },
+);

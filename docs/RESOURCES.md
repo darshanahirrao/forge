@@ -28,6 +28,10 @@ The machine, managed-worker rows and `forge.resource-observation/1` resource gro
 
 The phone layout keeps group name, process count, memory and CPU together without horizontal scrolling. Managed rows open existing work controls. Name-matched apps retain native controls; no arbitrary-PID action is introduced. Coverage and private JSON download use progressive disclosure. The download contains group IDs, root PIDs and resource measurements, not work titles, credentials, arguments, environment values or a full process inventory. Keep it private. No resource history, observer daemon or additional agent loop is created. Demo retains live machine totals without exposing local managed group identities.
 
+## Native process policy, v0.31
+
+The [reviewed native policy](NATIVE_RESOURCE_POLICY.md) adds utility priority and optional original-process memory limits on the evaluated Darwin 27 backend. Native defaults remain unchanged until configuration. Each work/gateway retains its launch policy and signed closure scope; changing preferences affects future launches. Startup must settle before policy configuration. Resource RSS is observational and can differ from the OS memory charge; the cap is not summed descendant RSS. Other OS/family enforcement remains open.
+
 ## Native companion controls, v0.30.1
 
 [Owned native Hermes/OpenClaw gateways](COMPANION_RUNTIME.md) use distinct companion resource groups in the same OS sample and boundary set. Each group shows its configured runtime name and opens that exact runtime’s existing controls. Focus moves to the named card so keyboard users can reach Stop gateway immediately; browser back returns to Resources. Observation-only, identity-changed or missing measurements never turn into process-control authority. Stop and reconciliation continue to use the original handle or exact native close evidence. The interface remains usable in both themes on desktop and phone, including when a new root is absent from the cached sample.

@@ -15,6 +15,7 @@ import { Spending } from './spending.js';
 import type { WorkerSupervisions } from './worker-supervision.js';
 import { accountBinding } from './adapters/binding.js';
 import type { CredentialMaterial } from './credentials.js';
+import type { ResourceGovernance } from './resource-governance.js';
 import type {
   DriverContext,
   DriverFactory,
@@ -56,12 +57,21 @@ export class ExecutionController {
     private authorizeLaunch?: (work: Work, account: Account, allowMetered: boolean) => void,
     private prepareCredentials?: (account: Account) => Promise<CredentialMaterial | undefined>,
     private supervisions?: WorkerSupervisions,
+    private resources?: ResourceGovernance,
   ) {
     this.spending = new Spending(store);
     this.spending.recover();
   }
   get activeCount() {
     return this.active.size + (this.preparing ? 1 : 0);
+  }
+  get nativeStartPending() {
+    return Boolean(
+      this.preparing ||
+      [...this.active.values()].some(
+        (active) => active.run.status === 'starting' && !active.ending,
+      ),
+    );
   }
   get hasLiveExecution() {
     return Boolean(
@@ -181,6 +191,7 @@ export class ExecutionController {
       const review = await this.prepareContext?.(work, reviewDigest);
       material = await this.prepareCredentials?.(account);
       await this.admissionCheck?.();
+      this.resources?.assertCurrent(review?.nativeResources, account);
       companion?.authorize();
       assert(
         !this.closing && !this.store.settings().quietMode,
@@ -202,6 +213,7 @@ export class ExecutionController {
         ? { ...work, nativeSessionId: null, nativeSessionKey: null }
         : work;
       const run: Run = {
+        ...(review?.nativeResources ? { nativeResources: review.nativeResources } : {}),
         ...(companion ? { requestedBy: companion.actor } : {}),
         id: id(),
         workId,
@@ -255,6 +267,8 @@ export class ExecutionController {
       const active: Active = {
         credentials: material,
         authorizeAccount: (observed) => {
+          if (run.status === 'starting')
+            this.resources?.assertCurrent(run.nativeResources, observed);
           if (companion) {
             assert(
               accountBinding(observed) === accountBinding(currentAccount),

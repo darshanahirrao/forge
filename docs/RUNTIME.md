@@ -1,4 +1,6 @@
-# Forge v0.30.1
+# Forge v0.31.0
+
+Version 0.31 adds [reviewed native process policy](NATIVE_RESOURCE_POLICY.md). Utility QoS and optional original-process memory limits apply through the installed Darwin 27 taskpolicy backend. Work/gateway reviews, launch scopes and recovery retain the exact host-bound policy. Unknown native support and changed reviews hold admission; delegated backends keep their own controls. The signing owner stays outside the process cap. State 10 protects these semantics with private before-v10 backups. This is not whole-family or cross-platform containment.
 
 Version 0.30.1 links named native companion resource groups directly to the matching runtime controls, with keyboard focus, browser-history continuity and desktop/mobile accessibility checks. It reuses existing original-handle stop/recovery and introduces no additional authority or process.
 
@@ -132,7 +134,7 @@ The macOS pressure check also passed against the real native flag 2 (warning), h
 
 ## State version and rollback
 
-Current state is 9. Existing earlier file workspaces receive a private before-v9 copy; the v0.29 state-8 reader refuses state 9. Native profiles and worker proofs must be retained separately. The preceding state-8 upgrade created before-v8 copies. Native lifecycle and connection handoffs cannot safely be rolled back by serving an old authorization snapshot without reconciling access and later native effects.
+Current state is 10. Existing earlier file workspaces receive a private before-v10 copy; the v0.30.1 state-9 reader refuses state 10. The preceding state-9 upgrade created before-v9 copies. Native profiles and worker proofs must be retained separately. The preceding state-8 upgrade created before-v8 copies. Native lifecycle and connection handoffs cannot safely be rolled back by serving an old authorization snapshot without reconciling access and later native effects.
 
 The preceding recovery milestone used state 7. Native recovery upgrades from earlier file states create a mode-0600 `workspace.sqlite.before-v7.UUID.sqlite` copy before advancing. The previous compiled state-6 reader refuses state 7. Preserve private native profiles/proofs separately; restoring old application/state files does not establish native settlement. [Recovery compatibility](NATIVE_RECOVERY.md) describes the ownership boundary. The following version-3 note records the earlier migration milestone.
 

@@ -483,6 +483,8 @@ export function App() {
                   }
                   machine={snapshot.machine}
                   resources={snapshot.resources}
+                  governance={snapshot.nativeGovernance}
+                  onResourcePolicy={(value) => mutate('/resources/policy', 'PATCH', value)}
                   runtimes={snapshot.companionRuntime?.runtimes}
                   onRuntime={(id) => {
                     navigate('connections', id);

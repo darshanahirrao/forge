@@ -96,3 +96,9 @@ npm run test:native:companion-lifecycle
 ```
 
 The fixture creates temporary native profiles and one persistent Forge work/profile. It starts actual Hermes/OpenClaw gateways through the owned-child protocol, verifies each original configured interface/authentication, stops the source before staged MCP access replacement, retains selected memory and obtains two signed native-close receipts. Native configuration/memory bytes and scheduler settings stay unchanged. An instrumented loopback provider records zero model requests; no personal provider, startup service or runnable native job is configured. The earlier MCP fixture separately verifies actual native-client tool interoperability. This fixture acknowledges target readiness through the public MCP API, not a model-directed planner turn. Job delivery, scheduler-definition transfer, complete memory-engine migration, actual account billing and device push remain outside this evidence. [Lifecycle contract](../../docs/COMPANION_RUNTIME.md).
+
+## Native process policy
+
+On the evaluated Darwin 27 host, after building, add `--native-resource-policy` to `test:native:handoff`, `test:native:openclaw` or `test:native:companion-lifecycle`. Use the existing OpenClaw installation overrides. The full tool fixtures use utility QoS and 4,096 MiB per original native process; gateway-startup conformance uses 2,048 MiB. These are fixture budgets, not universal sizing guidance. The standalone OpenClaw fixture also accepts `--native-root-mib=4096` explicitly.
+
+The native limit and input/PID/signed-close checks use controlled temporary profiles and deterministic loopback providers. A small limit can terminate initialization or tools; original closure does not establish accepted work or settled billing. Root64/no-model restart coverage must preserve the private SDK ownership marker and invoke no extra model turn. [Policy and scope](../../docs/NATIVE_RESOURCE_POLICY.md).

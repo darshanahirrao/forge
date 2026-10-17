@@ -1,6 +1,6 @@
 {
   "name": "@forge-workspace/forge",
-  "version": "0.30.1",
+  "version": "0.31.0",
   "description": "A local workspace for continuous work across agent harnesses.",
   "private": true,
   "type": "module",

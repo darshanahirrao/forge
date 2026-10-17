@@ -6,6 +6,7 @@ import type { Account, Run } from '../shared/types.js';
 import type { NativeRecoveryRow, WorkerProofDescriptor } from '../shared/recovery.js';
 import { Store } from './store.js';
 import { privateDirectory, readWorkerExit, scopeHash } from './worker-proof.mjs';
+import { validateResourceReceipt, type ResourceGovernance } from './resource-governance.js';
 
 interface Supervision extends WorkerProofDescriptor {
   phase: 'prepared' | 'armed' | 'committed';
@@ -18,6 +19,7 @@ export class WorkerSupervisions {
   constructor(
     private store: Store,
     directory?: string,
+    private resources?: ResourceGovernance,
   ) {
     if (directory && process.platform !== 'win32') {
       mkdirSync(directory, { recursive: true, mode: 0o700 });
@@ -35,9 +37,12 @@ export class WorkerSupervisions {
         accountId: run.accountId,
         generation: run.generation,
         harness: run.harness ?? account.harness,
+        ...(run.nativeResources ? { resourcePolicyDigest: run.nativeResources.digest } : {}),
       },
+      resources: run.nativeResources,
       nativeHome: account.nativeHome || undefined,
       mayPrepare: () => {
+        this.resources?.assertCurrent(run.nativeResources, account);
         const current = this.store.get<Run>('runs', run.id);
         return current?.generation === run.generation && current.status === 'starting';
       },
@@ -49,9 +54,13 @@ export class WorkerSupervisions {
         });
       },
       phaseChanged: (record) => this.store.put('worker_supervisions', record.id, record),
-      mayCommit: () =>
-        this.store.get<Run>('runs', run.id)?.status === 'starting' &&
-        this.store.work(run.workId).activeRunId === run.id,
+      mayCommit: () => {
+        this.resources?.assertCurrent(run.nativeResources, account);
+        return (
+          this.store.get<Run>('runs', run.id)?.status === 'starting' &&
+          this.store.work(run.workId).activeRunId === run.id
+        );
+      },
     });
   }
   inspect(run: Run): NativeRecoveryRow {
@@ -77,7 +86,17 @@ export class WorkerSupervisions {
       accountId: run.accountId,
       generation: run.generation,
       harness: run.harness ?? 'unknown',
+      ...(run.nativeResources ? { resourcePolicyDigest: run.nativeResources.digest } : {}),
     };
+    try {
+      if (run.nativeResources) validateResourceReceipt(run.nativeResources);
+    } catch {
+      return {
+        ...base,
+        state: 'unavailable' as const,
+        detail: 'The native resource-policy receipt changed. Exact original evidence remains held.',
+      };
+    }
     if (
       record.id !== run.supervisionId ||
       record.scopeHash !== scopeHash(scope) ||

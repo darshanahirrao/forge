@@ -13,6 +13,7 @@ import { Dialog, Status, HarnessMark, FormError } from './primitives';
 import { harnessName, age } from '../lib/format';
 import { OutcomeReview } from './OutcomeReview';
 import { RoutingPanel } from './RoutingPanel';
+import { NativeResourceSummary } from './NativeResourceControls';
 import {
   ChevronRight,
   ShieldCheck,
@@ -59,6 +60,7 @@ export function WorkDetail({
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const nativeResources = runs.find((run) => run.generation === work.generation)?.nativeResources;
   async function checkpoint(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -142,6 +144,7 @@ export function WorkDetail({
             Edit context <ChevronRight size={14} />
           </button>
         </div>
+        {nativeResources && <NativeResourceSummary receipt={nativeResources} />}
         {pending && (
           <div className="notice notice-attention">
             <ShieldCheck size={18} />

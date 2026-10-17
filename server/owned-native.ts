@@ -8,13 +8,21 @@ import { mkdirSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { WorkerProofDescriptor } from '../shared/recovery.js';
-import { assert } from './errors.js';
+import type { NativeResourceReceipt } from '../shared/resource-governance.js';
+import { resourceCommand } from './resource-governance.js';
+import { assert, ForgeError, safeMessage } from './errors.js';
 import { id, now } from './store.js';
-import { checkWorkerProfile, privateDirectory, scopeHash } from './worker-proof.mjs';
+import {
+  checkWorkerProfile,
+  privateDirectory,
+  scopeHash,
+  readWorkerExit,
+} from './worker-proof.mjs';
 
 export interface SupervisedChild extends ChildProcessWithoutNullStreams {
   nativePid?: number;
   nativeStarted: Promise<number | null>;
+  nativeExitConfirmed?: () => boolean;
 }
 export type NativeSpawn = (
   command: string,
@@ -30,11 +38,14 @@ export interface NativeOwner<Scope extends object> {
   directory: string;
   scope: Scope;
   nativeHome?: string;
+  resources?: NativeResourceReceipt;
   mayPrepare(): boolean;
   prepared(record: OwnedNativeReceipt<Scope>): void;
   phaseChanged(record: OwnedNativeReceipt<Scope>): void;
   mayCommit(): boolean;
 }
+/** Admission failed before this spawner created any child or committed native launch. */
+export class NativeStartRejected extends ForgeError {}
 
 /** One original child handle, durable commit before spawn, no native agent behavior. */
 export function ownedNativeSpawner<Scope extends object>(input: NativeOwner<Scope>): NativeSpawn {
@@ -42,10 +53,20 @@ export function ownedNativeSpawner<Scope extends object>(input: NativeOwner<Scop
   let used = false;
   return (command, args, options, policy = {}) => {
     assert(
-      !used && input.mayPrepare(),
+      !used,
       409,
       'Native startup requires one current reviewed launch. Replacement roots are not adopted.',
     );
+    let launch: ReturnType<typeof resourceCommand>;
+    try {
+      assert(input.mayPrepare(), 409, 'Native startup requires one current reviewed launch.');
+      launch = resourceCommand(input.resources, command, args);
+    } catch (error) {
+      throw new NativeStartRejected(
+        error instanceof ForgeError ? error.status : 409,
+        safeMessage(error),
+      );
+    }
     used = true;
     const profileRoot = input.nativeHome ? realpathSync(input.nativeHome) : undefined;
     if (profileRoot) checkWorkerProfile(profileRoot);
@@ -79,6 +100,14 @@ export function ownedNativeSpawner<Scope extends object>(input: NativeOwner<Scop
         windowsHide: true,
       },
     ) as SupervisedChild;
+    child.nativeExitConfirmed = () => {
+      try {
+        readWorkerExit(record);
+        return true;
+      } catch {
+        return false;
+      }
+    };
     let settled = false;
     let resolveStarted: (pid: number | null) => void = () => {};
     child.nativeStarted = new Promise((resolve) => {
@@ -155,8 +184,8 @@ export function ownedNativeSpawner<Scope extends object>(input: NativeOwner<Scop
       record.phase = 'armed';
       input.phaseChanged(record);
       const configuration = {
-        command,
-        args: [...args],
+        command: launch.command,
+        args: [...launch.args],
         cwd: options.cwd instanceof URL ? fileURLToPath(options.cwd) : options.cwd,
         env: options.env ?? process.env,
         input: policy.input ?? 'pipe',

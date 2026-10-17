@@ -470,6 +470,7 @@ export class Companions {
         selectionSha256: source.selectionSha256,
       })),
       reviewDigest: review.receipt.reviewDigest,
+      ...(review.nativeResources ? { nativeResources: review.nativeResources } : {}),
       contentDigest: review.receipt.contentDigest,
       coverage:
         'Current selected profile memory only. Reading context does not grant tools or approve execution.',

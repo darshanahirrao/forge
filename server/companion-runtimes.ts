@@ -28,6 +28,7 @@ import {
   type CompanionConnection,
 } from './companion-providers.js';
 import { resolveCredential, type CredentialMaterial } from './credentials.js';
+import { validateResourceReceipt, type ResourceGovernance } from './resource-governance.js';
 
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const identifier = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/);
@@ -72,6 +73,7 @@ export class CompanionRuntimes {
     private admit: () => Promise<void>,
     private providers: Record<string, CompanionProviderDefinition> = companionProviders,
     private persistent = true,
+    private resources?: ResourceGovernance,
   ) {
     if (directory) privateDirectory(directory);
     for (const definition of Object.values(providers))
@@ -228,12 +230,15 @@ export class CompanionRuntimes {
       409,
       'The native account changed during review.',
     );
+    const nativeResources = this.resources?.review();
     return {
       account,
       home,
       nativeFiles,
+      nativeResources,
       binding: hash({
         runtimeId: runtime.id,
+        ...(nativeResources ? { resourcePolicyDigest: nativeResources.digest } : {}),
         revision: runtime.revision,
         account: accountBinding(account),
         nativeFiles,
@@ -305,6 +310,7 @@ export class CompanionRuntimes {
         for (const [key, plan] of this.plans) if (plan.expiresAt <= now()) this.plans.delete(key);
         assert(this.plans.size < 32, 409, 'Finish earlier native runtime reviews first.');
         const plan: CompanionRuntimeReview = {
+          ...(boundary.nativeResources ? { nativeResources: boundary.nativeResources } : {}),
           id: id(),
           digest: '',
           runtime,
@@ -365,6 +371,7 @@ export class CompanionRuntimes {
           'Native profile contents changed after review. Prepare again.',
         );
         const launch: CompanionRuntimeLaunch = {
+          ...(boundary.nativeResources ? { nativeResources: boundary.nativeResources } : {}),
           id: plan.id,
           runtimeId: runtime.id,
           accountId: runtime.accountId,
@@ -402,8 +409,12 @@ export class CompanionRuntimes {
           profileId: runtime.profileId,
           generation: launch.generation,
           harness: runtime.harness,
+          ...(launch.nativeResources
+            ? { resourcePolicyDigest: launch.nativeResources.digest }
+            : {}),
         };
         const mayStart = () => {
+          this.resources?.assertCurrent(launch.nativeResources, boundary.account);
           const current = this.launch(launch.id);
           return (
             !this.closing &&
@@ -417,6 +428,7 @@ export class CompanionRuntimes {
         const spawner = ownedNativeSpawner({
           directory: this.directory!,
           scope,
+          resources: launch.nativeResources,
           nativeHome: boundary.home,
           mayPrepare: mayStart,
           mayCommit: mayStart,
@@ -531,6 +543,7 @@ export class CompanionRuntimes {
     return acceptance;
   }
   private evidence(launch: CompanionRuntimeLaunch) {
+    if (launch.nativeResources) validateResourceReceipt(launch.nativeResources);
     const proof = launch.supervisionId
       ? this.store.get<Proof>('companion_supervisions', launch.supervisionId)
       : null;
@@ -543,6 +556,7 @@ export class CompanionRuntimes {
         proof.scope.profileId === launch.profileId &&
         proof.scope.generation === launch.generation &&
         proof.scope.harness === launch.harness &&
+        proof.scope.resourcePolicyDigest === launch.nativeResources?.digest &&
         proof.scopeHash === scopeHash(proof.scope),
       409,
       'Exact native companion evidence is unavailable.',

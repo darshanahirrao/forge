@@ -98,6 +98,8 @@ const app = await createApp({
   test: true,
   memoryPressureReader: unknownPressure,
 });
+const nativeResourcePolicy = process.argv.includes('--native-resource-policy');
+
 const profiles = new Profiles(app.local),
   profile = profiles.profile(),
   selection = await inspectMemory(memoryFile, ['Shared']);
@@ -173,6 +175,10 @@ async function start(runtimeId: string) {
   );
   const current = app.companionRuntimes.snapshot().launches.find((row) => row.id === launch.id)!;
   assert.equal(current.state, 'running', current.detail);
+  if (nativeResourcePolicy) {
+    assert.equal(current.nativeResources?.rootMemoryMiB, 2048);
+    assert.equal(current.nativeResources?.digest, app.resourceGovernance.review()?.digest);
+  }
   await waitFor(
     () =>
       Boolean(
@@ -199,6 +205,16 @@ async function stop(runtimeId: string, launchId: string) {
   return ended;
 }
 try {
+  if (nativeResourcePolicy) {
+    assert(
+      app.resourceGovernance.snapshot().supported,
+      'The explicit native policy check requires the evaluated Darwin 27 host.',
+    );
+    await app.resourceGovernance.configure(
+      { expectedRevision: 0, lowPriority: true, rootMemoryMiB: 2048, effectsReviewed: true },
+      { kind: 'local' },
+    );
+  }
   const first = await start(sourceRuntime.id);
   assert.equal(first.nativeVersion, '0.17.0');
   const originalApi = await fetch(`http://127.0.0.1:${hermesPort}/v1/models`, {
@@ -253,6 +269,7 @@ try {
       nativeGateways: ['Hermes 0.17.0', 'OpenClaw 2026.10.4'],
       nativeStarts: 2,
       signedCloses: 2,
+      nativeResourcePolicyGateways: nativeResourcePolicy ? 2 : 0,
       nativeSchedulerConfigurationRetained: true,
       configuredNativeInterfacesPreserved: true,
       scheduleDefinitionsTransferred: false,

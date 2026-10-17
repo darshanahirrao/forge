@@ -6,6 +6,7 @@ export interface WorkerScope {
   accountId: string;
   generation: number;
   harness: string;
+  resourcePolicyDigest?: string;
 }
 export interface WorkerProofDescriptor<Scope extends object = WorkerScope> {
   id: string;

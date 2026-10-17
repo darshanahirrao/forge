@@ -13,6 +13,11 @@ import { ResourceMap } from '../components/ResourceMap';
 import { NativeRecovery } from '../components/NativeRecovery';
 import type { NativeRecoverySnapshot, NativeRecoveryRow } from '../../shared/recovery';
 import type { CompanionRuntime } from '../../shared/companion-runtime';
+import type {
+  NativeResourceConfiguration,
+  NativeResourceSnapshot,
+} from '../../shared/resource-governance';
+import { NativeResourceControls } from '../components/NativeResourceControls';
 
 export function ResourcesPage({
   machine,
@@ -29,6 +34,8 @@ export function ResourcesPage({
   onReconcile,
   runtimes,
   onRuntime,
+  governance,
+  onResourcePolicy,
 }: {
   machine: MachineSnapshot;
   quiet: boolean;
@@ -44,6 +51,8 @@ export function ResourcesPage({
   onReconcile?: (row: NativeRecoveryRow) => void;
   runtimes?: CompanionRuntime[];
   onRuntime?: (id: string) => void;
+  governance?: NativeResourceSnapshot;
+  onResourcePolicy?: (value: NativeResourceConfiguration) => Promise<unknown>;
 }) {
   const [showAll, setShowAll] = useState(false);
   const [order, setOrder] = useState<'memory' | 'cpu'>('memory');
@@ -146,6 +155,7 @@ export function ResourcesPage({
         runtimes={runtimes}
         onRuntime={onRuntime}
       />
+      <NativeResourceControls data={governance} configure={onResourcePolicy} />
       <section className="panel" aria-label="Native worker ownership">
         <div className="section-heading">
           <div>

@@ -16,6 +16,7 @@ import type {
 } from '../shared/types.js';
 import { assert, ForgeError } from './errors.js';
 import { Store, id, now } from './store.js';
+import type { NativeResourceReceipt } from '../shared/resource-governance.js';
 
 let nativeMarkdown: Promise<InstanceType<typeof MarkdownIt>> | undefined;
 const markdown = () =>
@@ -144,6 +145,7 @@ export class Profiles {
   constructor(
     private store: Store,
     private isBusy: () => boolean = () => false,
+    private resourceReview: () => NativeResourceReceipt | undefined = () => undefined,
   ) {
     const configured = store.get<{ id: string }>('config', 'default-profile');
     if (configured && store.get('profiles', configured.id)) this.defaultId = configured.id;
@@ -374,15 +376,19 @@ export class Profiles {
         selectionSha256: source.selectionSha256,
       })),
     });
+    const nativeResources = this.resourceReview();
     const reviewDigest = digest({
       workId: work.id,
       revision: work.revision,
       profile,
       sources: sources.map(({ sha256: _fileHash, ...selection }) => selection),
       contentDigest,
+      ...(nativeResources ? { nativeResourcePolicyDigest: nativeResources.digest } : {}),
     });
     return {
+      ...(nativeResources ? { nativeResources } : {}),
       receipt: {
+        ...(nativeResources ? { nativeResourcePolicyDigest: nativeResources.digest } : {}),
         profileId: profile.id,
         profileRevision: profile.revision,
         profileName: profile.name,
@@ -395,13 +401,14 @@ export class Profiles {
       instructions: profile.instructions,
       memories,
       skipped,
-      requiresReview: Boolean(profile.instructions || memories.length),
+      requiresReview: Boolean(profile.instructions || memories.length || nativeResources),
     };
   }
   async prepare(work: Work, expectedDigest?: string) {
     const review = await this.review(work);
     assert(
-      !review.requiresReview || review.receipt.reviewDigest === expectedDigest,
+      (!review.requiresReview && expectedDigest === undefined) ||
+        review.receipt.reviewDigest === expectedDigest,
       409,
       'Review the current profile and memory selection before launching. A source or binding may have changed.',
     );

@@ -5,6 +5,10 @@ import { mkdir, mkdtemp, readFile, realpath, stat, writeFile, rm } from 'node:fs
 import { join } from 'node:path';
 import { createApp } from '../../server/app.js';
 import { fixtureProvider } from './provider.js';
+import { readWorkerExit } from '../../server/worker-proof.mjs';
+import { ownedNativeSpawner } from '../../server/owned-native.js';
+import { openClawWorker } from '../../server/adapters/openclaw-worker.js';
+import type { WorkerProofDescriptor } from '../../shared/recovery.js';
 import type {
   Account,
   AgentProfile,
@@ -142,9 +146,14 @@ for (let profile = 0; profile < homes.length; profile++) {
     }),
   );
 }
+const nativeResourcePolicy = process.argv.includes('--native-resource-policy');
+const nativeRootMiB = Number(
+  process.argv.find((arg) => arg.startsWith('--native-root-mib='))?.split('=')[1] ?? 4096,
+);
+assert(Number.isSafeInteger(nativeRootMiB) && nativeRootMiB >= 64 && nativeRootMiB <= 8192);
 const state = await createApp({
   memoryPressureReader: unknownPressure,
-  filename: ':memory:',
+  filename: nativeResourcePolicy ? join(directory, 'state.sqlite') : ':memory:',
   csrf: 'openclaw-conformance',
   test: true,
 });
@@ -195,10 +204,28 @@ async function run(workId: string, expected: Work['status'] = 'completed') {
     if (['completed', 'failed', 'interrupted'].includes(state.local.work(workId).status)) break;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
+  const currentRun = state.local.get<Run>('runs', run.id)!;
+  let nativeExit: unknown = 'unconfirmed';
+  try {
+    nativeExit = readWorkerExit(
+      state.local.get<WorkerProofDescriptor>('worker_supervisions', currentRun.supervisionId!)!,
+    ).payload;
+  } catch {}
   assert.equal(
     state.local.work(workId).status,
     expected,
-    JSON.stringify(state.local.recentEvents(workId)),
+    JSON.stringify({
+      nativeExit,
+      policy: currentRun.nativeResources,
+      events: state.local
+        .recentEvents(workId)
+        .slice(0, 4)
+        .map((event) => ({
+          kind: event.kind,
+          title: event.title,
+          detail: event.detail.slice(0, 300),
+        })),
+    }),
   );
   assert(
     state.local.get<Run>('runs', run.id)?.exitConfirmed,
@@ -207,6 +234,21 @@ async function run(workId: string, expected: Work['status'] = 'completed') {
   return run;
 }
 try {
+  if (nativeResourcePolicy) {
+    assert(
+      state.resourceGovernance.snapshot().supported,
+      'Native policy requires the evaluated Darwin 27 host.',
+    );
+    await state.resourceGovernance.configure(
+      {
+        expectedRevision: 0,
+        lowPriority: true,
+        rootMemoryMiB: nativeRootMiB,
+        effectsReviewed: true,
+      },
+      { kind: 'local' },
+    );
+  }
   const inspected = await post<MemoryInspection>('/memory/inspect', {
     path: memoryPath,
     section: ['Shared'],
@@ -377,16 +419,93 @@ try {
   });
   await run(failed.id, 'failed');
 
+  let memoryLimitRestartVerified = false;
+  if (nativeResourcePolicy) {
+    await mkdir(join(directory, 'limit-restart-proofs'), { mode: 0o700 });
+    const beforeRequests = [...rootRequests];
+    const checkGateway = async (limit: number, admit = true) => {
+      await state.resourceGovernance.configure(
+        {
+          expectedRevision: state.resourceGovernance.policy().revision,
+          lowPriority: true,
+          rootMemoryMiB: limit,
+          effectsReviewed: true,
+        },
+        { kind: 'local' },
+      );
+      const resources = state.resourceGovernance.review()!;
+      let descriptor: WorkerProofDescriptor<object> | undefined;
+      const spawn = ownedNativeSpawner({
+        directory: join(directory, 'limit-restart-proofs'),
+        scope: {
+          kind: 'native-limit-restart-fixture',
+          accountId: accounts[1].id,
+          harness: 'openclaw',
+          resourcePolicyDigest: resources.digest,
+        },
+        nativeHome: accounts[1].nativeHome,
+        resources,
+        mayPrepare: () => admit,
+        mayCommit: () => true,
+        prepared: (value) => {
+          descriptor = value;
+          state.local.put('worker_supervisions', value.id, value);
+        },
+        phaseChanged: (value) => {
+          descriptor = value;
+          state.local.put('worker_supervisions', value.id, value);
+        },
+      });
+      const connection = await openClawWorker(accounts[1], project, undefined, spawn);
+      await connection.stop();
+      assert(descriptor);
+      return readWorkerExit(descriptor);
+    };
+    await assert.rejects(checkGateway(nativeRootMiB, false), /current reviewed launch/);
+    assert.equal(
+      JSON.parse(await readFile(join(accounts[1].nativeHome, '.forge-openclaw.json'), 'utf8'))
+        .cleanExit,
+      true,
+      'Rejected admission cannot create an unknown native owner.',
+    );
+    await assert.rejects(checkGateway(64), /exited during startup|did not become ready/);
+    assert.equal(
+      JSON.parse(await readFile(join(accounts[1].nativeHome, '.forge-openclaw.json'), 'utf8'))
+        .cleanExit,
+      true,
+      'A verified original close must not leave an unknown-exit marker.',
+    );
+    const restarted = await checkGateway(nativeRootMiB);
+    assert.equal(restarted.payload.nativeClosed, true);
+    assert.equal(restarted.payload.stdioClosed, true);
+    assert.deepEqual(
+      rootRequests,
+      beforeRequests,
+      'Startup recovery must not invoke a model or replay a turn.',
+    );
+    memoryLimitRestartVerified = true;
+  }
+
   assert(
     providers.every((p) => p.failure() === null),
     providers.map((p) => p.failure()).join('\n'),
   );
+  const governedRuns = state.local
+    .all<Run>('runs')
+    .filter(
+      (run) =>
+        run.nativeResources?.lowPriority && run.nativeResources.rootMemoryMiB === nativeRootMiB,
+    ).length;
+  if (nativeResourcePolicy) assert.equal(governedRuns, 5);
   console.log(
     JSON.stringify(
       {
         passed: true,
         native: 'OpenClaw 2026.10.4 / Gateway 4',
         runs: 5,
+        nativeResourcePolicyRuns: governedRuns,
+        memoryLimitRestartVerified,
+        nativeRootMiB: nativeResourcePolicy ? nativeRootMiB : null,
         proofs: 3,
         approvals,
         profileHandoff: true,

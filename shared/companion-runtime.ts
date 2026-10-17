@@ -1,5 +1,6 @@
 import type { ApprovalActor, NativeWorkerIdentity } from './types.js';
 import type { WorkerExitPayload } from './recovery.js';
+import type { NativeResourceReceipt } from './resource-governance.js';
 
 export interface CompanionRuntime {
   id: string;
@@ -22,8 +23,10 @@ export interface CompanionRuntimeScope {
   profileId: string;
   generation: number;
   harness: string;
+  resourcePolicyDigest?: string;
 }
 export interface CompanionRuntimeLaunch {
+  nativeResources?: NativeResourceReceipt;
   id: string;
   runtimeId: string;
   accountId: string;
@@ -54,6 +57,7 @@ export interface CompanionRuntimeLaunch {
   };
 }
 export interface CompanionRuntimeReview {
+  nativeResources?: NativeResourceReceipt;
   id: string;
   digest: string;
   expiresAt: string;

@@ -11,6 +11,8 @@ Forge v0.30 can start and stop a supported native Hermes or OpenClaw gateway fro
 
 Configuration values and secret file contents are not returned in the review. Bounded SHA-256 fingerprints of the provider's declared files bind the review; changing those files requires a new review. Reviews expire after two minutes. The same launch ID and digest return the original receipt without starting another process.
 
+[Native process policy](NATIVE_RESOURCE_POLICY.md) can apply a reviewed local process budget and utility priority. The launch receipt retains that exact policy while subsequent preferences affect future starts.
+
 Native gateway spending follows its native policy and is outside Forge's per-work spending reservations. Native gateway approvals keep their native interfaces; starting a companion does not establish exact-request forwarding into the Forge inbox. Configure native access and spending accordingly. The separate managed execution adapters retain their existing exact approvals and accounting.
 
 | Provider | Evaluated native contract                            | Startup behavior                                                                                                                                                               |

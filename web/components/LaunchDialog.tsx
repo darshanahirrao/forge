@@ -12,6 +12,7 @@ import { executionName, canExecuteAccount } from '../../shared/harnesses';
 import type { SpendReview } from '../../shared/spending';
 import { currency } from '../lib/format';
 import type { RouteReview } from '../../shared/routing';
+import { NativeResourceSummary } from './NativeResourceControls';
 
 export function LaunchDialog({
   work,
@@ -64,7 +65,11 @@ export function LaunchDialog({
       setSpending(cost.review);
       setRoute(route);
       setReview(result);
-      setConfirmed(work.contextReceipt?.contentDigest === result.receipt.contentDigest);
+      setConfirmed(
+        work.contextReceipt?.contentDigest === result.receipt.contentDigest &&
+          work.contextReceipt?.nativeResourcePolicyDigest ===
+            result.receipt.nativeResourcePolicyDigest,
+      );
     } catch (cause) {
       if (requestId === reviewRequest.current) setError((cause as Error).message);
     } finally {
@@ -88,6 +93,7 @@ export function LaunchDialog({
   const pressureHigh =
     memoryProtection && ['warning', 'critical'].includes(memoryPressure?.state ?? 'unknown');
   const routeMismatch = Boolean(route?.policy && route.recommendedAccountId !== work.accountId);
+  const resourceBackendMismatch = Boolean(review?.nativeResources && account?.backend);
   async function prepareRoute() {
     if (!route?.planId) return;
     setBusy(true);
@@ -167,6 +173,21 @@ export function LaunchDialog({
             <Folder size={16} />
             <code>{work.cwd}</code>
           </div>
+          {review?.nativeResources && (
+            <section className="detail-section" aria-label="Native launch resource policy">
+              <h3>Native process policy</h3>
+              <NativeResourceSummary receipt={review.nativeResources} />
+            </section>
+          )}
+          {resourceBackendMismatch && (
+            <p role="status" className="source-note">
+              The delegated backend owns its resource policy. Choose a locally owned account or
+              review native defaults in Resources.{' '}
+              <button type="button" className="text-button" onClick={onResources}>
+                Review resources
+              </button>
+            </p>
+          )}
           {routeMismatch && (
             <section className="detail-section" aria-label="Recommended account">
               <h3>Account routing</h3>
@@ -285,7 +306,11 @@ export function LaunchDialog({
                       checked={confirmed}
                       onChange={(event) => setConfirmed(event.target.checked)}
                     />
-                    <span>I reviewed this profile and selected memory for the native launch.</span>
+                    <span>
+                      {review.nativeResources
+                        ? 'I reviewed this context and native resource policy for the launch.'
+                        : 'I reviewed this profile and selected memory for the native launch.'}
+                    </span>
                   </label>
                 )}
               </>
@@ -386,6 +411,7 @@ export function LaunchDialog({
               !spending?.allowed ||
               !route ||
               routeMismatch ||
+              resourceBackendMismatch ||
               reading ||
               (review.requiresReview && !confirmed) ||
               (requiresMetered && !metered) ||

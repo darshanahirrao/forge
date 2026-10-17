@@ -305,9 +305,10 @@ process.env[refs[0]] = 'synthetic-profile-one';
 process.env[refs[1]] = 'synthetic-profile-two';
 process.env[refs[2]] = 'synthetic-profile-three';
 const profileIds: string[] = [];
+const nativeResourcePolicy = process.argv.includes('--native-resource-policy');
 const state = await createApp({
   memoryPressureReader: unknownPressure,
-  filename: ':memory:',
+  filename: nativeResourcePolicy ? join(directory, 'workspace.sqlite') : ':memory:',
   workerDirectory: join(directory, 'worker-state'),
   csrf: 'handoff-conformance',
   test: true,
@@ -381,10 +382,11 @@ const post = async <T>(path: string, payload: Record<string, unknown>): Promise<
 };
 let approvals = 0;
 const attributedRuns = new Set<string>();
+let governedRuns = 0;
 async function runNative(workId: string) {
   const work = state.local.work(workId);
   const review = await post<ContextReview>(`/work/${workId}/context-review`, {});
-  await post(`/work/${workId}/launch`, {
+  const launched = await post<Run>(`/work/${workId}/launch`, {
     expectedRevision: work.revision,
     allowMetered: true,
     contextDigest: review.receipt.reviewDigest,
@@ -455,8 +457,29 @@ async function runNative(workId: string) {
     JSON.stringify(state.local.recentEvents(workId)),
   );
   assert.equal(state.controller.activeCount, 0);
+  if (nativeResourcePolicy) {
+    const receipt = state.local.get<Run>('runs', launched.id)!;
+    assert.equal(receipt.nativeResources?.digest, review.nativeResources?.digest);
+    assert.equal(receipt.nativeResources?.rootMemoryMiB, 4096);
+    const proof = state.local.get<{ scope: { resourcePolicyDigest?: string } }>(
+      'worker_supervisions',
+      receipt.supervisionId!,
+    )!;
+    assert.equal(proof.scope.resourcePolicyDigest, receipt.nativeResources!.digest);
+    governedRuns++;
+  }
 }
 try {
+  if (nativeResourcePolicy) {
+    assert(
+      state.resourceGovernance.snapshot().supported,
+      'The explicit native policy check requires the evaluated Darwin 27 host.',
+    );
+    await state.resourceGovernance.configure(
+      { expectedRevision: 0, lowPriority: true, rootMemoryMiB: 4096, effectsReviewed: true },
+      { kind: 'local' },
+    );
+  }
   const inspection = await post<MemoryInspection>('/memory/inspect', {
     path: memoryPath,
     section: ['Shared'],
@@ -608,6 +631,7 @@ try {
       status: 'passed',
       workIdentityRetained: true,
       nativeRuns: 6,
+      nativeResourcePolicyRuns: governedRuns,
       signedNativeExits: 6,
       nativeResourceOwnershipRuns: attributedRuns.size,
       nativeResourcePartitionRuns: attributedRuns.size,

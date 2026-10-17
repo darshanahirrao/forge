@@ -3,6 +3,7 @@ import type { Snapshot } from '../../shared/types';
 import type { CompanionRuntimeReview } from '../../shared/companion-runtime';
 import type { Mutate } from '../api';
 import { Dialog, FormError } from './primitives';
+import { NativeResourceSummary } from './NativeResourceControls';
 
 export function CompanionRuntimesPanel({
   data,
@@ -217,6 +218,7 @@ export function CompanionRuntimesPanel({
                 {launch.detail}
               </p>
             )}
+            {launch?.nativeResources && <NativeResourceSummary receipt={launch.nativeResources} />}
             {recovery && <p className="source-note">{recovery.detail}</p>}
             <p className="source-note">
               Stop the original native gateway before replacing its companion access. A fresh start
@@ -305,14 +307,16 @@ export function CompanionRuntimesPanel({
                 Native gateway model usage follows its own policy and sits outside Forge work
                 reservations. Native permissions and external effects retain their native controls.
               </p>
+              {review.nativeResources && <NativeResourceSummary receipt={review.nativeResources} />}
               <label className="checkbox-label">
                 <input
                   type="checkbox"
                   checked={consent}
                   onChange={(event) => setConsent(event.target.checked)}
                 />
-                I reviewed this profile’s native channels and schedules and accept its provider
-                usage.
+                {review.nativeResources
+                  ? 'I reviewed this profile’s channels, schedules and native resource policy and accept its provider usage.'
+                  : 'I reviewed this profile’s native channels and schedules and accept its provider usage.'}
               </label>
               <FormError error={error} />
             </div>
