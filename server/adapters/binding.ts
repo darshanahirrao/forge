@@ -7,6 +7,7 @@ export const accountBinding = (account: Account) =>
     .update(
       JSON.stringify({
         harness: account.harness,
+        ...(account.connector ? { connector: account.connector } : {}),
         home: account.nativeHome,
         credential: account.credentialEnv,
         ...(account.credentialReference

@@ -157,13 +157,13 @@ export function AccountsPage({
                   disabled={
                     busy === a.id ||
                     data.mode === 'demo' ||
-                    !(a.backend || managedHarnesses.includes(a.harness))
+                    !(a.backend || a.connector || managedHarnesses.includes(a.harness))
                   }
                   onClick={() => onProbe(a)}
                   title={
                     data.mode === 'demo'
                       ? 'Demo accounts never contact native tools'
-                      : !(a.backend || managedHarnesses.includes(a.harness))
+                      : !(a.backend || a.connector || managedHarnesses.includes(a.harness))
                         ? 'No supported native status adapter'
                         : 'Read native authentication status'
                   }

@@ -113,7 +113,7 @@ export function HandoffDialog({
                     </option>
                   ))
                 ) : (
-                  <option value="">Add another Codex or Claude API account first</option>
+                  <option value="">Add another compatible native account first</option>
                 )}
               </select>
             </label>

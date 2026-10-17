@@ -164,6 +164,23 @@ app.get('/api/fixture/credentials', async () => ({
   project: memoryProject,
   nativeHome,
 }));
+const connectorHome = join(directory, 'connector-home');
+mkdirSync(connectorHome);
+app.get('/api/fixture/connectors', async () => ({
+  nativeHome: connectorHome,
+  manifest: {
+    format: 'forge.native-connector',
+    version: 1,
+    id: 'ext.browser-agent.v1',
+    name: 'Owned browser agent',
+    protocol: 'acp/1',
+    executable: process.execPath,
+    args: [fileURLToPath(new URL('./fixtures/acp-agent.mjs', import.meta.url))],
+    agent: { name: 'owned-acp-fixture', version: '1.0.0' },
+    mode: 'review',
+    homeVariables: { FIXTURE_AGENT_HOME: '.' },
+  },
+}));
 app.post('/api/fixture/native-controls', async (request) => {
   nativeControlMode = request.body.mode;
   return { ok: true };

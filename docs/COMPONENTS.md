@@ -6,16 +6,16 @@ Bindings point to existing implementations. Forge does not rebuild the browser/c
 
 ## Selectable roles
 
-| Role | Example bindings | State Forge retains |
-| --- | --- | --- |
-| Agent runtime / companion | Hermes, OpenClaw, another compatible implementation | Agent ID, authored profile, memory references, goals, work history |
-| Coding or task harness | Codex, Claude Code, OpenCode, general runtime | Work IDs, artifact evidence, checkpoints, attempt lineage |
-| Account binding | Multiple supported native account slots per harness or runtime | Nonsecret references, effective identity, project eligibility, quota provenance, attempt attribution |
-| Model route | Native default, supported provider/model selection | Requested and served model records, usage, route policy |
-| Memory provider | Local index, user-owned files, optional external backend | Source and schema references, scope, provenance, correction and export policy |
-| Tools and skills | Existing runtime tools, MCP services, native skills and plugins | Versioned references, required capabilities, granted scope |
-| Channels | Workspace UI, paired phone, runtime messaging gateways | User identity bindings, delivery policy, action correlations |
-| Execution host | Runtime's local execution, existing remote node/container/VM | Native host references, artifact references, resource and authority leases |
+| Role                      | Example bindings                                                | State Forge retains                                                                                  |
+| ------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Agent runtime / companion | Hermes, OpenClaw, another compatible implementation             | Agent ID, authored profile, memory references, goals, work history                                   |
+| Coding or task harness    | Codex, Claude Code, OpenCode, general runtime                   | Work IDs, artifact evidence, checkpoints, attempt lineage                                            |
+| Account binding           | Multiple supported native account slots per harness or runtime  | Nonsecret references, effective identity, project eligibility, quota provenance, attempt attribution |
+| Model route               | Native default, supported provider/model selection              | Requested and served model records, usage, route policy                                              |
+| Memory provider           | Local index, user-owned files, optional external backend        | Source and schema references, scope, provenance, correction and export policy                        |
+| Tools and skills          | Existing runtime tools, MCP services, native skills and plugins | Versioned references, required capabilities, granted scope                                           |
+| Channels                  | Workspace UI, paired phone, runtime messaging gateways          | User identity bindings, delivery policy, action correlations                                         |
+| Execution host            | Runtime's local execution, existing remote node/container/VM    | Native host references, artifact references, resource and authority leases                           |
 
 These are roles rather than a mandatory chain of frameworks. One runtime may serve conversation and execution. A coding harness can execute directly. Selecting one role should not start every installed component or copy every private source into it.
 
@@ -46,3 +46,7 @@ Demonstrate both axes independently: Hermes to OpenClaw for the companion role w
 ## Implemented companion boundary
 
 Version 0.16 exposes [companion contract 1 over native MCP](COMPANION_ACCESS.md). A grant binds an existing profile/project, scopes and optional finite native dispatch to selected account bindings. Hermes and OpenClaw native MCP clients pass selected-memory/work/checkpoint replacement checks. This implements a replaceable access role, not the complete planner, scheduler or provider-memory migration contract above.
+
+## Native connector registration
+
+Version 0.23 implements [versioned native ACP harness connectors](NATIVE_CONNECTORS.md). Register an existing executable, bind account/profile variables, and use the shared execution, context, one-time approval and handoff coordinator. Immutable IDs/digests preserve history; retirement prevents new starts. This is a concrete execution extension boundary. General memory/host/channel/layout/policy package roles and lifecycle migration remain separate contracts.

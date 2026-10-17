@@ -22,6 +22,8 @@ export interface WorkspaceBackend {
 }
 
 export interface Account {
+  connector?: { id: string; digest: string };
+  connectorReady?: boolean;
   backend?: BackendAccountReference;
   models?: string[];
   providerReady?: boolean;
@@ -422,6 +424,7 @@ export interface BackgroundRuntime {
   scope?: 'user-login';
 }
 export interface Snapshot {
+  connectors?: import('./connectors.js').NativeConnector[];
   notifications?: import('./notifications.js').NotificationSnapshot;
   nativeControls?: import('./native-controls.js').NativeControlSnapshot;
   spending?: import('./spending.js').SpendingSnapshot;

@@ -526,6 +526,7 @@ export function App() {
       {snapshot && newAccount && (
         <AccountForm
           mode={mode}
+          connectors={snapshot.connectors}
           mutate={mutate}
           onClose={() => setNewAccount(false)}
           onSaved={() => {

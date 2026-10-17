@@ -103,6 +103,7 @@ const bound = (record: Record<string, string>, role: string) =>
 const accountBinding = (account: Account) => ({
   id: account.id,
   harness: account.harness,
+  ...(account.connector ? { connector: account.connector } : {}),
   billingMode: account.billingMode,
   nativeHome: account.nativeHome,
   credentialEnv: account.credentialEnv,

@@ -17,6 +17,7 @@ import { BackendsPanel } from '../components/BackendsPanel';
 import { CompanionsPanel } from '../components/CompanionsPanel';
 import { BlueprintsPanel } from '../components/BlueprintsPanel';
 import { NotificationsPanel } from '../components/NotificationsPanel';
+import { ConnectorsPanel } from '../components/ConnectorsPanel';
 
 export function ConnectionsPage({
   data,
@@ -54,6 +55,7 @@ export function ConnectionsPage({
   return (
     <div className="page-stack">
       <BackendsPanel data={data} mutate={mutate} />
+      <ConnectorsPanel data={data} mutate={mutate} />
       <CompanionsPanel data={data} mutate={mutate} />
       <NotificationsPanel data={data} mutate={mutate} />
       <section className="panel resource-controls" aria-label="Workspace availability">

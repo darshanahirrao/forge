@@ -1,5 +1,7 @@
 # Native tool conformance
 
+`npm run test:native:connector` checks registered generic ACP execution with a compatible native OpenCode binary. Set `FORGE_CONNECTOR_CONFORMANCE_BINARY` for an isolated version comparison. Native 2.0.31 passes model/approval/artifact/context/private-reference evidence; installed 2.0.6 is explicitly checked with `-- --expect-model-hold` to prove no input or provider request. See [connector contracts and setup](../../docs/NATIVE_CONNECTORS.md).
+
 `npm run test:native:credentials` checks an owned public synthetic macOS Keychain item and removes that exact item. The Claude SDK check now uses a private-file credential reference against its loopback provider. `npm run test:native:service` also checks reference availability across native restarts. See [credential scope and evidence](../../docs/CREDENTIAL_REFERENCES.md).
 
 `npm run test:native:controls` checks the compiled helper against installed Hermes with an isolated builtin profile. It uses native pause/resume, rejects changed definitions/configuration and unavailable locks, and SIGKILLs only its owned helper after a native write to verify uncertain receipts and no replay. No tick/model/delivery starts. See [native control semantics](../../docs/NATIVE_SCHEDULE_CONTROLS.md).

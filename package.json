@@ -1,6 +1,6 @@
 {
   "name": "@forge-workspace/forge",
-  "version": "0.22.0",
+  "version": "0.23.0",
   "description": "A local workspace for continuous work across agent harnesses.",
   "private": true,
   "type": "module",
@@ -28,6 +28,7 @@
     "test:native:scheduler": "tsx tests/native/scheduler-conformance.ts",
     "test:native:credentials": "tsx tests/native/credential-conformance.ts",
     "test:native:controls": "tsx tests/native/control-conformance.ts",
+    "test:native:connector": "tsx tests/native/connector-conformance.ts",
     "test:native": "npm run test:native:codex && npm run test:native:claude && npm run test:native:opencode && npm run test:native:hermes && npm run test:native:openclaw && npm run test:native:handoff",
     "test:native:opencode": "tsx tests/native/opencode-conformance.ts",
     "test:native:hermes": "tsx tests/native/hermes-conformance.ts",

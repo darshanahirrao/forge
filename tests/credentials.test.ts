@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { DatabaseSync } from 'node:sqlite';
 import { createApp } from '../server/app.js';
-import { resolveCredential, credentialValue } from '../server/credentials.js';
+import { resolveCredential, credentialValue, credentialTarget } from '../server/credentials.js';
 import { nativeEnvironment } from '../server/adapters/accounts.js';
 import { openCodeEnvironment } from '../server/adapters/opencode-worker.js';
 import { hermesEnvironment } from '../server/adapters/hermes-driver.js';
@@ -18,6 +18,29 @@ import type { Account, Work } from '../shared/types.js';
 import type { DriverContext, DriverSink } from '../server/adapters/driver.js';
 
 const target = 'FIXTURE_PROVIDER_API_KEY';
+test('private credential variables cannot inject shell startup, preload or command configuration', () => {
+  for (const name of [
+    'BASH_ENV',
+    'ENV',
+    'ZDOTDIR',
+    'GIT_SSH_COMMAND',
+    'GIT_CONFIG_COUNT',
+    'RUBYOPT',
+    'PERL5OPT',
+    'JAVA_TOOL_OPTIONS',
+    'NODE_OPTIONS',
+    'PATH',
+    'HTTP_PROXY',
+  ])
+    assert.throws(() => credentialTarget({ harness: 'ext.test', credentialEnv: name } as Account));
+  for (const name of [
+    'OPENAI_API_KEY',
+    'ANTHROPIC_AUTH_TOKEN',
+    'AWS_ACCESS_KEY_ID',
+    'AWS_SECRET_ACCESS_KEY',
+  ])
+    assert.equal(credentialTarget({ harness: 'ext.test', credentialEnv: name } as Account), name);
+});
 async function file(t: test.TestContext) {
   const directory = await mkdtemp(join(tmpdir(), 'forge-credential-'));
   t.after(() => rm(directory, { recursive: true, force: true }));

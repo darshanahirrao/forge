@@ -53,6 +53,8 @@ export function credentialTarget(account: Account) {
   assert(
     target &&
       /^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(target) &&
+      (/(?:KEY|TOKEN|SECRET|PASSWORD|CREDENTIALS)$/i.test(target) ||
+        target === 'AWS_ACCESS_KEY_ID') &&
       !/^(PATH$|HOME$|USER$|SHELL$|XDG_|NODE_|PYTHON|LD_|DYLD_|CODEX_|CLAUDE_|OPENCODE_|OPENCLAW_|HERMES_|FORGE_|TMP|TEMP|SystemRoot|COMSPEC|PATHEXT|HTTP_PROXY$|HTTPS_PROXY$|NO_PROXY$|SSL_)/i.test(
         target,
       ),

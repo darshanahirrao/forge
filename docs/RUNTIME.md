@@ -1,6 +1,8 @@
-# Forge v0.22.0
+# Forge v0.23.0
 
-Current additions are [private provider credential references](CREDENTIAL_REFERENCES.md) for foreground/background account slots and [reviewed native Hermes pause/resume](NATIVE_SCHEDULE_CONTROLS.md) with native lock fencing and uncertain-outcome receipts. State is version 6, with private before-v6 rollback copies for older file workspaces. Native ticker observations, ntfy alerts, account routing, spending admission, scoped MCP companions and setup blueprints remain available. [The full audit](COMPLETION_AUDIT.md) records the remaining lifecycle, portability, live acceptance and resource work; this is not full-framework completion.
+Version 0.23 adds reviewed [native ACP connector registration](NATIVE_CONNECTORS.md). New compatible agents share the existing execution/permission coordinator and durable context without a new native tool stack. Native model/mode/catalog incompatibilities hold before input; provider identity and billable usage stay unknown. State remains 6.
+
+Previous additions are [private provider credential references](CREDENTIAL_REFERENCES.md) for foreground/background account slots and [reviewed native Hermes pause/resume](NATIVE_SCHEDULE_CONTROLS.md) with native lock fencing and uncertain-outcome receipts. State is version 6, with private before-v6 rollback copies for older file workspaces. Native ticker observations, ntfy alerts, account routing, spending admission, scoped MCP companions and setup blueprints remain available. [The full audit](COMPLETION_AUDIT.md) records the remaining lifecycle, portability, live acceptance and resource work; this is not full-framework completion.
 
 The v0.14 workspace puts existing activity first: one searchable managed/native list, inline attention, compact resource and usage evidence, keyboard commands, shorter work setup and browser history. Native observations retain their native controls. Read [the experience plan](UI_EXPERIENCE.md) for interaction references and scope.
 

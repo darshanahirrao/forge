@@ -28,6 +28,7 @@ type Collection =
   | 'account_routes'
   | 'notifications'
   | 'native_controls'
+  | 'connectors'
   | 'settings'
   | 'config';
 export const now = () => new Date().toISOString();

@@ -55,6 +55,8 @@ import { Blueprints, blueprintSchema } from './blueprints.js';
 import { AccountRouting, routePrepareSchema } from './routing.js';
 import { Notifications } from './notifications.js';
 import { NativeControls, type NativeControlBridge } from './native-controls.js';
+import { NativeConnectors } from './connectors.js';
+import type { IncomingHttpHeaders } from 'node:http';
 import { credentialReferenceSchema, credentialTarget, resolveCredential } from './credentials.js';
 
 const builtinHarness = z.enum(['codex', 'claude', 'opencode', 'hermes', 'openclaw']);
@@ -77,13 +79,17 @@ const workSchema = z
 const accountSchema = z
   .object({
     label: text(80).min(1),
-    harness: builtinHarness,
+    harness: z.union([builtinHarness, z.string().regex(/^ext\.[a-z][a-z0-9.-]{1,75}$/)]),
     nativeHome: text(2000).default(''),
     credentialEnv: z
       .string()
       .regex(/^[A-Za-z_][A-Za-z0-9_]{0,127}$/)
       .optional(),
     credentialReference: credentialReferenceSchema.optional(),
+    connectorId: z
+      .string()
+      .regex(/^ext\.[a-z][a-z0-9.-]{1,75}$/)
+      .optional(),
     billingMode: z.enum(['native', 'subscription', 'api']).default('native'),
   })
   .strict();
@@ -124,6 +130,7 @@ export async function createApp(options: AppOptions) {
     local,
     options.driverFactory ??
       ((context) => {
+        if (context.account.connector) return connectors.driver(context);
         if (context.account.backend) return new T3Driver(backends, context);
         if (context.work.harness === 'codex')
           return new CodexDriver(
@@ -143,10 +150,18 @@ export async function createApp(options: AppOptions) {
     (work, digest) => profiles.prepare(work, digest),
     async () => {
       const pressure = await machine.freshPressure();
+      assert(
+        !connectors.isChecking,
+        409,
+        'Wait for the native connector check before starting work.',
+      );
       checkMemoryAdmission(local.settings(), pressure);
     },
     (work, account, allowMetered) => routing.authorize(work, account, allowMetered),
-    resolveCredential,
+    async (account) => {
+      await connectors.validateAccount(account);
+      return resolveCredential(account);
+    },
   );
   const profiles: Profiles = new Profiles(local, () => controller.activeCount > 0);
   const demoProfiles = new Profiles(demo);
@@ -165,12 +180,12 @@ export async function createApp(options: AppOptions) {
     local,
     options.filename === ':memory:' ? undefined : dirname(options.filename),
   );
-  const nativeSources = new NativeSources(local, {
+  const nativeSources: NativeSources = new NativeSources(local, {
     rpcFactory: options.rpcFactory,
     codexBinary: options.codexBinary,
     t3Reader: (source) => t3.read(source),
     ...options.nativeSourcesOptions,
-    isManagedBusy: () => controller.activeCount > 0 || probing.size > 0,
+    isManagedBusy: () => controller.activeCount > 0 || probing.size > 0 || connectors.isChecking,
   });
   const nativeControls = new NativeControls(
     local,
@@ -180,6 +195,14 @@ export async function createApp(options: AppOptions) {
       const pressure = await machine.freshPressure();
       checkMemoryAdmission(local.settings(), pressure);
     },
+  );
+  const connectors: NativeConnectors = new NativeConnectors(
+    local,
+    () =>
+      controller.activeCount > 0 ||
+      controller.hasLiveExecution ||
+      nativeSources.isReading ||
+      probing.size > 0,
   );
   const blueprints = new Blueprints(
     local,
@@ -360,6 +383,7 @@ export async function createApp(options: AppOptions) {
       service: options.background ?? { mode: 'foreground' },
       access: bridgeActor(request.headers, options.phoneBridge),
       mode: mode(request),
+      connectors: mode(request) === 'demo' ? [] : connectors.list(),
       spending: mode(request) === 'demo' ? undefined : controller.spending.snapshot(),
       notifications: mode(request) === 'demo' ? undefined : notifications.snapshot(),
       nativeControls: mode(request) === 'demo' ? undefined : nativeControls.snapshot(),
@@ -435,7 +459,7 @@ export async function createApp(options: AppOptions) {
   app.put('/api/work/:id/route', async (request) => {
     assert(mode(request) === 'local', 409, 'Demo cannot authorize native account routing.');
     assert(
-      !nativeSources.isReading && probing.size === 0,
+      !nativeSources.isReading && probing.size === 0 && !connectors.isChecking,
       409,
       'Wait for native account checks before changing routing.',
     );
@@ -452,7 +476,7 @@ export async function createApp(options: AppOptions) {
   app.post('/api/work/:id/route/prepare', async (request) => {
     assert(mode(request) === 'local', 409, 'Demo cannot prepare native account routing.');
     assert(
-      !nativeSources.isReading && probing.size === 0,
+      !nativeSources.isReading && probing.size === 0 && !connectors.isChecking,
       409,
       'Wait for native catalogue checks before preparing a routed handoff.',
     );
@@ -565,9 +589,11 @@ export async function createApp(options: AppOptions) {
   function knownHarness(db: Store, value: string) {
     assert(
       builtinHarness.safeParse(value).success ||
-        db.all<Account>('accounts').some((account) => account.harness === value && account.backend),
+        db
+          .all<Account>('accounts')
+          .some((account) => account.harness === value && (account.backend || account.connector)),
       400,
-      'Connect a native backend offering this harness first.',
+      'Connect a native backend or installed connector offering this harness first.',
     );
   }
   app.post('/api/work', async (request, reply) => {
@@ -737,7 +763,7 @@ export async function createApp(options: AppOptions) {
     await directory(work.cwd, true);
     // Check after filesystem awaits. The controller reserves capacity synchronously before yielding.
     assert(
-      !nativeSources.isReading && probing.size === 0,
+      !nativeSources.isReading && probing.size === 0 && !connectors.isChecking,
       409,
       'Wait for the native account check or inventory read to finish before starting a managed worker.',
     );
@@ -785,7 +811,20 @@ export async function createApp(options: AppOptions) {
     };
   });
   app.post('/api/accounts', async (request, reply) => {
-    const body = accountSchema.parse(request.body);
+    const { connectorId, ...body } = accountSchema.parse(request.body);
+    assert(
+      !body.harness.startsWith('ext.') || connectorId,
+      400,
+      'Select an installed native connector for this harness.',
+    );
+    assert(
+      !connectorId ||
+        (mode(request) === 'local' &&
+          bridgeActor(request.headers, options.phoneBridge).kind === 'local' &&
+          body.billingMode !== 'subscription'),
+      403,
+      'Link native connector accounts locally with native or API billing.',
+    );
     assert(
       !body.credentialReference ||
         (mode(request) === 'local' &&
@@ -797,6 +836,9 @@ export async function createApp(options: AppOptions) {
     const nativeHome = mode(request) === 'demo' ? '' : await directory(body.nativeHome);
     const account: Account = {
       ...body,
+      ...(connectorId
+        ? { connector: connectors.binding(connectorId, body.harness), connectorReady: true }
+        : {}),
       nativeHome,
       id: id(),
       state: 'configured',
@@ -809,6 +851,18 @@ export async function createApp(options: AppOptions) {
       createdAt: now(),
     };
     if (account.credentialReference) credentialTarget(account);
+    if (account.connector) {
+      assert(account.nativeHome, 400, 'Choose an explicit native profile directory.');
+      assert(
+        controller.activeCount === 0 &&
+          !nativeSources.isReading &&
+          probing.size === 0 &&
+          !connectors.isChecking,
+        409,
+        'Link connector accounts while native operations are idle.',
+      );
+      await connectors.validateAccount(account);
+    }
     db.put('accounts', account.id, account);
     return reply.code(201).send(account);
   });
@@ -818,6 +872,7 @@ export async function createApp(options: AppOptions) {
       if (account.backend)
         return backends.refresh(account.backend.id).then(() => local.account(account.id));
       credentials = await resolveCredential(account);
+      if (account.connector) return connectors.probe(account, credentials);
       return (options.accountProbe ?? probeAccount)(account, credentials);
     })()
       .catch((error) => failedProbe(account, error))
@@ -832,7 +887,10 @@ export async function createApp(options: AppOptions) {
       'Check private credentials from the local Forge host.',
     );
     assert(
-      probing.size === 0 && controller.activeCount === 0 && !nativeSources.isReading,
+      probing.size === 0 &&
+        controller.activeCount === 0 &&
+        !nativeSources.isReading &&
+        !connectors.isChecking,
       409,
       'Wait for the current native operation before checking a private reference.',
     );
@@ -868,7 +926,10 @@ export async function createApp(options: AppOptions) {
     );
     assert(!probing.has(account.id), 409, 'This native account check is already in progress.');
     assert(
-      probing.size === 0 && controller.activeCount === 0 && !nativeSources.isReading,
+      probing.size === 0 &&
+        controller.activeCount === 0 &&
+        !nativeSources.isReading &&
+        !connectors.isChecking,
       409,
       'Wait for the current native worker, account check or inventory read before checking another account.',
     );
@@ -1001,7 +1062,10 @@ export async function createApp(options: AppOptions) {
   ) {
     assert(mode(request) === 'local', 409, 'Demo work cannot connect native execution.');
     assert(
-      !controller.hasLiveExecution && !nativeSources.isReading && probing.size === 0,
+      !controller.hasLiveExecution &&
+        !nativeSources.isReading &&
+        probing.size === 0 &&
+        !connectors.isChecking,
       409,
       'Wait for native execution and catalogue reads before changing a backend.',
     );
@@ -1084,7 +1148,7 @@ export async function createApp(options: AppOptions) {
       .strict()
       .parse(request.body);
     assert(
-      !nativeSources.isReading && probing.size === 0,
+      !nativeSources.isReading && probing.size === 0 && !connectors.isChecking,
       409,
       'Wait for native catalogue reads before reconciling.',
     );
@@ -1171,6 +1235,39 @@ export async function createApp(options: AppOptions) {
   app.post('/api/native/controls/prepare', async (request) => {
     assert(mode(request) === 'local', 409, 'Demo schedules have no native controls.');
     return nativeControls.prepare(request.body);
+  });
+  const assertConnectorAuthority = (request: { headers: IncomingHttpHeaders }) =>
+    assert(
+      mode(request) === 'local' &&
+        bridgeActor(request.headers, options.phoneBridge).kind === 'local',
+      403,
+      'Manage native executable connectors from the local Forge host.',
+    );
+  app.post('/api/connectors/prepare', async (request) => {
+    assertConnectorAuthority(request);
+    return connectors.prepare(request.body);
+  });
+  app.post('/api/connectors/install', async (request) => {
+    assertConnectorAuthority(request);
+    const input = z
+      .object({
+        planId: z.string().uuid(),
+        digest: z.string().regex(/^[a-f0-9]{64}$/),
+        reviewed: z.literal(true),
+      })
+      .strict()
+      .parse(request.body);
+    return connectors.install(input.planId, input.digest);
+  });
+  app.patch('/api/connectors/:id', async (request) => {
+    assertConnectorAuthority(request);
+    const input = z.object({ enabled: z.boolean() }).strict().parse(request.body);
+    return connectors.setEnabled((request.params as { id: string }).id, input.enabled);
+  });
+  app.delete('/api/connectors/:id', async (request) => {
+    assertConnectorAuthority(request);
+    connectors.remove((request.params as { id: string }).id);
+    return { ok: true };
   });
   app.post('/api/native/controls/:id/apply', async (request) => {
     assert(mode(request) === 'local', 409, 'Demo schedules have no native controls.');
@@ -1379,5 +1476,6 @@ export async function createApp(options: AppOptions) {
     routing,
     notifications,
     nativeControls,
+    connectors,
   };
 }

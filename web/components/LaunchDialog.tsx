@@ -80,7 +80,8 @@ export function LaunchDialog({
   const opencode = work.harness === 'opencode';
   const hermes = work.harness === 'hermes';
   const openclaw = work.harness === 'openclaw';
-  const requiresMetered = Boolean(account?.backend) || claude || opencode || hermes || openclaw;
+  const requiresMetered =
+    Boolean(account?.backend || account?.connector) || claude || opencode || hermes || openclaw;
   const compatible = canExecuteAccount(account);
   const pressureHigh =
     memoryProtection && ['warning', 'critical'].includes(memoryPressure?.state ?? 'unknown');
@@ -136,9 +137,11 @@ export function LaunchDialog({
               <strong>{account?.label}</strong>
               <p>
                 {account?.identity ??
-                  (opencode || hermes || openclaw
-                    ? 'Native profile and model are checked before input. Provider identity and quotas remain unknown.'
-                    : 'Native identity will be checked before the turn starts.')}
+                  (account?.connector
+                    ? 'The reviewed native agent contract is checked before input. Provider identity and quotas remain unknown.'
+                    : opencode || hermes || openclaw
+                      ? 'Native profile and model are checked before input. Provider identity and quotas remain unknown.'
+                      : 'Native identity will be checked before the turn starts.')}
               </p>
             </div>
           </div>
@@ -150,6 +153,14 @@ export function LaunchDialog({
             and checkpoints, with access to the selected project. Native tools and permission rules
             apply. Supported permission requests arrive in Forge.
           </p>
+          {account?.connector && (
+            <p className="source-note">
+              This connector pins the native agent protocol, name, version and permission mode. ACP
+              turn completion does not verify task acceptance or effects. Provider identity,
+              subscription allowance and billable usage are unknown; no dollar or token counter will
+              be fabricated.
+            </p>
+          )}
           <div className="path-line">
             <Folder size={16} />
             <code>{work.cwd}</code>

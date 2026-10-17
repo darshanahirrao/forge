@@ -6,7 +6,7 @@ Forge is an open-source local workspace for people who work across AI runtimes a
 
 We call the product concept **Persistent Agency**: your agent profile, memory, workspace, work history, shared connections, schedules, and policies remain in Forge while you change a compatible execution harness at a verified checkpoint.
 
-**Status: early local application, v0.22.0.** Persistent work/profiles, scoped native memory, reviewed setup blueprints, account routing, private credential references, spending admission, native activity, machine telemetry, optional ntfy alerts, reviewed Hermes pause/resume and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic continuation after uncertain effects, full companion lifecycle, other scheduler controls/ownership transfer, full memory-provider migration, live device/provider acceptance and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md) and [full completion audit](docs/COMPLETION_AUDIT.md).
+**Status: early local application, v0.23.0.** Persistent work/profiles, scoped native memory, reviewed setup blueprints, account routing, private credential references, spending admission, native activity, machine telemetry, optional ntfy alerts, reviewed Hermes pause/resume and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic continuation after uncertain effects, full companion lifecycle, other scheduler controls/ownership transfer, full memory-provider migration, live device/provider acceptance and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md) and [full completion audit](docs/COMPLETION_AUDIT.md).
 
 The workspace now starts with your managed work and existing native chats, compact resource/usage status and exact pending approvals. Ctrl/Cmd K searches work and commands; optional creation fields stay folded until needed. See [the experience decisions and upstream references](docs/UI_EXPERIENCE.md).
 
@@ -31,6 +31,8 @@ Hermes reuses its installed ACP runtime, native tools, memory and skills with an
 OpenClaw reuses its native foreground Gateway and official client with a dedicated execution profile. [OpenClaw setup, native session identity and shutdown](docs/OPENCLAW.md) describe the evaluated 2026.10.4 route. Existing companion channels and schedules retain their native owner.
 
 Existing Hermes, OpenClaw and other MCP clients can use [scoped companion access](docs/COMPANION_ACCESS.md) to keep the same Forge profile, selected memory and work. Optional native dispatch has explicit account, billing and finite-run grants; approvals stay on the human path. Forge adds no agent loop or scheduler.
+
+[Native harness connectors](docs/NATIVE_CONNECTORS.md) register an installed ACP v1 agent without adding a provider-specific core driver. Reviewed executable/model/mode bindings use the same work, profiles, selected context and native approval path. Unknown usage and unsupported native behavior stay explicit.
 
 [Workspace blueprints](docs/BLUEPRINTS.md) reuse setup roles and optional work templates. Bind your own native accounts and selected memory, review the import, and roll back unused setup. Existing native credentials, schedules and work retain their owners.
 
@@ -91,6 +93,7 @@ The defining demonstration is a real task checkpointed in one harness, continued
 - [Native OpenClaw execution, profile setup and conformance](docs/OPENCLAW.md)
 - [Native Hermes execution, memory and conformance](docs/HERMES.md)
 - [Native OpenCode profile setup and conformance](docs/OPENCODE.md)
+- [Versioned native harness connectors](docs/NATIVE_CONNECTORS.md)
 - [Native capability boundary](docs/NATIVE_BOUNDARY.md)
 - [Native chats, schedules, sources and coverage](docs/NATIVE_ACTIVITY.md)
 - [Native scheduler evidence, aging and remaining controls](docs/SCHEDULER_EVIDENCE.md)
