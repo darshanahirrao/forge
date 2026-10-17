@@ -8,7 +8,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { createApp } from '../server/app.js';
 import { Profiles, inspectMemory } from '../server/memory.js';
 import { unknownPressure } from '../server/memory-pressure.js';
-import { id } from '../server/store.js';
+import { Store, id, now } from '../server/store.js';
 import type { Account, Approval, CompanionGrant, Run, Work } from '../shared/types.js';
 import type { DriverContext, DriverSink, NativeDriver } from '../server/adapters/driver.js';
 
@@ -1017,6 +1017,246 @@ test('the private phone reviewer can activate an already staged native replaceme
     assert.throws(() => f.companions.authenticate(`Bearer ${old.token}`), /revoked/);
     assert.equal(f.companions.authenticate(`Bearer ${staged.token}`).id, staged.grant.id);
   } finally {
+    await f.close();
+  }
+});
+
+test('scoped work pagination reaches older work without bulk materialization or new-insertion duplicates', async () => {
+  const f = await fixture();
+  const originalAll = f.local.all.bind(f.local);
+  try {
+    const { grant, token } = await f.grant();
+    const base = await f.createWork(grant.id);
+    const included = [base.id];
+    f.local.transaction(() => {
+      for (let index = 0; index < 235; index++) {
+        const work = { ...base, id: id(), title: `Retained work ${index}` };
+        f.local.put('work', work.id, work);
+        included.push(work.id);
+      }
+      for (const cwd of [f.outside, f.project + '-neighbor', join(f.project, '..', 'neighbor')]) {
+        const outside = { ...base, id: id(), cwd, title: 'Excluded history' };
+        f.local.put('work', outside.id, outside);
+      }
+      const other = { ...base, id: id(), profileId: 'other-profile', title: 'Excluded profile' };
+      f.local.put('work', other.id, other);
+    });
+    f.local.all = function <T>(collection: Parameters<Store['all']>[0]): T[] {
+      assert.notEqual(collection, 'work_summaries', 'Do not materialize every work summary.');
+      return originalAll<T>(collection);
+    };
+    const client = await f.client(token);
+    const response = await client.callTool({ name: 'forge_workspace', arguments: { limit: 37 } });
+    assert(!response.isError);
+    let page = response.structuredContent as ReturnType<typeof f.companions.workspace>;
+    assert.equal(page.total, included.length);
+    assert.equal(page.work.length, 37);
+    const read = page.work.map((work) => work.id);
+    const newer = { ...base, id: id(), title: 'Newer than the insertion window' };
+    f.local.put('work', newer.id, newer);
+    while (page.page.nextCursor) {
+      page = f.companions.workspace(grant.id, { cursor: page.page.nextCursor, limit: 37 });
+      assert.equal(page.total, included.length);
+      read.push(...page.work.map((work) => work.id));
+    }
+    assert.equal(new Set(read).size, included.length);
+    assert.deepEqual(read.sort(), included.sort());
+    assert.equal(f.companions.workspace(grant.id).total, included.length + 1);
+    assert.equal(f.companions.workspace(grant.id).work[0].id, newer.id);
+  } finally {
+    f.local.all = originalAll;
+    await f.close();
+  }
+});
+
+test('history cursors cannot change project, profile, work, stream or grant authority', async () => {
+  const f = await fixture();
+  try {
+    const { grant, token } = await f.grant();
+    const base = await f.createWork(grant.id);
+    const other = await f.createWork(grant.id, 'other-work');
+    for (let index = 0; index < 4; index++)
+      f.local.event(base.id, 'checkpoint', 'History', `Saved ${index}`);
+    const page = f.companions.workspace(grant.id, { limit: 1 });
+    assert(page.page.nextCursor);
+    const independent = await f.grant(false, 'Unrelated native connection');
+    assert.throws(
+      () => f.companions.workspace(independent.grant.id, { cursor: page.page.nextCursor! }),
+      /different scope/,
+    );
+    const history = f.companions.work(grant.id, base.id, { events: { limit: 1 } });
+    assert(history.eventsPage.nextCursor);
+    assert.throws(
+      () =>
+        f.companions.work(grant.id, other.id, {
+          events: { cursor: history.eventsPage.nextCursor! },
+        }),
+      /different scope/,
+    );
+    assert.throws(
+      () =>
+        f.companions.work(grant.id, base.id, { runs: { cursor: history.eventsPage.nextCursor! } }),
+      /different scope/,
+    );
+    assert.throws(() => f.companions.workspace(grant.id, { cursor: 'invalid' }), /invalid/);
+    assert.throws(() => f.companions.workspace(grant.id, { limit: 101 }));
+    const client = await f.client(token);
+    const denied = await client.callTool({
+      name: 'forge_workspace',
+      arguments: { limit: 1000000 },
+    });
+    assert(denied.isError);
+    const changed = { ...base, profileId: 'moved-profile' };
+    f.local.put('work', base.id, changed);
+    assert.throws(
+      () =>
+        f.companions.work(grant.id, base.id, {
+          events: { cursor: history.eventsPage.nextCursor! },
+        }),
+      /outside/,
+    );
+    f.companions.revoke(grant.id);
+    assert.throws(
+      () => f.companions.workspace(grant.id, { cursor: page.page.nextCursor! }),
+      /revoked/,
+    );
+  } finally {
+    await f.close();
+  }
+});
+
+test('independent event and run pages expose complete retained records and digest-bound Unicode detail chunks', async () => {
+  const f = await fixture();
+  try {
+    const { grant } = await f.grant();
+    const work = await f.createWork(grant.id);
+    const neighbor = await f.createWork(grant.id, 'other-work');
+    for (let index = 0; index < 74; index++)
+      f.local.event(work.id, 'checkpoint', 'Earlier evidence', `Detail ${index}`);
+    for (let index = 0; index < 25; index++) {
+      const run = {
+        id: id(),
+        workId: work.id,
+        accountId: f.account.id,
+        generation: index + 1,
+        status: 'completed',
+        startedAt: now(),
+        endedAt: now(),
+        exitConfirmed: true,
+      };
+      f.local.put('runs', run.id, run);
+    }
+    const complete = 'Permanent context: 文本🙂\n'.repeat(2400);
+    const detail = f.local.event(work.id, 'checkpoint', 'Complete Unicode evidence', complete);
+    const hidden = f.local.event(neighbor.id, 'checkpoint', 'Other work', 'Excluded detail');
+    let view = f.companions.work(grant.id, work.id, { events: { limit: 13 }, runs: { limit: 7 } });
+    assert(view.events[0].clipped);
+    assert.equal(view.events[0].detail.length, 2000);
+    const eventIds = view.events.map((event) => event.id),
+      runIds = view.runs.map((run) => run.id);
+    const eventTotal = view.eventsPage.total;
+    const runTotal = view.runsPage.total;
+    let eventCursor = view.eventsPage.nextCursor,
+      runCursor = view.runsPage.nextCursor;
+    while (eventCursor || runCursor) {
+      view = f.companions.work(grant.id, work.id, {
+        events: { limit: 13, ...(eventCursor ? { cursor: eventCursor } : {}) },
+        runs: { limit: 7, ...(runCursor ? { cursor: runCursor } : {}) },
+      });
+      if (eventCursor) {
+        eventIds.push(...view.events.map((event) => event.id));
+        eventCursor = view.eventsPage.nextCursor;
+      }
+      if (runCursor) {
+        runIds.push(...view.runs.map((run) => run.id));
+        runCursor = view.runsPage.nextCursor;
+      }
+    }
+    assert.equal(new Set(eventIds).size, eventTotal);
+    assert.equal(new Set(runIds).size, runTotal);
+    assert(!eventIds.includes(hidden.id));
+    let offset = 0,
+      sha256: string | undefined,
+      collected = '';
+    for (;;) {
+      const chunk = f.companions.work(grant.id, work.id, {
+        events: { limit: 1 },
+        runs: { limit: 1 },
+        detail: { eventId: detail.id, offset, characters: 7777, sha256 },
+      }).eventDetail!;
+      collected += chunk.content;
+      sha256 = chunk.sha256;
+      assert(chunk.content.length <= 7777);
+      assert(
+        !/[\uD800-\uDFFF]/u.test(chunk.content),
+        'Valid Unicode pairs must stay in the same chunk.',
+      );
+      if (chunk.nextOffset === null) break;
+      offset = chunk.nextOffset;
+    }
+    assert.equal(collected, complete);
+    assert.throws(
+      () =>
+        f.companions.work(grant.id, work.id, {
+          detail: { eventId: detail.id, offset: complete.indexOf('🙂') + 1, sha256 },
+        }),
+      /splits a Unicode character/,
+    );
+    assert.throws(
+      () => f.companions.work(grant.id, work.id, { detail: { eventId: detail.id, offset: 1 } }),
+      /requires its current sha256/,
+    );
+    assert.throws(
+      () => f.companions.work(grant.id, work.id, { detail: { eventId: hidden.id } }),
+      /unavailable/,
+    );
+    f.local.put('events', detail.id, { ...detail, detail: complete + 'changed' });
+    assert.throws(
+      () =>
+        f.companions.work(grant.id, work.id, { detail: { eventId: detail.id, sha256, offset: 1 } }),
+      /changed/,
+    );
+  } finally {
+    await f.close();
+  }
+});
+
+test('history cursors survive native connection replacement and SQLite reopening without a private cursor secret', async () => {
+  const f = await fixture({ disk: true });
+  let reopened: Awaited<ReturnType<typeof createApp>> | undefined;
+  try {
+    const original = await f.grant();
+    await f.createWork(original.grant.id, 'first-work');
+    await f.createWork(original.grant.id, 'second-work');
+    const first = f.companions.workspace(original.grant.id, { limit: 1 });
+    const cursor = first.page.nextCursor!;
+    assert(cursor);
+    const plan = await f.companionHandoffs.prepare({
+      grantId: original.grant.id,
+      label: 'Replacement',
+    });
+    const staged = await f.companionHandoffs.stage(plan.id, plan.digest, { kind: 'local' });
+    await f.app.close();
+    reopened = await createApp({
+      filename: join(f.root, 'workspace.sqlite'),
+      port: 0,
+      test: true,
+      memoryPressureReader: unknownPressure,
+    });
+    const later = reopened.companions.workspace(staged.grant.id, { cursor, limit: 1 });
+    assert.equal(later.work.length, 1);
+    assert.notEqual(later.work[0].id, first.work[0].id);
+    assert.equal(later.page.nextCursor, null);
+    await reopened.companionHandoffs.ready(staged.grant.id, plan.id, plan.digest);
+    const ready = reopened.companionHandoffs.list()[0];
+    await reopened.companionHandoffs.activate(ready.id, ready.digest, ready.revision);
+    assert.equal(
+      reopened.companions.workspace(staged.grant.id, { cursor, limit: 1 }).work[0].id,
+      later.work[0].id,
+    );
+    assert.throws(() => reopened!.companions.workspace(original.grant.id, { cursor }), /revoked/);
+  } finally {
+    await reopened?.app.close();
     await f.close();
   }
 });

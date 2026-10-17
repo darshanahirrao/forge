@@ -1,6 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { realpath, stat } from 'node:fs/promises';
-import { basename, isAbsolute, relative, resolve, sep } from 'node:path';
+import { basename, isAbsolute, resolve } from 'node:path';
 import { z } from 'zod';
 import type {
   Account,
@@ -17,16 +17,34 @@ import { ExecutionController } from './execution.js';
 import { Profiles } from './memory.js';
 import { Store, id, now } from './store.js';
 import { accountBinding as binding } from './adapters/binding.js';
+import { withinProject as within } from './project-scope.js';
+import { companionPage, companionPageInput } from './companion-history.js';
 
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
-const within = (root: string, directory: string) => {
-  const path = relative(root, directory);
-  return (
-    isAbsolute(directory) &&
-    (path === '' || (!isAbsolute(path) && path !== '..' && !path.startsWith('..' + sep)))
-  );
-};
 export const companionIdentifier = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/);
+export { companionPageInput };
+export const companionWorkReadInput = z
+  .object({
+    workId: companionIdentifier,
+    events: companionPageInput.optional(),
+    runs: companionPageInput.optional(),
+    detail: z
+      .object({
+        eventId: companionIdentifier,
+        offset: z.number().int().nonnegative().safe().default(0),
+        characters: z.number().int().min(2).max(16000).default(8000),
+        sha256: z
+          .string()
+          .regex(/^[a-f0-9]{64}$/)
+          .optional(),
+      })
+      .strict()
+      .refine((detail) => detail.offset === 0 || Boolean(detail.sha256), {
+        message: 'Continuing an event detail read requires its current sha256.',
+      })
+      .optional(),
+  })
+  .strict();
 export const companionGrantSchema = z
   .object({
     label: z.string().trim().min(1).max(80),
@@ -309,19 +327,24 @@ export class Companions {
     );
     return directory;
   }
-  workspace(grantId: string) {
+  workspace(grantId: string, value: z.input<typeof companionPageInput> = {}) {
     const grant = this.authorize(grantId, 'work:read');
-    const all = this.store
-      .all<WorkSummary>('work_summaries')
-      .filter((work) => work.profileId === grant.profileId && within(grant.root, work.cwd));
+    const page = companionPage<WorkSummary>(
+      this.store,
+      grant,
+      'work',
+      companionPageInput.parse(value),
+      100,
+    );
     return {
       contractVersion: 1,
       grant: this.public(grant),
       profile: { id: grant.profileId, name: this.profiles.profile(grant.profileId).name },
       handoff: this.handoffForGrant?.(grantId),
-      work: all.slice(0, 100),
-      total: all.length,
-      truncated: all.length > 100,
+      work: page.records,
+      total: page.page.total,
+      truncated: page.page.nextCursor !== null,
+      page: page.page,
       accounts: grant.accountIds.map((accountId) => {
         const account = this.store.get<Account>('accounts', accountId);
         return account
@@ -350,9 +373,61 @@ export class Companions {
       },
     };
   }
-  work(grantId: string, workId: string) {
-    this.authorize(grantId, 'work:read', workId);
+  work(
+    grantId: string,
+    workId: string,
+    value: Omit<z.input<typeof companionWorkReadInput>, 'workId'> = {},
+  ) {
+    const input = companionWorkReadInput.parse({ ...value, workId });
+    const grant = this.authorize(grantId, 'work:read', workId);
     const spending = this.controller.spending.review(this.store.work(workId));
+    const events = companionPage<WorkEvent>(
+      this.store,
+      grant,
+      'events',
+      input.events ?? {},
+      30,
+      workId,
+    );
+    const runs = companionPage<Run>(this.store, grant, 'runs', input.runs ?? {}, 10, workId);
+    let eventDetail;
+    if (input.detail) {
+      const event = this.store.get<WorkEvent>('events', input.detail.eventId);
+      assert(event && event.workId === workId, 404, 'This event is unavailable in this work.');
+      const sha256 = createHash('sha256').update(event.detail).digest('hex');
+      assert(
+        !input.detail.sha256 || input.detail.sha256 === sha256,
+        409,
+        'This event changed. Start its detail read again.',
+      );
+      assert(
+        input.detail.offset <= event.detail.length,
+        400,
+        'This event offset exceeds its current detail.',
+      );
+      const high = (value: number) => value >= 0xd800 && value <= 0xdbff;
+      const low = (value: number) => value >= 0xdc00 && value <= 0xdfff;
+      assert(
+        !(
+          low(event.detail.charCodeAt(input.detail.offset)) &&
+          high(event.detail.charCodeAt(input.detail.offset - 1))
+        ),
+        400,
+        'This offset splits a Unicode character. Use the returned nextOffset.',
+      );
+      let end = Math.min(event.detail.length, input.detail.offset + input.detail.characters);
+      if (high(event.detail.charCodeAt(end - 1)) && low(event.detail.charCodeAt(end))) end--;
+      const content = event.detail.slice(input.detail.offset, end);
+      eventDetail = {
+        eventId: event.id,
+        sha256,
+        content,
+        offset: input.detail.offset,
+        totalCharacters: event.detail.length,
+        nextOffset: end < event.detail.length ? end : null,
+        offsetUnit: 'utf16-code-units' as const,
+      };
+    }
     return {
       spendingAdmission: {
         allowed: spending.allowed,
@@ -360,17 +435,15 @@ export class Companions {
         reserveUsd: spending.reserveUsd,
       },
       work: this.store.work(workId),
-      events: this.store.recentEvents(workId, 30).map((event) => ({
+      events: events.records.map((event) => ({
         ...event,
         detail: event.detail.slice(0, 2000),
         clipped: event.detail.length > 2000,
       })),
-      runs: this.store.db
-        .prepare(
-          "SELECT data FROM records WHERE collection='runs' AND json_extract(data,'$.workId')=? ORDER BY rowid DESC LIMIT 10",
-        )
-        .all(workId)
-        .map((row) => JSON.parse(String(row.data)) as Run),
+      eventsPage: events.page,
+      runs: runs.records,
+      runsPage: runs.page,
+      ...(eventDetail ? { eventDetail } : {}),
     };
   }
   async context(grantId: string, workId: string) {

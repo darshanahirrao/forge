@@ -27,6 +27,8 @@ The endpoint is `POST http://127.0.0.1:4710/mcp/companions`, adjusted for the Fo
 
 Granting access creates no worker or model process. MCP modules load on demand, with at most four concurrent requests. Run counts, operation lookup and bounded history use SQLite indexes rather than loading every native run for each grant. Operation receipts reference canonical records instead of duplicating full context. Selected-account quota windows retain observation timestamps and shared bucket identity, with opaque scope hashes and unknown allowance preserved.
 
+Read [retained context](COMPANION_HISTORY.md) for work/event/run pagination and complete saved event-detail chunks. Existing tool names and default calls remain compatible.
+
 ## Capabilities
 
 | Scope           | Tools                                      | Effect                                                                                       |

@@ -1,4 +1,6 @@
-# Forge v0.28.0
+# Forge v0.29.0
+
+Version 0.29 adds [retained context reads](COMPANION_HISTORY.md) through the existing native MCP tools. Scoped keyset pages retrieve earlier work/events/runs without bulk summary materialization, and digest-bound chunks expose complete saved event detail. Insertion windows and lineage-bound cursors survive restart and reviewed connection replacement; current authority is rechecked on every read. State stays 8; the new profile index and read parameters add no control authority or native memory engine.
 
 Version 0.28 adds [reviewed companion replacement](COMPANION_HANDOFF.md), shared finite allowance/idempotency across replacements, authenticated native readiness, private-phone activation and payload-free live UI changes over the existing HTTP service. Native planners, tools, memory engines and schedule owners stay native. State 8 forward-gates the new access states and lineage. Full native planner/scheduler lifecycle, memory-provider migration and the other framework gates remain open.
 

@@ -77,6 +77,44 @@ test('work and receipts roll back together, and survive reopening', async () => 
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test('startup repairs more than one projection batch without materializing all saved context', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'forge-projection-pages-'));
+  const filename = join(directory, 'state.sqlite');
+  const original = Store.prototype.all;
+  let store: Store | undefined = new Store(filename);
+  try {
+    store.transaction(() => {
+      for (let index = 0; index < 275; index++) {
+        const legacy = {
+          ...work,
+          id: `legacy-${index}`,
+          context: 'retained context '.repeat(1600),
+        };
+        const { revision: _revision, ...withoutRevision } = legacy;
+        store!.db
+          .prepare("INSERT INTO records(collection,id,data) VALUES('work',?,?)")
+          .run(legacy.id, JSON.stringify(index === 0 ? withoutRevision : legacy));
+      }
+    });
+    store.close();
+    store = undefined;
+    Store.prototype.all = function <T>(collection: Parameters<Store['all']>[0]): T[] {
+      assert.notEqual(collection, 'work', 'Startup must not load every saved context.');
+      return original.call(this, collection) as T[];
+    };
+    store = new Store(filename);
+    assert.equal(store.work('legacy-0').revision, 0);
+    assert.equal(store.work('legacy-274').context, 'retained context '.repeat(1600));
+    assert.equal(store.all('work_summaries').length, 275);
+    const summary = store.get<Record<string, unknown>>('work_summaries', 'legacy-274')!;
+    assert(!('context' in summary) && !('goal' in summary));
+  } finally {
+    Store.prototype.all = original;
+    store?.close();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
 test('restart invalidates pending approvals and never replays a running attempt', () => {
   const store = new Store(':memory:');
   try {

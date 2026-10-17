@@ -4,6 +4,7 @@ import { chmodSync, mkdirSync, writeFileSync, unlinkSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { Account, Approval, Run, Settings, Usage, Work, WorkEvent } from '../shared/types.js';
 import { assert } from './errors.js';
+import { withinProject } from './project-scope.js';
 
 type Collection =
   | 'work'
@@ -46,6 +47,9 @@ export class Store {
   constructor(filename: string) {
     if (filename !== ':memory:') mkdirSync(dirname(filename), { recursive: true, mode: 0o700 });
     this.db = new DatabaseSync(filename);
+    this.db.function('forge_in_project', { deterministic: true }, (root, path) =>
+      typeof root === 'string' && typeof path === 'string' && withinProject(root, path) ? 1 : 0,
+    );
     if (filename !== ':memory:') chmodSync(filename, 0o600);
     try {
       const version = this.db.prepare('PRAGMA user_version').get() as { user_version: number };
@@ -62,6 +66,7 @@ export class Store {
         PRIMARY KEY (collection, id)
       );
       CREATE INDEX IF NOT EXISTS events_by_work ON records(json_extract(data,'$.workId')) WHERE collection='events';
+      CREATE INDEX IF NOT EXISTS companion_work_by_profile ON records(json_extract(data,'$.profileId')) WHERE collection='work_summaries';
       CREATE INDEX IF NOT EXISTS runs_by_companion_request ON records(json_extract(data,'$.requestedBy.grantId'), json_extract(data,'$.requestedBy.requestId')) WHERE collection='runs';
       CREATE INDEX IF NOT EXISTS runs_by_companion_lineage ON records(json_extract(data,'$.requestedBy.lineageId')) WHERE collection='runs';
       CREATE INDEX IF NOT EXISTS runs_by_work ON records(json_extract(data,'$.workId')) WHERE collection='runs';
@@ -91,9 +96,27 @@ export class Store {
     }
     if (!this.get<Settings>('settings', 'workspace'))
       this.put('settings', 'workspace', { quietMode: false, maxConcurrent: 1 });
-    // Derived projections are rebuilt once at startup, rather than reading every context on a poll.
-    for (const work of this.all<Work>('work')) {
-      this.put('work', work.id, { ...work, revision: work.revision ?? 0 });
+    // Repair projections without holding every saved prompt/context in memory.
+    const ceiling = Number(
+      this.db
+        .prepare("SELECT COALESCE(MAX(rowid),0) AS value FROM records WHERE collection='work'")
+        .get()!.value,
+    );
+    let after = 0;
+    for (;;) {
+      const rows = this.db
+        .prepare(
+          "SELECT rowid,data FROM records WHERE collection='work' AND rowid>? AND rowid<=? ORDER BY rowid LIMIT 128",
+        )
+        .all(after, ceiling);
+      if (!rows.length) break;
+      this.transaction(() => {
+        for (const row of rows) {
+          const work = JSON.parse(String(row.data)) as Work;
+          this.put('work', work.id, { ...work, revision: work.revision ?? 0 });
+        }
+      });
+      after = Number(rows[rows.length - 1].rowid);
     }
   }
   all<T>(collection: Collection): T[] {
