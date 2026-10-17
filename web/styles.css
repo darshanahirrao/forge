@@ -1764,6 +1764,87 @@ dd {
   gap: 26px;
   padding: 25px;
 }
+.resource-order {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.resource-group-label {
+  display: grid;
+  gap: 4px;
+  min-width: 190px;
+  max-width: 360px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.resource-group-label > small {
+  color: var(--muted);
+}
+.resource-group-label .text-button {
+  text-align: start;
+}
+.resource-coverage {
+  padding: 16px 22px;
+  border-top: 1px solid var(--line);
+}
+.resource-coverage summary {
+  cursor: pointer;
+  font-size: 13px;
+}
+.resource-coverage p {
+  margin-block: 12px;
+}
+.resource-map-summary {
+  padding: 12px 18px;
+}
+@media (max-width: 680px) {
+  .process-table.resource-map-table {
+    min-width: 0;
+    width: 100%;
+  }
+  .resource-map-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .resource-map-table tbody {
+    display: block;
+  }
+  .resource-map-table tr {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr 1fr;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--line);
+  }
+  .resource-map-table td {
+    display: block;
+    padding: 8px 0;
+    border: 0;
+    text-align: start;
+  }
+  .resource-map-table td:first-child {
+    grid-column: 1 / -1;
+  }
+  .resource-map-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    margin-bottom: 4px;
+    font-family: var(--body-font);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .resource-map-table .resource-group-label {
+    min-width: 0;
+    max-width: none;
+  }
+  .resource-map-table .text-button {
+    min-height: 44px;
+  }
+}
 .resource-controls p {
   color: var(--muted);
   font-size: 13px;

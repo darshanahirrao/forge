@@ -166,7 +166,7 @@ export interface NativeWorkerResources {
   accountId: string;
   harness: Harness;
   root: NativeWorkerIdentity;
-  state: 'live' | 'not-observed' | 'identity-changed' | 'unavailable' | 'exited';
+  state: 'live' | 'not-observed' | 'identity-changed' | 'ambiguous' | 'unavailable' | 'exited';
   pids: number[];
   rss: number | null;
   cpuPercent: number | null;
@@ -416,6 +416,7 @@ export interface MachineSnapshot {
   sampledAt: string;
   processCoverage: 'available' | 'unavailable';
   processes: { pid: number; parentPid: number; name: string; rss: number; cpuPercent: number }[];
+  busiestProcesses?: MachineSnapshot['processes'];
 }
 export interface BackgroundRuntime {
   mode: 'foreground' | 'launchd';
@@ -425,6 +426,7 @@ export interface BackgroundRuntime {
   definitionDirectory?: string;
 }
 export interface Snapshot {
+  resources?: import('./resources.js').ResourceObservation;
   memoryPacks?: import('./memory-packs.js').MemoryPackReceipt[];
   availability?: import('./availability.js').AvailabilitySnapshot;
   connectors?: import('./connectors.js').NativeConnector[];

@@ -36,6 +36,10 @@ Content order: operational status, exact pending decisions, setup only when need
 - Both themes, keyboard access, empty/error states and narrow layouts are verified with the existing browser suite and rendered captures.
 - This is a workflow improvement to an early framework. Automatic account routing, arbitrary native-state portability, complete companion interchangeability and full recovery/performance gates remain open in [COMPLETION_AUDIT.md](COMPLETION_AUDIT.md).
 
+## Resource diagnosis, v0.26
+
+Subject: laptop load across Forge and native harnesses. Audience: frequent operators. Job: identify the resource consumer and reach its supported controls. Reuse paper `#f3f7f7`, panel `#ffffff`, ink `#18343e`, teal action `#12665f`, muted `#4e666e` and structure `#dce5e7`, with existing dark tokens, system interface type and aligned monospace measurements. No new palette, chart, font or UI dependency. Order: native pressure/admission, grouped resource use, owning-work controls, then individual processes. One memory/CPU selector scopes both group and process rankings. On phones the table becomes compact group rows with all three measurements visible; the actual column headers remain accessible. Fold measurement details and private export below the map. Empty, failed, unknown and conflicting identity states stay explicit. See [the resource contract and validation](RESOURCES.md).
+
 
 ## Notification controls, v0.20
 

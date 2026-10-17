@@ -408,9 +408,8 @@ async function runNative(workId: string) {
         url: '/api/snapshot',
         headers: { host: '127.0.0.1:4710' },
       });
-      const owner = observation
-        .json<Snapshot>()
-        .nativeWorkers?.find((row) => row.runId === approval.runId);
+      const sample = observation.json<Snapshot>();
+      const owner = sample.nativeWorkers?.find((row) => row.runId === approval.runId);
       assert(
         owner?.root.startedAt && owner.root.uid !== null,
         'Native process identity must be recorded before a command decision.',
@@ -420,6 +419,16 @@ async function runNative(workId: string) {
         continue;
       }
       assert(owner.pids.includes(owner.root.pid) && owner.rss !== null && owner.rss > 0);
+      const resource = sample.resources?.groups.find((group) => group.runId === owner.runId);
+      assert.equal(sample.resources?.coverage, 'observed');
+      assert.equal(sample.resources?.sampledAt, sample.machine.sampledAt);
+      assert.equal(resource?.state, 'observed');
+      assert.equal(resource?.rss, owner.rss);
+      assert.equal(resource?.processCount, owner.pids.length);
+      assert.equal(
+        sample.resources.groups.reduce((sum, group) => sum + group.processCount, 0),
+        sample.resources.processCount,
+      );
       attributedRuns.add(approval.runId);
       await post(`/approvals/${approval.id}/decision`, {
         digest: approval.digest,
@@ -579,6 +588,7 @@ try {
       workIdentityRetained: true,
       nativeRuns: 6,
       nativeResourceOwnershipRuns: attributedRuns.size,
+      nativeResourcePartitionRuns: attributedRuns.size,
       nativeApprovals: approvals,
       harnesses: ['codex', 'claude', 'opencode', 'hermes', 'openclaw'],
       isolatedClaudeProfiles: 2,

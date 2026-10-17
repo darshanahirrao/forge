@@ -2,15 +2,22 @@ import os from 'node:os';
 import type { Account, MachineSnapshot, MemoryPressure, Run } from '../shared/types.js';
 import { attributeWorkers, processTable, type ProcessObservation } from './processes.js';
 import { readMemoryPressure } from './memory-pressure.js';
-export function processSummary(rows: ProcessObservation[]): MachineSnapshot['processes'] {
+import { resourceMap } from './resource-map.js';
+export function processSummary(
+  rows: ProcessObservation[],
+  order: 'memory' | 'cpu' = 'memory',
+): MachineSnapshot['processes'] {
   return rows
     .map(({ uid: _uid, startedAt: _start, ...p }) => p)
-    .sort((a, b) => b.rss - a.rss)
+    .sort(
+      (a, b) => (order === 'cpu' ? b.cpuPercent - a.cpuPercent : b.rss - a.rss) || a.pid - b.pid,
+    )
     .slice(0, 30);
 }
 export class MachineMonitor {
   constructor(
     private pressureReader: () => MemoryPressure | Promise<MemoryPressure> = readMemoryPressure,
+    private processReader: () => Promise<ProcessObservation[] | null> = processTable,
   ) {}
   private previous = this.cpu();
   private cached: MachineSnapshot | null = null;
@@ -40,6 +47,25 @@ export class MachineMonitor {
       sample.sampledAt,
     );
   }
+  async observe(runs: Run[], accounts: Account[]) {
+    const machine = await this.sample();
+    // Capture table reference before any subsequent asynchronous sample. A response
+    // never mixes process epochs across its machine, workers and resource map.
+    const nativeWorkers = attributeWorkers(
+      runs,
+      new Map(accounts.map((account) => [account.id, account.harness])),
+      this.observed,
+      machine.sampledAt,
+    );
+    return {
+      machine,
+      nativeWorkers,
+      resources: resourceMap(this.observed, nativeWorkers, machine.sampledAt, {
+        pid: process.pid,
+        uid: process.getuid?.() ?? null,
+      }),
+    };
+  }
   private cpu() {
     return os.cpus().reduce(
       (v, c) => ({
@@ -67,8 +93,14 @@ export class MachineMonitor {
         ? Math.max(0, Math.min(100, (1 - (current.idle - this.previous.idle) / elapsed) * 100))
         : null;
     this.previous = current;
-    const [observed, memoryPressure] = await Promise.all([processTable(), this.freshPressure()]);
-    this.observed = observed;
+    const [observed, memoryPressure] = await Promise.all([
+      this.processReader().catch(() => null),
+      this.freshPressure(),
+    ]);
+    this.observed =
+      observed && new Set(observed.map((row) => row.pid)).size === observed.length
+        ? observed
+        : null;
     const processes = processSummary(this.observed ?? []);
     const processCoverage = this.observed ? 'available' : 'unavailable';
     this.cached = {
@@ -83,6 +115,7 @@ export class MachineMonitor {
       uptimeSeconds: process.uptime(),
       sampledAt: new Date().toISOString(),
       processes,
+      busiestProcesses: processSummary(this.observed ?? [], 'cpu'),
       processCoverage,
     };
     return this.cached;

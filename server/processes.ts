@@ -93,12 +93,16 @@ export function attributeWorkers(
   rows: ProcessObservation[] | null,
   sampledAt: string,
 ): NativeWorkerResources[] {
+  const candidates = runs.filter(
+    (run) =>
+      run.nativeWorker && (!run.exitConfirmed || ['starting', 'running'].includes(run.status)),
+  );
   const table =
     rows && new Set(rows.map((p) => p.pid)).size === rows.length
       ? new Map(rows.map((p) => [p.pid, p]))
       : null;
   const boundaries = new Set(
-    runs.flatMap((run) => {
+    candidates.flatMap((run) => {
       const root = run.nativeWorker;
       const current = root && table?.get(root.pid);
       return root && current && current.uid === root.uid && current.startedAt === root.startedAt
@@ -106,11 +110,10 @@ export function attributeWorkers(
         : [];
     }),
   );
-  return runs
-    .filter(
-      (run) =>
-        run.nativeWorker && (!run.exitConfirmed || ['starting', 'running'].includes(run.status)),
-    )
+  const rootCounts = new Map<number, number>();
+  for (const run of candidates)
+    rootCounts.set(run.nativeWorker!.pid, (rootCounts.get(run.nativeWorker!.pid) ?? 0) + 1);
+  return candidates
     .map((run): NativeWorkerResources => {
       const root = run.nativeWorker!;
       const base: NativeWorkerResources = {
@@ -126,6 +129,7 @@ export function attributeWorkers(
         sampledAt,
       };
       if (!table || !root.startedAt || root.uid === null) return base;
+      if (rootCounts.get(root.pid)! > 1) return { ...base, state: 'ambiguous' };
       const current = table.get(root.pid);
       if (!current) return { ...base, state: 'not-observed' };
       if (current.uid !== root.uid || current.startedAt !== root.startedAt)

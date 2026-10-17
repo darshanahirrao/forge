@@ -22,3 +22,5 @@ jobs:
       - run: npm run test:package
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      - name: Native idle resource trace
+        run: npm run test:native:resources

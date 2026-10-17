@@ -1,4 +1,6 @@
-# Forge v0.25.0
+# Forge v0.26.0
+
+Version 0.26 adds the [shared-sample resource map](RESOURCES.md): host/helpers, verified managed attempts, exact-name native app candidates and Other form disjoint process groups. Memory/CPU sorting reaches both the overview and the busiest-process list; mobile shows all measurements together. Unknown/conflicting identities stay unknown and existing work controls retain their authority. Private diagnostics contain group metadata, not credentials or a process dump. The compiled-host/owned-browser idle trace includes a blank-browser control and runs in Linux CI. Actual six-run five-harness continuation verifies resource partitioning against each native worker. State remains 6 and the monitor adds no resident process or persisted history. Busy/load performance, orphan cleanup and hard resource guarantees remain open.
 
 Version 0.25 adds reviewed [private portable memory](MEMORY_PACKS.md), reusing ordinary Markdown and the existing scope/context reader. Explicit selected-text export and local scope-bound import preserve profile identity without transferring account or tool authority. Atomic reference activation, source/target revalidation and failed-stage recovery prevent partial binding or replay. Actual Hermes and OpenClaw MCP clients retain the selected marker after removal of the original memory path, with zero model calls. Provider search, learning tools, policies and hidden histories stay native.
 

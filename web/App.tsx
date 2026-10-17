@@ -441,6 +441,7 @@ export function App() {
               {view === 'resources' && (
                 <ResourcesPage
                   machine={snapshot.machine}
+                  resources={snapshot.resources}
                   workers={snapshot.nativeWorkers}
                   work={snapshot.work}
                   onWork={setSelected}

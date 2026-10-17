@@ -98,6 +98,20 @@ export class Store {
       .all(collection)
       .map((row) => JSON.parse(String(row.data)) as T);
   }
+  resourceRuns(): Run[] {
+    // Filter inside SQLite rather than materializing finished run history on every
+    // UI poll. Missing exit evidence remains eligible, including legacy records.
+    return this.db
+      .prepare(
+        `SELECT data FROM records WHERE collection='runs'
+         AND json_type(data,'$.nativeWorker')='object'
+         AND (json_extract(data,'$.exitConfirmed') IS NOT 1
+              OR json_extract(data,'$.status') IN ('starting','running'))
+         ORDER BY rowid DESC`,
+      )
+      .all()
+      .map((row) => JSON.parse(String(row.data)) as Run);
+  }
   recentEvents(workId?: string, limit = 100): WorkEvent[] {
     const query = workId
       ? this.db

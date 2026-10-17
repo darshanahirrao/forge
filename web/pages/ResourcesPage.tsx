@@ -8,6 +8,8 @@ import {
 import { Cpu, HardDrive, Activity, Play, Pause, Terminal } from 'lucide-react';
 import { gb, age, harnessName } from '../lib/format';
 import { Empty } from '../components/primitives';
+import type { ResourceObservation } from '../../shared/resources';
+import { ResourceMap } from '../components/ResourceMap';
 
 export function ResourcesPage({
   machine,
@@ -19,6 +21,7 @@ export function ResourcesPage({
   onWork,
   memoryPolicy = 'protect',
   onMemoryPolicy,
+  resources,
 }: {
   machine: MachineSnapshot;
   quiet: boolean;
@@ -29,8 +32,12 @@ export function ResourcesPage({
   onWork?: (id: string) => void;
   memoryPolicy?: Settings['memoryPressurePolicy'];
   onMemoryPolicy?: () => void;
+  resources?: ResourceObservation;
 }) {
   const [showAll, setShowAll] = useState(false);
+  const [order, setOrder] = useState<'memory' | 'cpu'>('memory');
+  const processes =
+    order === 'cpu' ? (machine.busiestProcesses ?? machine.processes) : machine.processes;
   const observedOwner = new Map(workers.flatMap((w) => w.pids.map((pid) => [pid, w] as const)));
   const active = work.filter((w) => w.activeRunId);
   return (
@@ -41,8 +48,8 @@ export function ResourcesPage({
           <h2>
             {machine.memoryPressure?.state === 'warning' ||
             machine.memoryPressure?.state === 'critical'
-              ? 'Your Mac is asking for room.'
-              : 'Let your laptop set the pace.'}
+              ? 'Memory pressure is high.'
+              : 'Memory pressure protection'}
           </h2>
           <p>
             {machine.memoryPressure?.state === 'warning' ||
@@ -97,7 +104,7 @@ export function ResourcesPage({
       </div>
       <section className="resource-controls panel">
         <div>
-          <h2>Leave space for your next thought.</h2>
+          <h2>Managed work admission</h2>
           <p>
             Quiet mode pauses new Forge-managed work. Existing native sessions continue under their
             own controls.
@@ -112,6 +119,13 @@ export function ResourcesPage({
           {quiet ? 'Allow new managed work' : 'Pause new managed work'}
         </button>
       </section>
+      <ResourceMap
+        observation={resources}
+        order={order}
+        onOrder={setOrder}
+        work={work}
+        onWork={onWork}
+      />
       <section className="panel" aria-label="Native worker ownership">
         <div className="section-heading">
           <div>
@@ -132,9 +146,11 @@ export function ResourcesPage({
                     ? 'PID identity changed'
                     : row.state === 'unavailable'
                       ? 'Identity unavailable'
-                      : current?.activeRunId !== row.runId
-                        ? 'Needs native reconciliation'
-                        : `${row.pids.length} observed ${row.pids.length === 1 ? 'process' : 'processes'}`;
+                      : row.state === 'ambiguous'
+                        ? 'Conflicting saved identity'
+                        : current?.activeRunId !== row.runId
+                          ? 'Needs native reconciliation'
+                          : `${row.pids.length} observed ${row.pids.length === 1 ? 'process' : 'processes'}`;
               return (
                 <article className="native-worker-row" key={row.runId}>
                   <div className="native-worker-work">
@@ -187,7 +203,7 @@ export function ResourcesPage({
       <section className="panel">
         <div className="section-heading">
           <div>
-            <h2>Processes using memory</h2>
+            <h2>{order === 'cpu' ? 'Processes using CPU' : 'Processes using memory'}</h2>
             <p>Operating-system RSS. Shared memory can appear in multiple processes.</p>
           </div>
           <span className="live-label">
@@ -195,7 +211,7 @@ export function ResourcesPage({
             {age(machine.sampledAt)}
           </span>
         </div>
-        {machine.processes.length ? (
+        {processes.length ? (
           <div
             className="table-scroll"
             tabIndex={0}
@@ -217,7 +233,7 @@ export function ResourcesPage({
                 </tr>
               </thead>
               <tbody>
-                {(showAll ? machine.processes : machine.processes.slice(0, 10)).map((p) => (
+                {(showAll ? processes : processes.slice(0, 10)).map((p) => (
                   <tr key={p.pid}>
                     <td>
                       <span className="process-name">
@@ -254,15 +270,15 @@ export function ResourcesPage({
           </Empty>
         )}
       </section>
-      {machine.processes.length > 10 && (
+      {processes.length > 10 && (
         <button
           className="text-button"
           aria-expanded={showAll}
           onClick={() => setShowAll(!showAll)}
         >
           {showAll
-            ? 'Show the ten largest processes'
-            : `Show all ${machine.processes.length} observed processes`}
+            ? `Show the ten ${order === 'cpu' ? 'busiest' : 'largest'} processes`
+            : `Show all ${processes.length} observed processes`}
         </button>
       )}
       <p className="source-note">

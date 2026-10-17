@@ -497,6 +497,7 @@ export async function createApp(options: AppOptions) {
   });
   app.get('/api/snapshot', async (request) => {
     const db = store(request);
+    const observed = await machine.observe(local.resourceRuns(), local.all<Account>('accounts'));
     const result: Snapshot = {
       service: options.background ?? { mode: 'foreground' },
       availability: mode(request) === 'demo' ? undefined : await availability.snapshot(),
@@ -524,11 +525,8 @@ export async function createApp(options: AppOptions) {
       usage: db.all<Usage>('usage'),
       settings: db.settings(),
       connections,
-      machine: await machine.sample(),
-      nativeWorkers:
-        mode(request) === 'demo'
-          ? []
-          : await machine.workers(local.all<Run>('runs'), local.all<Account>('accounts')),
+      ...observed,
+      ...(mode(request) === 'demo' ? { nativeWorkers: [], resources: undefined } : {}),
       nativeSessions:
         mode(request) === 'demo'
           ? []
