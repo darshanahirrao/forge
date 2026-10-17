@@ -376,7 +376,7 @@ test(
       async () => readFile(join(root, 'effect.txt'), 'utf8').catch(() => ''),
       'native signal handler ready',
     );
-    // Native startup installs its handler in the same synchronous module turn as its effect.
+    // The marker is written only after the native signal handler is registered.
     forced.child.kill('SIGTERM');
     await forced.closed;
     assert.equal(forced.child.signalCode, null);

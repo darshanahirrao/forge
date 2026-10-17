@@ -14,6 +14,8 @@ Previous verified main/tag: v0.26.0 at 3e8d4b9339de97628d52c1df3b0234755fac1882,
 
 ## Setup and validation
 
+The inert crash fixture writes its readiness/effect marker after installing its native signal handler. Preserve that ordering so a slow CI worker cannot turn the intended SIGKILL-escalation case into a startup SIGTERM race.
+
 Use Node.js 24 or newer. Run `npm ci`, `npm run build`, `npm start`; development uses `npm run dev` with Vite 5173/API 4710. Run one service per private state directory and port. macOS defaults to `~/Library/Application Support/Forge/workspace.sqlite`; `FORGE_DATA_DIR`, CLI `--data-dir` and `--port` provide overrides. [RUNTIME.md](docs/RUNTIME.md) is the setup index.
 
 Required checks: `npm run format:check`, `npm run check`, `npm test`, `npm run build`, `npm run test:package`, `npm run test:e2e`. Local browser tests reuse Chrome; CI installs Chromium. `npm run test:native:resources` observes only its owned temporary compiled host/browser and cleans them up. Protocol fixtures use owned loopback providers, synthetic credentials and zero paid inference. Do not point fixtures at personal native homes or providers.

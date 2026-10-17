@@ -1,5 +1,9 @@
 # Build log
 
+## 2026-10-17 · forge-v0.27.0-fixture-ready
+
+Made the inert crash fixture's effect/readiness marker follow native signal-handler registration. The parent can now request termination immediately after that marker without racing the handler and misclassifying the intended forced-stop check. Native production code and private state are unchanged. Validation: all six recovery tests, formatting, types and diff checks pass. The v0.27 rollback tag includes this follow-up; checkpoint reference: the commit containing this entry.
+
 ## 2026-10-17 · forge-v0.27.0
 
 Added durable native-child exit evidence and explicit interrupted-worker recovery. Supported file-backed macOS/Linux attempts retain one small original child owner that forwards stdio, waits native close including inherited stdio, and signs an immutable scope-bound exit receipt. The prepared/armed/committed protocol durably commits before the sole spawn message. Native argv, provider environment, credentials and private signing keys travel only over original IPC; receipts contain public scope/key metadata. Parent loss requests native cleanup under existing adapter budgets. Signals target the actual child handle; process observations cannot authorize recovery. Each active child owner adds resource overhead; none runs when idle. Native SDKs/tools/browser/memory/model loops remain native.
