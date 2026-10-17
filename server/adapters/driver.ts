@@ -23,7 +23,7 @@ export interface NativeApproval {
   respond(decision: 'accept' | 'decline'): void | Promise<void>;
 }
 export interface DriverSink {
-  session(id: string): void;
+  session(id: string, routingKey?: string): void;
   turn(id: string): void;
   account(account: Account): void;
   activity(kind: string, title: string, detail?: string): void;

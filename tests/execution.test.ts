@@ -108,6 +108,36 @@ class FixtureDriver implements NativeDriver {
   }
 }
 
+test('native session routing remains bound to the stable session ID across run persistence', async () => {
+  const store = new Store(':memory:');
+  const { work } = prepared(store, 'openclaw');
+  let sink!: DriverSink;
+  const controller = new ExecutionController(store, () => ({
+    harness: 'openclaw',
+    closed: false,
+    start: async (_context, next) => {
+      sink = next;
+      sink.session('stable-uuid', 'native-route');
+    },
+    interrupt: async () => {},
+    close: async () => {},
+  }));
+  try {
+    const run = await controller.launch(work.id, true, false);
+    assert.equal(store.work(work.id).nativeSessionKey, 'native-route');
+    assert.equal(
+      store.get<import('../shared/types.js').Run>('runs', run.id)?.nativeSessionKey,
+      'native-route',
+    );
+    assert.throws(() => sink.session('stable-uuid', 'reset-route'), /changed unexpectedly/);
+    assert.throws(() => sink.session('reset-uuid', 'native-route'), /changed unexpectedly/);
+    assert.equal(store.work(work.id).nativeSessionId, 'stable-uuid');
+  } finally {
+    await controller.close();
+    store.close();
+  }
+});
+
 test('one execution owner serializes different harnesses until the native worker exits', async () => {
   const store = new Store(':memory:');
   const first = prepared(store, 'codex');

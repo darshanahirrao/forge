@@ -53,6 +53,7 @@ async function fixture() {
     harness: 'codex',
     accountId: account.id,
     nativeSessionId: 'source-native-session',
+    nativeSessionKey: 'source-native-route',
     activeRunId: null,
     generation: 1,
     revision: 2,
@@ -67,6 +68,7 @@ async function fixture() {
     accountId: account.id,
     generation: 1,
     nativeSessionId: work.nativeSessionId,
+    nativeSessionKey: work.nativeSessionKey,
     nativeTurnId: 'source-turn',
     status: 'completed',
     startedAt: now(),
@@ -134,6 +136,7 @@ test('handoff retains one work, goals, checkpoints, files and usage while starti
     assert.equal(capsule.excluded[0].path, 'auth.json');
     assert.equal(JSON.stringify(capsule).includes('synthetic-credential-data'), false);
     assert.equal(capsule.source.nativeSessionId, 'source-native-session');
+    assert.equal(capsule.source.nativeSessionKey, 'source-native-route');
     await assert.rejects(
       f.continuity.handoff(work.id, work.revision, capsule.id, f.target.id, false),
       /Review native activity/,
@@ -144,6 +147,7 @@ test('handoff retains one work, goals, checkpoints, files and usage while starti
     assert.equal(moved.harness, 'claude');
     assert.equal(moved.accountId, f.target.id);
     assert.equal(moved.nativeSessionId, null);
+    assert.equal(moved.nativeSessionKey, null);
     assert.equal(moved.status, 'ready');
     assert.equal(f.store.get<Run>('runs', f.run.id)?.nativeSessionId, 'source-native-session');
     assert.equal(f.store.all<Usage>('usage')[0].accountId, f.account.id);
@@ -189,6 +193,30 @@ test('changed files and changed work invalidate the checkpoint without moving it
       ),
       /stale/,
     );
+    assert.equal(f.store.work(f.work.id).nativeSessionId, 'source-native-session');
+  } finally {
+    await f.close();
+  }
+});
+
+test('a later exit receipt cannot hide an older unconfirmed native worker', async () => {
+  const f = await fixture();
+  try {
+    f.store.put('runs', 'earlier-unknown-run', {
+      ...f.run,
+      id: 'earlier-unknown-run',
+      generation: 0,
+      exitConfirmed: false,
+    });
+    await assert.rejects(
+      f.continuity.capture(f.work.id, f.work.revision, ['proof.txt']),
+      /prior native worker exit/,
+    );
+    await assert.rejects(
+      f.execution.launch(f.work.id, true, true, f.work.revision),
+      /prior native worker exit/,
+    );
+    assert.equal(f.launched(), undefined);
     assert.equal(f.store.work(f.work.id).nativeSessionId, 'source-native-session');
   } finally {
     await f.close();

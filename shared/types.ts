@@ -42,7 +42,10 @@ export interface Work {
   generation: number;
   revision: number;
   nativeSessionId: string | null;
+  /** Native routing key, when it differs from the stable session identity. */
+  nativeSessionKey?: string | null;
   activeRunId: string | null;
+  stopRequestedAt?: string | null;
   capsuleId?: string | null;
   profileId?: string;
   contextReceipt?: ContextReceipt;
@@ -72,6 +75,7 @@ export interface Run {
   accountId: string;
   generation: number;
   nativeSessionId: string | null;
+  nativeSessionKey?: string | null;
   nativeTurnId: string | null;
   status: 'starting' | 'running' | 'completed' | 'failed' | 'interrupted';
   startedAt: string;
@@ -98,6 +102,7 @@ export interface WorkCapsule {
     harness: Harness;
     accountId: string | null;
     nativeSessionId: string | null;
+    nativeSessionKey?: string | null;
     runId: string | null;
   };
   title: string;
@@ -202,7 +207,13 @@ export interface Usage {
   accountId: string | null;
   harness: Harness;
   source:
-    'codex/app-server' | 'claude/agent-sdk' | 'opencode/v2' | 'hermes/acp' | 'ccusage' | 'example';
+    | 'codex/app-server'
+    | 'claude/agent-sdk'
+    | 'opencode/v2'
+    | 'hermes/acp'
+    | 'openclaw/gateway'
+    | 'ccusage'
+    | 'example';
   scope: string;
   inputTokens: number;
   outputTokens: number;

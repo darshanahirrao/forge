@@ -35,6 +35,7 @@ import { CodexDriver, type RpcFactory } from './adapters/codex-driver.js';
 import { ClaudeDriver } from './adapters/claude-driver.js';
 import { OpenCodeDriver } from './adapters/opencode-driver.js';
 import { HermesDriver } from './adapters/hermes-driver.js';
+import { OpenClawDriver } from './adapters/openclaw-driver.js';
 import { ExecutionController } from './execution.js';
 import { Continuity } from './continuity.js';
 import { NativeSources, type NativeSourcesOptions } from './native-sources.js';
@@ -79,6 +80,7 @@ export interface AppOptions {
   phoneBridge?: PhoneBridge;
   rpcFactory?: RpcFactory;
   driverFactory?: DriverFactory;
+  accountProbe?: typeof probeAccount;
   nativeSourcesOptions?: NativeSourcesOptions;
   resolveDirectory?: (value: string) => Promise<string>;
   codexBinary?: string;
@@ -105,6 +107,7 @@ export async function createApp(options: AppOptions) {
         if (context.work.harness === 'claude') return new ClaudeDriver();
         if (context.work.harness === 'opencode') return new OpenCodeDriver();
         if (context.work.harness === 'hermes') return new HermesDriver();
+        if (context.work.harness === 'openclaw') return new OpenClawDriver();
         assert(
           false,
           409,
@@ -117,11 +120,12 @@ export async function createApp(options: AppOptions) {
   const demoProfiles = new Profiles(demo);
   const machine = new MachineMonitor();
   const continuity = new Continuity(local, controller);
+  const probing = new Set<string>();
   const nativeSources = new NativeSources(local, {
     rpcFactory: options.rpcFactory,
     codexBinary: options.codexBinary,
     ...options.nativeSourcesOptions,
-    isManagedBusy: () => controller.activeCount > 0,
+    isManagedBusy: () => controller.activeCount > 0 || probing.size > 0,
   });
   const csrf = options.csrf ?? randomBytes(32).toString('hex');
   const port = options.port ?? 4710;
@@ -142,7 +146,6 @@ export async function createApp(options: AppOptions) {
     error: null,
   };
   let connections = await discover();
-  const probing = new Set<string>();
   const mode = (request: { headers: Record<string, unknown> }): WorkspaceMode =>
     request.headers['x-forge-workspace'] === 'demo' ? 'demo' : 'local';
   const store = (request: { headers: Record<string, unknown> }) =>
@@ -297,6 +300,7 @@ export async function createApp(options: AppOptions) {
       generation: 0,
       revision: 0,
       nativeSessionId: null,
+      nativeSessionKey: null,
       activeRunId: null,
       createdAt: now(),
       updatedAt: now(),
@@ -441,9 +445,9 @@ export async function createApp(options: AppOptions) {
     await directory(work.cwd, true);
     // Check after filesystem awaits. The controller reserves capacity synchronously before yielding.
     assert(
-      !nativeSources.isReading,
+      !nativeSources.isReading && probing.size === 0,
       409,
-      'Wait for the native inventory read to finish before starting a managed worker.',
+      'Wait for the native account check or inventory read to finish before starting a managed worker.',
     );
     return reply
       .code(202)
@@ -457,10 +461,11 @@ export async function createApp(options: AppOptions) {
         ),
       );
   });
-  app.post('/api/work/:id/interrupt', async (request) => {
+  app.post('/api/work/:id/interrupt', async (request, reply) => {
     assert(mode(request) === 'local', 409, 'This is a fictional demo task.');
-    await controller.interrupt((request.params as { id: string }).id);
-    return { ok: true };
+    const stopping = controller.interrupt((request.params as { id: string }).id);
+    void stopping.catch(() => {});
+    return reply.code(202).send({ ok: true, stopping: true });
   });
   app.get('/api/work/:id/export', async (request, reply) => {
     const db = store(request);
@@ -515,13 +520,20 @@ export async function createApp(options: AppOptions) {
     );
     assert(!probing.has(account.id), 409, 'This native account check is already in progress.');
     assert(
+      probing.size === 0 && controller.activeCount === 0 && !nativeSources.isReading,
+      409,
+      'Wait for the current native worker, account check or inventory read before checking another account.',
+    );
+    assert(
       !db.all<Work>('work').some((w) => w.accountId === account.id && w.activeRunId),
       409,
       'Wait for the active native attempt to finish before probing this account.',
     );
     probing.add(account.id);
     try {
-      const result = await probeAccount(account).catch((error) => failedProbe(account, error));
+      const result = await (options.accountProbe ?? probeAccount)(account).catch((error) =>
+        failedProbe(account, error),
+      );
       db.put('accounts', account.id, result);
       return result;
     } finally {

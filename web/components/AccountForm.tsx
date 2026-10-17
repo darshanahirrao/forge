@@ -33,7 +33,7 @@ export function AccountForm({
         billingMode,
         ...(harness === 'claude' && billingMode === 'api'
           ? { credentialEnv: String(form.get('credentialEnv') || 'ANTHROPIC_API_KEY').trim() }
-          : (harness === 'opencode' || harness === 'hermes') &&
+          : ['opencode', 'hermes', 'openclaw'].includes(harness) &&
               String(form.get('credentialEnv') || '').trim()
             ? { credentialEnv: String(form.get('credentialEnv')).trim() }
             : {}),
@@ -89,15 +89,16 @@ export function AccountForm({
         </label>
         {((harness === 'claude' && billingMode === 'api') ||
           harness === 'opencode' ||
-          harness === 'hermes') && (
+          harness === 'hermes' ||
+          harness === 'openclaw') && (
           <label>
-            {harness === 'opencode' || harness === 'hermes'
+            {['opencode', 'hermes', 'openclaw'].includes(harness)
               ? 'Native credential environment variable'
               : 'API credential environment variable'}
             <input
               name="credentialEnv"
               placeholder={
-                harness === 'opencode' || harness === 'hermes'
+                ['opencode', 'hermes', 'openclaw'].includes(harness)
                   ? 'Optional native credential variable'
                   : 'ANTHROPIC_API_KEY'
               }
@@ -105,7 +106,7 @@ export function AccountForm({
               maxLength={128}
             />
             <small>
-              {harness === 'opencode' || harness === 'hermes'
+              {['opencode', 'hermes', 'openclaw'].includes(harness)
                 ? 'Optional when the native profile stores its own credentials. Set a selected provider variable outside Forge; other ambient provider keys are excluded. Enter only its name.'
                 : 'Enter a variable name, such as CLAUDE_STUDIO_KEY. Set its value outside Forge before starting the service. Never paste a key here.'}
             </small>
@@ -114,21 +115,27 @@ export function AccountForm({
         <label>
           {harness === 'hermes'
             ? 'Native Hermes home'
-            : harness === 'opencode'
-              ? 'Native profile root'
-              : 'Native configuration directory'}{' '}
-          {!['opencode', 'hermes'].includes(harness) && <span className="optional">Optional</span>}
+            : harness === 'openclaw'
+              ? 'Native OpenClaw execution profile'
+              : harness === 'opencode'
+                ? 'Native profile root'
+                : 'Native configuration directory'}{' '}
+          {!['opencode', 'hermes', 'openclaw'].includes(harness) && (
+            <span className="optional">Optional</span>
+          )}
           <input
             name="nativeHome"
             placeholder={
               harness === 'hermes'
                 ? '/path/to/your/hermes-home'
-                : harness === 'opencode'
-                  ? '/path/to/your/opencode-profile'
-                  : 'Leave empty for the native default'
+                : harness === 'openclaw'
+                  ? '/path/to/your/openclaw-execution-profile'
+                  : harness === 'opencode'
+                    ? '/path/to/your/opencode-profile'
+                    : 'Leave empty for the native default'
             }
             disabled={mode === 'demo'}
-            required={['opencode', 'hermes'].includes(harness) && mode !== 'demo'}
+            required={['opencode', 'hermes', 'openclaw'].includes(harness) && mode !== 'demo'}
           />
           <small>
             {harness === 'codex'
@@ -139,7 +146,7 @@ export function AccountForm({
                   ? 'A native profile root containing config, data, state and cache directories. Configure OpenCode with these XDG homes and select a default model first. Forge never copies another profile’s credentials.'
                   : harness === 'hermes'
                     ? 'References HERMES_HOME. Configure its native provider first. Hermes keeps its own tools, skills, memory and credentials in this home. Forge uses the installed native ACP runtime.'
-                    : 'Managed authentication for this adapter is planned. This slot can be used in work records.'}
+                    : 'Use a dedicated native execution profile with local Gateway, reload off, cron disabled and heartbeat every 0m. Native channels and schedules stay with their existing companion owner. Configure its model through OpenClaw first.'}
           </small>
         </label>
         <div className="notice">

@@ -188,9 +188,13 @@ export function WorkDetail({
           Export context
         </button>
         {work.activeRunId ? (
-          <button className="button danger" disabled={busy === 'stop'} onClick={onStop}>
+          <button
+            className="button danger"
+            disabled={busy === 'stop' || Boolean(work.stopRequestedAt)}
+            onClick={onStop}
+          >
             <Pause size={16} />
-            Stop managed attempt
+            {work.stopRequestedAt ? 'Waiting for native shutdown' : 'Stop managed attempt'}
           </button>
         ) : managedHarnesses.includes(work.harness) && mode !== 'demo' ? (
           <button

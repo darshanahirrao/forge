@@ -208,7 +208,11 @@ export class Store {
           exitConfirmed: false,
         });
         this.invalidateApprovals(run.id);
-        this.updateWork(run.workId, { status: 'interrupted', activeRunId: null });
+        this.updateWork(run.workId, {
+          status: 'interrupted',
+          activeRunId: null,
+          stopRequestedAt: null,
+        });
         this.event(
           run.workId,
           'recovery',

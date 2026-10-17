@@ -78,8 +78,14 @@ const definitions: Omit<Connection, 'installed'>[] = [
     id: 'openclaw',
     name: 'OpenClaw',
     kind: 'runtime',
-    capabilities: ['Account slots', 'Portable work records'],
-    description: 'A replaceable runtime choice. Gateway control is a planned adapter.',
+    capabilities: [
+      'Native Gateway turns',
+      'Native command approvals',
+      'Native memory and tools',
+      'Token and cost estimates',
+    ],
+    description:
+      'Owned foreground Gateway for a dedicated execution profile, using the official client. Existing companion channels and schedules retain their native owner.',
     documentation: 'https://docs.openclaw.ai/gateway/protocol',
   },
   {

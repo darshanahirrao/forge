@@ -5,6 +5,7 @@ import { createServer } from 'node:http';
 import { createApp } from '../server/app.js';
 import { NativeRpc } from '../server/adapters/rpc.js';
 import type { Account, Approval, Usage, Work } from '../shared/types.js';
+import type { DriverSink } from '../server/adapters/driver.js';
 const host = '127.0.0.1:4710';
 const token = 'test-protection-token';
 async function fixture(
@@ -82,6 +83,181 @@ async function prepared(state: Awaited<ReturnType<typeof fixture>>) {
   ).json<Work>();
   return { account, work };
 }
+
+test('stop acknowledges immediately, withdraws decisions and retains ownership until native exit', async () => {
+  let sink!: DriverSink;
+  let release!: () => void;
+  const exit = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const state = await createApp({
+    filename: ':memory:',
+    csrf: token,
+    test: true,
+    driverFactory: () => ({
+      harness: 'codex',
+      closed: false,
+      start: async (_context, next) => {
+        sink = next;
+        sink.session('session');
+        sink.turn('turn');
+      },
+      interrupt: () => exit,
+      close: () => exit,
+    }),
+  });
+  const post = (url: string, payload: Record<string, unknown> = {}) =>
+    state.app.inject({
+      method: 'POST',
+      url,
+      headers: { host, 'x-forge-csrf': token, 'content-type': 'application/json' },
+      payload,
+    });
+  try {
+    const account = (
+      await post('/api/accounts', { label: 'Stop fixture', harness: 'codex' })
+    ).json<Account>();
+    const work = (
+      await post('/api/work', {
+        title: 'Slow native cleanup',
+        project: 'Fixture',
+        cwd: process.cwd(),
+        goal: 'Keep native ownership through cleanup.',
+        harness: 'codex',
+        accountId: account.id,
+      })
+    ).json<Work>();
+    const launch = await post(`/api/work/${work.id}/launch`, { expectedRevision: work.revision });
+    assert.equal(launch.statusCode, 202);
+    await waitFor(() => sink, 'native binding');
+    sink.approval({
+      requestId: 'request',
+      method: 'fixture',
+      sessionId: 'session',
+      turnId: 'turn',
+      params: { action: 'none' },
+      title: 'Synthetic review',
+      detail: 'No real command.',
+      command: 'none',
+      cwd: process.cwd(),
+      respond: () => {},
+    });
+    const approval = state.local.all<Approval>('approvals')[0];
+    assert.equal(approval.status, 'pending');
+    const response = await post(`/api/work/${work.id}/interrupt`);
+    assert.equal(response.statusCode, 202);
+    assert.equal(response.json().stopping, true);
+    assert(state.local.work(work.id).stopRequestedAt);
+    assert(state.local.work(work.id).activeRunId);
+    assert.equal(state.local.get<Approval>('approvals', approval.id)?.status, 'invalidated');
+    assert.equal((await post(`/api/work/${work.id}/interrupt`)).statusCode, 409);
+    assert.equal(
+      (
+        await post(`/api/work/${work.id}/launch`, {
+          expectedRevision: state.local.work(work.id).revision,
+        })
+      ).statusCode,
+      409,
+    );
+    release();
+    await waitFor(() => !state.local.work(work.id).activeRunId, 'confirmed native exit');
+    assert.equal(state.local.work(work.id).status, 'interrupted');
+    assert.equal(state.local.work(work.id).stopRequestedAt, null);
+  } finally {
+    release();
+    await state.app.close();
+  }
+});
+
+test('native account checks share admission with each other, inventory and managed launches', async () => {
+  let release!: () => void;
+  let checks = 0;
+  let drivers = 0;
+  let reads = 0;
+  const checking = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const state = await createApp({
+    filename: ':memory:',
+    csrf: token,
+    test: true,
+    accountProbe: async (account) => {
+      checks++;
+      await checking;
+      return account;
+    },
+    nativeSourcesOptions: {
+      reader: async () => {
+        reads++;
+        throw new Error('Not expected.');
+      },
+    },
+    driverFactory: () => {
+      drivers++;
+      return {
+        harness: 'codex',
+        closed: false,
+        start: async () => {},
+        interrupt: async () => {},
+        close: async () => {},
+      };
+    },
+  });
+  const post = (url: string, payload: Record<string, unknown> = {}) =>
+    state.app.inject({
+      method: 'POST',
+      url,
+      headers: { host, 'x-forge-csrf': token, 'content-type': 'application/json' },
+      payload,
+    });
+  try {
+    const one = (
+      await post('/api/accounts', { label: 'Probe one', harness: 'codex' })
+    ).json<Account>();
+    const two = (
+      await post('/api/accounts', { label: 'Probe two', harness: 'codex' })
+    ).json<Account>();
+    const work = (
+      await post('/api/work', {
+        title: 'Native admission',
+        project: 'Fixture',
+        cwd: process.cwd(),
+        goal: 'Preserve headroom while checking accounts.',
+        harness: 'codex',
+        accountId: one.id,
+      })
+    ).json<Work>();
+    const source = (
+      await post('/api/native/sources', {
+        kind: 'codex',
+        label: 'Probe inventory',
+        home: process.cwd(),
+      })
+    ).json<{ id: string }>();
+    const first = post(`/api/accounts/${one.id}/probe`).then((result) => result);
+    await waitFor(() => checks === 1, 'first native status check');
+    assert.equal((await post(`/api/accounts/${two.id}/probe`)).statusCode, 409);
+    assert.equal((await post(`/api/native/sources/${source.id}/refresh`)).statusCode, 409);
+    assert.equal(
+      (await post(`/api/work/${work.id}/launch`, { expectedRevision: work.revision })).statusCode,
+      409,
+    );
+    assert.equal(checks, 1);
+    assert.equal(reads, 0);
+    assert.equal(drivers, 0);
+    release();
+    assert.equal((await first).statusCode, 200);
+    assert.equal(
+      (await post(`/api/work/${work.id}/launch`, { expectedRevision: work.revision })).statusCode,
+      202,
+    );
+    assert.equal((await post(`/api/accounts/${two.id}/probe`)).statusCode, 409);
+    assert.equal(drivers, 1);
+  } finally {
+    release();
+    await state.app.close();
+  }
+});
 
 test('local API rejects cross-origin mutations, missing protection, and hostile hosts', async () => {
   const state = await fixture();

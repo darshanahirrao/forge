@@ -206,7 +206,7 @@ test('changed memory invalidates launch review, starts a fresh native context an
         closed: false,
         start: async (context, sink) => {
           contexts.push(context);
-          sink.session(`session-${contexts.length}`);
+          sink.session(`session-${contexts.length}`, `native-route-${contexts.length}`);
           sink.turn(`turn-${contexts.length}`);
           sink.activity(
             'assistant',
@@ -264,6 +264,7 @@ test('changed memory invalidates launch review, starts a fresh native context an
     );
     await waitForIdle(controller);
     assert.equal(contexts[1].work.nativeSessionId, null);
+    assert.equal(contexts[1].work.nativeSessionKey, null);
     assert.match(contexts[1].prompt, /GREEN/);
     assert.doesNotMatch(contexts[1].prompt, /BLUE|TENANT-SECRET/);
     await writeFile(join(project, 'artifact.txt'), 'Verified artifact');
@@ -280,6 +281,7 @@ test('changed memory invalidates launch review, starts a fresh native context an
     await controller.launch(record.id, false, false, record.revision);
     await waitForIdle(controller);
     assert.equal(contexts[2].work.nativeSessionId, null);
+    assert.equal(contexts[2].work.nativeSessionKey, null);
     assert.doesNotMatch(contexts[2].prompt, /BLUE|GREEN|TENANT-SECRET/);
     profiles.removeSource(source.id);
     assert.equal(profiles.sources().length, 0);

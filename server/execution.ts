@@ -105,6 +105,13 @@ export class ExecutionController {
     );
     const account = this.store.account(work.accountId);
     assert(
+      !this.store
+        .all<Run>('runs')
+        .some((run) => run.workId === workId && run.exitConfirmed === false),
+      409,
+      'A prior native worker exit remains unconfirmed. Reconcile its ownership before starting another attempt for this work.',
+    );
+    assert(
       account.harness === work.harness,
       409,
       'The native account and selected harness must match.',
@@ -134,13 +141,16 @@ export class ExecutionController {
           work.contextReceipt &&
           review.receipt.contentDigest !== work.contextReceipt.contentDigest,
         ) || Boolean(review?.requiresReview && !work.contextReceipt);
-      const effectiveWork = changedMemory ? { ...work, nativeSessionId: null } : work;
+      const effectiveWork = changedMemory
+        ? { ...work, nativeSessionId: null, nativeSessionKey: null }
+        : work;
       const run: Run = {
         id: id(),
         workId,
         accountId: account.id,
         generation: work.generation + 1,
         nativeSessionId: effectiveWork.nativeSessionId,
+        nativeSessionKey: effectiveWork.nativeSessionKey ?? null,
         nativeTurnId: null,
         status: 'starting',
         startedAt: now(),
@@ -172,8 +182,10 @@ export class ExecutionController {
           this.store.updateWork(workId, {
             generation: run.generation,
             activeRunId: run.id,
+            stopRequestedAt: null,
             status: 'running',
             nativeSessionId: effectiveWork.nativeSessionId,
+            nativeSessionKey: effectiveWork.nativeSessionKey ?? null,
             ...(review ? { contextReceipt: review.receipt } : {}),
           });
           this.store.event(
@@ -243,18 +255,25 @@ export class ExecutionController {
   private sink(active: Active): DriverSink {
     const live = () => !active.ending && this.active.get(active.run.workId) === active;
     return {
-      session: (sessionId) => {
+      session: (sessionId, routingKey) => {
         if (!live()) return;
         assert(
-          !active.sessionId || active.sessionId === sessionId,
+          (!active.sessionId || active.sessionId === sessionId) &&
+            (!active.run.nativeSessionId ||
+              (active.run.nativeSessionId === sessionId &&
+                active.run.nativeSessionKey === (routingKey ?? null))),
           502,
           'The native session changed unexpectedly.',
         );
         active.sessionId = sessionId;
         active.run.nativeSessionId = sessionId;
+        active.run.nativeSessionKey = routingKey ?? null;
         this.store.transaction(() => {
           this.store.put('runs', active.run.id, active.run);
-          this.store.updateWork(active.run.workId, { nativeSessionId: sessionId });
+          this.store.updateWork(active.run.workId, {
+            nativeSessionId: sessionId,
+            nativeSessionKey: routingKey ?? null,
+          });
           this.store.event(
             active.run.workId,
             'binding',
@@ -536,6 +555,7 @@ export class ExecutionController {
     status: 'completed' | 'failed' | 'interrupted',
     title: string,
     detail: string,
+    interrupt = false,
   ): Promise<void> {
     if (active.finishing) return active.finishing;
     active.ending = true;
@@ -544,6 +564,13 @@ export class ExecutionController {
     // Keep both the durable work lease and in-memory admission until native teardown confirms exit.
     active.finishing = Promise.resolve().then(async () => {
       try {
+        if (interrupt) {
+          try {
+            await active.driver.interrupt();
+          } catch {
+            /* Confirm process teardown even if native cancellation was rejected. */
+          }
+        }
         await active.driver.close();
       } catch {
         this.store.event(
@@ -559,26 +586,35 @@ export class ExecutionController {
       active.run.exitConfirmed = true;
       this.store.transaction(() => {
         this.store.put('runs', active.run.id, active.run);
-        this.store.updateWork(active.run.workId, { status, activeRunId: null });
+        this.store.updateWork(active.run.workId, {
+          status,
+          activeRunId: null,
+          stopRequestedAt: null,
+        });
         this.store.event(active.run.workId, status, title, detail);
       });
       this.active.delete(active.run.workId);
     });
     return active.finishing;
   }
-  async interrupt(workId: string) {
+  interrupt(workId: string) {
     const active = this.active.get(workId);
     assert(active && !active.ending, 409, 'This task has no live Forge-owned native attempt.');
-    try {
-      await active.driver.interrupt();
-    } catch {
-      /* Teardown still owns the worker until exit. */
-    }
-    await this.finish(
+    this.store.transaction(() => {
+      this.store.updateWork(workId, { stopRequestedAt: now(), status: 'running' });
+      this.store.event(
+        workId,
+        'stopping',
+        'Native shutdown requested',
+        'Approvals are withdrawn. The work and execution slot remain reserved until the owned native worker exits.',
+      );
+    });
+    return this.finish(
       active,
       'interrupted',
       'Managed connection stopped',
       'Review native activity and any detached tools or external effects before continuing.',
+      true,
     );
   }
   async close() {

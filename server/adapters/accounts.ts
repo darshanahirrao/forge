@@ -8,6 +8,7 @@ import { assert, safeMessage } from '../errors.js';
 import { now } from '../store.js';
 import { probeHermesAccount } from './hermes-driver.js';
 import { openCodeWorker } from './opencode-worker.js';
+import { probeOpenClawAccount } from './openclaw-worker.js';
 const exec = promisify(execFile);
 
 export function nativeEnvironment(account: Account): NodeJS.ProcessEnv {
@@ -121,6 +122,7 @@ export async function readCodexAccount(rpc: NativeRpc, account: Account): Promis
   };
 }
 export async function probeAccount(account: Account): Promise<Account> {
+  if (account.harness === 'openclaw') return probeOpenClawAccount(account);
   const binary = await findBinary(account.harness);
   assert(
     binary,

@@ -37,3 +37,7 @@ The shared coordinator also supports OpenCode through its installed native serve
 ## Hermes ACP, forge-v0.7.0
 
 The shared coordinator hosts native Hermes 0.17.0 through the official Apache-2.0 ACP SDK 1.9.0. An explicit home retains native providers, tools, skills, memory and sessions. The versioned process-local reporting adapter exposes native outcomes/counters without recreating a model loop or changing installed files. Default edit review, session provenance, exact one-time options, short native deadlines, profile ownership and native exit are verified. Read [Hermes setup, memory semantics and conformance](HERMES.md). Managed OpenClaw and cross-work companion planning/control remain open.
+
+## OpenClaw Gateway, forge-v0.9.0
+
+The coordinator also hosts a dedicated native OpenClaw 2026.10.4 execution profile through MIT reference Gateway client 2026.10.4 and protocol 4. Native tools, memory and model routing remain upstream. Stable session UUID and routing key are bound separately; public input routing uses the UUID, and exact accepted/native terminal identities are verified. Root Gateway command reviews reread complete pending native records before once-only delivery. Native settlement and actual foreground process exit retain the work lease. Stop is admitted asynchronously and native cancellation precedes shutdown. Read [OpenClaw setup and evidence](OPENCLAW.md). Existing companion channels and schedules are not moved into this execution profile.

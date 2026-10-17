@@ -531,6 +531,73 @@ test('Hermes profile slots and launch review explain native authority on desktop
   ).toBe('ready');
 });
 
+test('OpenClaw profile slots and launch review explain native authority on desktop and mobile', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Accounts', exact: true }).click();
+  await page.getByRole('button', { name: 'Add account', exact: true }).click();
+  await page.getByLabel('Account label').fill('OpenClaw browser fixture');
+  await page.getByRole('combobox', { name: /^Harness/ }).selectOption('openclaw');
+  await expect(page.getByLabel('Native OpenClaw execution profile')).toHaveAttribute(
+    'required',
+    '',
+  );
+  await page.getByLabel('Native OpenClaw execution profile').fill(process.cwd());
+  await page.getByLabel('Native credential environment variable').fill('STUDIO_OPENCLAW_KEY');
+  await page.getByRole('button', { name: 'Save account slot' }).click();
+  await page.getByRole('button', { name: 'Work', exact: true }).click();
+  await page.getByRole('button', { name: 'New work', exact: true }).click();
+  await page.getByLabel('Work title').fill('OpenClaw native review');
+  await page
+    .getByLabel('Goal', { exact: true })
+    .fill('Review native profile binding before dispatch.');
+  await page.getByRole('combobox', { name: /^Harness/ }).selectOption('openclaw');
+  await page
+    .getByRole('combobox', { name: 'Account', exact: true })
+    .selectOption({ label: 'OpenClaw browser fixture' });
+  await page.getByLabel('Project directory').fill(process.cwd());
+  await page.getByRole('dialog').getByRole('button', { name: 'Create work', exact: true }).click();
+  await page.getByRole('button', { name: 'Run with OpenClaw', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Ready to use the native harness?' });
+  const launch = dialog.getByRole('button', { name: 'Start native attempt' });
+  await expect(launch).toBeDisabled();
+  await expect(dialog.getByText(/Provider identity and quotas remain unknown/)).toBeVisible();
+  await expect(
+    dialog.getByText(/OpenClaw owns its native tools, memory and model routing/),
+  ).toBeVisible();
+  await dialog.getByRole('checkbox', { name: /Allow metered/ }).check();
+  await expect(launch).toBeEnabled();
+  await page.screenshot({ path: 'artifacts/forge-openclaw-launch-light.png', fullPage: true });
+  for (const dark of [false, true]) {
+    if (dark) {
+      await dialog.getByRole('button', { name: 'Keep as ready' }).click();
+      await page
+        .getByRole('dialog', { name: 'OpenClaw native review', exact: true })
+        .getByRole('button', { name: 'Close dialog' })
+        .click();
+      await page.getByRole('button', { name: 'Use dark theme' }).click();
+      await page.getByRole('button', { name: 'OpenClaw native review', exact: true }).click();
+      await page.getByRole('button', { name: 'Run with OpenClaw', exact: true }).click();
+      await page.setViewportSize({ width: 390, height: 844 });
+    }
+    const result = await new AxeBuilder({ page })
+      .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+      .analyze();
+    expect(result.violations.map((v) => v.id)).toEqual([]);
+  }
+  await page.screenshot({
+    path: 'artifacts/forge-openclaw-launch-mobile-dark.png',
+    fullPage: true,
+  });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Keep as ready' }).click();
+  const snapshot = await (await page.request.get('/api/snapshot')).json();
+  expect(
+    snapshot.work.find((work: { title: string }) => work.title === 'OpenClaw native review').status,
+  ).toBe('ready');
+});
+
 test('private HTTPS mobile approval uses the same native request and records its authenticated reviewer', async ({
   page,
   browser,

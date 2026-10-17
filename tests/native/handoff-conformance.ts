@@ -8,6 +8,7 @@ import { CodexDriver } from '../../server/adapters/codex-driver.js';
 import { OpenCodeDriver } from '../../server/adapters/opencode-driver.js';
 import { openCodeWorker } from '../../server/adapters/opencode-worker.js';
 import { HermesDriver } from '../../server/adapters/hermes-driver.js';
+import { OpenClawDriver } from '../../server/adapters/openclaw-driver.js';
 import { ClaudeDriver } from '../../server/adapters/claude-driver.js';
 import { NativeRpc } from '../../server/adapters/rpc.js';
 import type {
@@ -33,6 +34,7 @@ const homes = [
   join(directory, 'claude-two'),
   join(directory, 'opencode'),
   join(directory, 'hermes'),
+  join(directory, 'openclaw'),
 ];
 await mkdir(project);
 project = await realpath(project);
@@ -67,10 +69,10 @@ const sourceProvider = await fixtureProvider('responses', (body) => {
   }
   return { text: 'The native source artifact was produced.' };
 });
-const expectedFragments: string[][] = [[], [], [], []];
-const observedContext = [false, false, false, false];
-const observedRead = [false, false, false, false];
-const stages = [0, 0, 0, 0];
+const expectedFragments: string[][] = [[], [], [], [], []];
+const observedContext = [false, false, false, false, false];
+const observedRead = [false, false, false, false, false];
+const stages = [0, 0, 0, 0, 0];
 function nextProgram(index: number) {
   const sourceName = index === 0 ? 'proof.txt' : 'continuation.txt';
   const destinationName = index === 0 ? 'continuation.txt' : 'final.txt';
@@ -193,6 +195,75 @@ await writeFile(
   join(homes[4], 'config.yaml'),
   `model:\n  default: forge-conformance\n  provider: custom\n  base_url: ${hermesProvider.endpoint}/v1\n  api_mode: chat_completions\n  api_key: synthetic-profile-four\nterminal:\n  backend: local\n  cwd: ${project}\nagent:\n  max_turns: 5\n`,
 );
+const openClawProof = 'Verified native OpenClaw continuation.\n';
+const openClawProvider = await fixtureProvider(
+  'chat',
+  (body) => {
+    if (!body.tools?.some((t: { function?: { name?: string } }) => t.function?.name === 'exec'))
+      return { text: 'Native helper fixture.' };
+    const history = JSON.stringify(body.messages);
+    if (stages[4] === 0) {
+      assert.equal(body.model, 'proof');
+      assert(history.includes(memoryFact) && !history.includes(excludedMemory));
+      assert(expectedFragments[4].every((fragment) => history.includes(fragment)));
+      observedContext[4] = true;
+      stages[4]++;
+      return { tool: 'read', id: 'handoffclawread', input: { path: join(project, 'hermes.txt') } };
+    }
+    if (stages[4] === 1) {
+      assert(history.includes('handoffclawread') && history.includes(hermesProof.trim()));
+      observedRead[4] = true;
+      stages[4]++;
+      return {
+        tool: 'exec',
+        id: 'handoffclawexec',
+        input: {
+          command: `/usr/bin/python3 -c 'open("openclaw.txt","w").write(${JSON.stringify(openClawProof)})'`,
+          workdir: project,
+          yieldMs: 1000,
+        },
+      };
+    }
+    return { text: 'Native OpenClaw continuation verified.' };
+  },
+  'synthetic-profile-five',
+);
+await writeFile(
+  join(homes[5], 'openclaw.json'),
+  JSON.stringify({
+    gateway: { mode: 'local', bind: 'loopback', auth: { mode: 'token' }, reload: { mode: 'off' } },
+    agents: {
+      defaults: {
+        workspace: project,
+        skipBootstrap: true,
+        heartbeat: { every: '0m' },
+        model: { primary: 'forge/proof' },
+      },
+    },
+    cron: { enabled: false },
+    tools: { exec: { host: 'gateway', mode: 'ask' }, fs: { workspaceOnly: true } },
+    models: {
+      providers: {
+        forge: {
+          baseUrl: `${openClawProvider.endpoint}/v1`,
+          apiKey: 'synthetic-profile-five',
+          api: 'openai-completions',
+          models: [
+            {
+              id: 'proof',
+              name: 'Native fixture',
+              reasoning: false,
+              input: ['text'],
+              contextWindow: 32768,
+              maxTokens: 2048,
+              cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+            },
+          ],
+        },
+      },
+    },
+  }),
+);
 await mkdir(join(homes[3], 'config', 'opencode'), { recursive: true });
 await writeFile(
   join(homes[3], 'config', 'opencode', 'opencode.json'),
@@ -254,6 +325,7 @@ const state = await createApp({
         openCodeWorker(account, cwd, process.env.FORGE_OPENCODE_CONFORMANCE_BINARY),
       );
     if (context.work.harness === 'hermes') return new HermesDriver();
+    if (context.work.harness === 'openclaw') return new OpenClawDriver();
     const index = profileIds.indexOf(context.account.id);
     assert(index >= 0);
     return new ClaudeDriver((params) =>
@@ -304,8 +376,16 @@ async function runNative(workId: string) {
     allowMetered: true,
     contextDigest: review.receipt.reviewDigest,
   });
-  const deadline = Date.now() + 45000;
+  const deadline = Date.now() + 90000;
   while (Date.now() < deadline) {
+    for (const provider of [
+      sourceProvider,
+      ...destinations,
+      openCodeProvider,
+      hermesProvider,
+      openClawProvider,
+    ])
+      assert.equal(provider.failure(), null);
     for (const approval of state.local
       .all<Approval>('approvals')
       .filter((a) => a.status === 'pending')) {
@@ -317,6 +397,7 @@ async function runNative(workId: string) {
           'opencode/permission/read',
           'opencode/permission/edit',
           'hermes/acp/request_permission',
+          'openclaw/gateway/exec',
         ].includes(approval.method),
       );
       await post(`/approvals/${approval.id}/decision`, {
@@ -392,6 +473,16 @@ try {
       })
     ).id,
   );
+  profileIds.push(
+    (
+      await post<Account>('/accounts', {
+        label: 'Native OpenClaw target',
+        harness: 'openclaw',
+        nativeHome: homes[5],
+        billingMode: 'native',
+      })
+    ).id,
+  );
   const work = await post<Work>('/work', {
     title: 'One native work identity',
     project: 'Synthetic',
@@ -408,10 +499,13 @@ try {
   const originalSession = state.local.work(work.id).nativeSessionId;
   await post(`/work/${work.id}/checkpoint`, { note: checkpointNote });
   let parent: string | null = null;
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < 5; i++) {
     const prepared = await post<{ capsule: WorkCapsule; work: Work }>(`/work/${work.id}/capsules`, {
       expectedRevision: state.local.work(work.id).revision,
-      paths: ['proof.txt', 'continuation.txt', 'final.txt', 'opencode.txt'].slice(0, i + 1),
+      paths: ['proof.txt', 'continuation.txt', 'final.txt', 'opencode.txt', 'hermes.txt'].slice(
+        0,
+        i + 1,
+      ),
     });
     assert.equal(prepared.capsule.parentCapsuleId, parent);
     assert.equal(prepared.capsule.contextReceipt?.profileId, persistentProfile.id);
@@ -431,6 +525,7 @@ try {
     assert.equal(moved.profileId, persistentProfile.id);
     assert.equal(moved.goal, goal);
     assert.equal(moved.nativeSessionId, null);
+    assert.equal(moved.nativeSessionKey, null);
     await runNative(work.id);
     assert.notEqual(state.local.work(work.id).nativeSessionId, originalSession);
     assert.equal(observedContext[i], true);
@@ -442,14 +537,16 @@ try {
   assert.equal(await readFile(join(project, 'final.txt'), 'utf8'), finalProof);
   assert.equal(await readFile(join(project, 'opencode.txt'), 'utf8'), openCodeProof);
   assert.equal(await readFile(join(project, 'hermes.txt'), 'utf8'), hermesProof);
+  assert.equal(await readFile(join(project, 'openclaw.txt'), 'utf8'), openClawProof);
+  assert.equal(openClawProvider.failure(), null);
   assert.equal(hermesProvider.failure(), null);
   assert.equal(openCodeProvider.failure(), null);
   const usage = state.local.all<Usage>('usage').filter((u) => u.workId === work.id);
-  assert.equal(usage.length, 5);
-  assert.equal(new Set(usage.map((u) => u.accountId)).size, 5);
+  assert.equal(usage.length, 6);
+  assert.equal(new Set(usage.map((u) => u.accountId)).size, 6);
   assert.equal(
     state.local.all<Run>('runs').filter((r) => r.workId === work.id && r.exitConfirmed).length,
-    5,
+    6,
   );
   assert.equal(state.local.checkpoints(work.id)[0].detail, checkpointNote);
   assert.equal(sourceProvider.failure(), null);
@@ -458,15 +555,15 @@ try {
     JSON.stringify({
       status: 'passed',
       workIdentityRetained: true,
-      nativeRuns: 5,
+      nativeRuns: 6,
       nativeApprovals: approvals,
-      harnesses: ['codex', 'claude', 'opencode', 'hermes'],
+      harnesses: ['codex', 'claude', 'opencode', 'hermes', 'openclaw'],
       isolatedClaudeProfiles: 2,
-      artifactCount: 5,
+      artifactCount: 6,
       contextAndCheckpointObserved: true,
       persistentProfileAndSelectedMemoryObserved: true,
       unselectedMemoryExcluded: true,
-      usageScopesRetained: 5,
+      usageScopesRetained: 6,
       paidModelCalls: 0,
     }),
   );
@@ -475,6 +572,7 @@ try {
   await sourceProvider.close();
   await openCodeProvider.close();
   await hermesProvider.close();
+  await openClawProvider.close();
   for (const provider of destinations) await provider.close();
   refs.forEach((ref, index) => {
     if (saved[index] === undefined) delete process.env[ref];

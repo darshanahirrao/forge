@@ -38,6 +38,7 @@ function protectedPath(path: string) {
       (part) =>
         ['.git', 'node_modules', '.venv', 'auth.json', 'credentials.json'].includes(part) ||
         /^\.env(?:\.|$)/i.test(part) ||
+        /^\.forge-openclaw\.json(?:\.|$)/i.test(part) ||
         /\.(?:pem|key|sqlite(?:-.*)?|db(?:-.*)?|log)$/i.test(part),
     );
 }
@@ -163,6 +164,13 @@ export class Continuity {
     private execution: ExecutionController,
   ) {}
   private source(work: Work) {
+    assert(
+      !this.store
+        .all<Run>('runs')
+        .some((run) => run.workId === work.id && run.exitConfirmed === false),
+      409,
+      'A prior native worker exit was not confirmed. A later attempt cannot replace that ownership receipt.',
+    );
     const run = this.store
       .all<Run>('runs')
       .find(
@@ -180,7 +188,8 @@ export class Continuity {
       return null;
     }
     assert(
-      run.nativeSessionId === work.nativeSessionId,
+      run.nativeSessionId === work.nativeSessionId &&
+        (run.nativeSessionKey ?? null) === (work.nativeSessionKey ?? null),
       409,
       'The source native session does not match its execution receipt.',
     );
@@ -250,6 +259,7 @@ export class Continuity {
             harness: work.harness,
             accountId: work.accountId,
             nativeSessionId: work.nativeSessionId,
+            nativeSessionKey: work.nativeSessionKey ?? null,
             runId: run?.id ?? null,
           },
           title: work.title,
@@ -306,7 +316,7 @@ export class Continuity {
       assert(
         canExecuteAccount(account),
         409,
-        'This account has no compatible managed execution route. Choose a Codex slot, Claude API slot, or explicit OpenCode/Hermes native/API profile.',
+        'This account has no compatible managed execution route. Choose a Codex slot, Claude API slot, or explicit OpenCode/Hermes/OpenClaw native/API profile.',
       );
       const snapshot = await artifactSnapshot(
         work.cwd,
@@ -342,6 +352,7 @@ export class Continuity {
           harness: account.harness,
           accountId: account.id,
           nativeSessionId: null,
+          nativeSessionKey: null,
           status: 'ready',
           generation: work.generation + 1,
         });

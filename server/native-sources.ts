@@ -97,7 +97,7 @@ export class NativeSources {
     assert(
       !this.options.isManagedBusy?.(),
       409,
-      'Refresh native activity after the managed worker exits to preserve laptop headroom.',
+      'Refresh native activity after the current native worker or account check finishes to preserve laptop headroom.',
     );
     this.reading.add(sourceId);
     try {
