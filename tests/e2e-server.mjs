@@ -16,6 +16,7 @@ const t3 = await t3Fixture();
 // Owned loopback sink only. Browser tests never publish to an external topic.
 const delivered = [];
 let notificationFailure = false;
+let schedulerState = 'success-stale';
 const notificationServer = createServer(async (request, response) => {
   let body = '';
   for await (const chunk of request) body += chunk;
@@ -93,6 +94,19 @@ const { app } = await createApp({
     }
   },
   nativeSourcesOptions: {
+    schedulerProbe: async () => ({
+      contract: 'hermes-native-ticker/1',
+      provider:
+        schedulerState === 'unavailable'
+          ? null
+          : schedulerState === 'external'
+            ? 'fixture-managed'
+            : 'builtin',
+      loopAgeSeconds: schedulerState === 'loop-stale' ? 600 : 5,
+      successAgeSeconds: schedulerState === 'recent' ? 10 : 600,
+      cadenceSeconds: 60,
+      observedAt: new Date().toISOString(),
+    }),
     homes: { codex: nativeHome, claude: join(directory, 'missing-claude'), hermes: nativeHome },
   },
   rpcFactory: fixtureRpc,
@@ -101,6 +115,10 @@ app.get('/api/fixture/memory', async () => ({ path: memoryPath, project: memoryP
 app.get('/api/fixture/notifications', async () => ({ origin: notificationOrigin, delivered }));
 app.post('/api/fixture/notifications', async (request) => {
   notificationFailure = request.body.fail === true;
+  return { ok: true };
+});
+app.post('/api/fixture/scheduler', async (request) => {
+  schedulerState = request.body.state;
   return { ok: true };
 });
 app.get('/api/test/t3', () => ({ endpoint: t3.origin }));

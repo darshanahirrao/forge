@@ -6,7 +6,7 @@ Forge is an open-source local workspace for people who work across AI runtimes a
 
 We call the product concept **Persistent Agency**: your agent profile, memory, workspace, work history, shared connections, schedules, and policies remain in Forge while you change a compatible execution harness at a verified checkpoint.
 
-**Status: early local application, v0.20.0.** Persistent work/profiles, scoped native memory, reviewed setup blueprints, account routing, spending admission, native activity, machine telemetry, optional ntfy alerts and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic continuation after uncertain effects, always-on companion lifecycle, native schedule controls, full memory-provider migration, live device/provider acceptance and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md) and [full completion audit](docs/COMPLETION_AUDIT.md).
+**Status: early local application, v0.21.0.** Persistent work/profiles, scoped native memory, reviewed setup blueprints, account routing, spending admission, native activity, machine telemetry, optional ntfy alerts and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic continuation after uncertain effects, always-on companion lifecycle, native schedule controls, full memory-provider migration, live device/provider acceptance and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md) and [full completion audit](docs/COMPLETION_AUDIT.md).
 
 The workspace now starts with your managed work and existing native chats, compact resource/usage status and exact pending approvals. Ctrl/Cmd K searches work and commands; optional creation fields stay folded until needed. See [the experience decisions and upstream references](docs/UI_EXPERIENCE.md).
 
@@ -38,7 +38,7 @@ For phone review, the opt-in private gateway reuses Tailscale Serve and an expli
 
 [Notifications](docs/NOTIFICATIONS.md) reuse your existing ntfy destination for generic approval and attempt alerts. Private credentials stay outside SQLite/exports; uncertain deliveries are visible and never automatically retried. The native request still requires authenticated review in Forge.
 
-To see existing work, open **Activity**, discover profile references, then read the sources you want. Codex and Claude session catalogs, Codex and Hermes schedule definitions, and existing Hermes/OpenClaw session APIs retain their native owners. [Native activity coverage and setup](docs/NATIVE_ACTIVITY.md) explain the limits and private metadata handling.
+To see existing work, open **Activity**, discover profile references, then read the sources you want. Codex and Claude session catalogs, Codex and Hermes schedule definitions, and existing Hermes/OpenClaw session APIs retain their native owners. An optional [native Hermes ticker check](docs/SCHEDULER_EVIDENCE.md) distinguishes recent, stale and unknown evidence without starting jobs. [Native activity coverage and setup](docs/NATIVE_ACTIVITY.md) explain the limits and private metadata handling.
 
 T3 Code can supply an optional [native execution backend](docs/NATIVE_BACKENDS.md), with native provider instances/models, exact approvals, delegated run receipts and explicit context coverage. Its separate [read-only activity source](docs/T3_CODE.md) keeps its original scope. The two-instance artifact and credential proof passes; full native-history preservation and whole-stack adoption remain open.
 
@@ -92,6 +92,7 @@ The defining demonstration is a real task checkpointed in one harness, continued
 - [Native OpenCode profile setup and conformance](docs/OPENCODE.md)
 - [Native capability boundary](docs/NATIVE_BOUNDARY.md)
 - [Native chats, schedules, sources and coverage](docs/NATIVE_ACTIVITY.md)
+- [Native scheduler evidence, aging and remaining controls](docs/SCHEDULER_EVIDENCE.md)
 - [Profiles, scoped native memory and corrections](docs/MEMORY.md)
 - [Initial existing-solution audit](docs/REUSE_AUDIT.md)
 - [Customizable workspace blueprints](docs/BLUEPRINTS.md)

@@ -15,6 +15,7 @@ import type { Mutate } from '../api';
 import { Dialog, Empty, FormError, IconButton } from '../components/primitives';
 import { age, names } from '../lib/format';
 import { NativeSessionDialog } from '../components/NativeSessionDialog';
+import { schedulerEvidence } from '../../shared/scheduler';
 
 const sourceNames: Record<NativeSourceKind, string> = {
   codex: 'Codex chats',
@@ -163,6 +164,23 @@ export function ActivityPage({
                     {source.checkedAt ? ' The previous observation is retained.' : ''}
                   </p>
                 )}
+                {source.kind === 'hermes-schedules' && (
+                  <p
+                    className={
+                      source.scheduler &&
+                      schedulerEvidence(source.scheduler).state.endsWith('stale')
+                        ? 'text-warning'
+                        : ''
+                    }
+                  >
+                    {source.schedulerCheck?.available === false
+                      ? 'Latest scheduler check unavailable'
+                      : schedulerEvidence(source.scheduler).label}
+                    {source.schedulerCheck
+                      ? ` · Checked ${age(source.schedulerCheck.observedAt).toLowerCase()}`
+                      : ''}
+                  </p>
+                )}
                 <details className="native-details">
                   <summary>Source and coverage</summary>
                   <p className="native-location mono">{source.home || source.endpoint}</p>
@@ -187,12 +205,51 @@ export function ActivityPage({
                     </p>
                   )}
                   {source.checkedAt && <p>Observed {nativeDate(source.checkedAt)}</p>}
+                  {source.kind === 'hermes-schedules' && (
+                    <>
+                      <p>
+                        A check reads native provider and ticker markers. It starts no tick or job.
+                        Saved evidence does not confirm current gateway availability or individual
+                        job delivery.
+                      </p>
+                      {source.scheduler && (
+                        <p>
+                          Saved evidence from {nativeDate(source.scheduler.observedAt)}. Configured
+                          provider: {source.scheduler.provider ?? 'Unknown'}. Native loop age at
+                          check:{' '}
+                          {source.scheduler.loopAgeSeconds === null
+                            ? 'Unknown'
+                            : `${Math.round(source.scheduler.loopAgeSeconds)} seconds`}
+                          . Successful tick age at check:{' '}
+                          {source.scheduler.successAgeSeconds === null
+                            ? 'Unknown'
+                            : `${Math.round(source.scheduler.successAgeSeconds)} seconds`}
+                          .
+                        </p>
+                      )}
+                    </>
+                  )}
                   <p>
                     {source.capabilities.join(' · ') ||
                       'Capabilities appear after the first successful read.'}
                   </p>
                 </details>
                 <div className="native-source-actions">
+                  {source.kind === 'hermes-schedules' && (
+                    <button
+                      className="button secondary small"
+                      disabled={!local || !!busy || managedActive}
+                      onClick={() =>
+                        void perform(
+                          `scheduler-${source.id}`,
+                          () => mutate(`/native/sources/${source.id}/scheduler`, 'POST'),
+                          'Native scheduler evidence checked. No job or tick was started.',
+                        )
+                      }
+                    >
+                      Check native scheduler
+                    </button>
+                  )}
                   {source.kind === 't3-code' && (
                     <button
                       className="button secondary small"

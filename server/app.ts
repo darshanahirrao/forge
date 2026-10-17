@@ -1103,6 +1103,10 @@ export async function createApp(options: AppOptions) {
     assert(mode(request) === 'local', 409, 'Demo sources never read native activity.');
     return nativeSources.refresh((request.params as { id: string }).id);
   });
+  app.post('/api/native/sources/:id/scheduler', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo sources never inspect native schedulers.');
+    return nativeSources.scheduler((request.params as { id: string }).id);
+  });
   app.delete('/api/native/sources/:id', async (request) => {
     assert(mode(request) === 'local', 409, 'Demo sources never disconnect native profiles.');
     const sourceId = (request.params as { id: string }).id;

@@ -130,7 +130,7 @@ export function NotificationsPanel({ data, mutate }: { data: Snapshot; mutate: M
           </>
         )}
         {snapshot && snapshot.needsReview > 0 && (
-          <p className="notification-warning" role="status">
+          <p className="text-warning" role="status">
             {snapshot.needsReview}{' '}
             {snapshot.needsReview === 1 ? 'delivery needs' : 'deliveries need'} review. Uncertain
             deliveries are never retried automatically.

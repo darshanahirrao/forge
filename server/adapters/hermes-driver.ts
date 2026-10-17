@@ -26,7 +26,9 @@ import {
 } from './acp-worker.js';
 import type { DriverContext, DriverSink, NativeDriver } from './driver.js';
 
-export function hermesEnvironment(account: Account): NodeJS.ProcessEnv {
+export function hermesEnvironment(
+  account: Pick<Account, 'nativeHome' | 'credentialEnv'>,
+): NodeJS.ProcessEnv {
   assert(account.nativeHome, 409, 'Choose an explicit native Hermes home before launching.');
   const env: NodeJS.ProcessEnv = {};
   for (const key of [

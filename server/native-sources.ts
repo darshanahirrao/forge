@@ -3,13 +3,15 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { NativeInventory, NativeSource, NativeSourceKind } from '../shared/types.js';
 import { assert, ForgeError } from './errors.js';
-import { Store, id } from './store.js';
+import { Store, id, now } from './store.js';
 import { readNativeInventory, type InventoryOptions } from './adapters/inventory.js';
+import { readSchedulerObservation } from './scheduler-health.js';
 
 export interface NativeSourcesOptions extends InventoryOptions {
   homes?: { codex?: string; claude?: string; hermes?: string };
   reader?: typeof readNativeInventory;
   isManagedBusy?: () => boolean;
+  schedulerProbe?: typeof readSchedulerObservation;
 }
 export class NativeSources {
   private reading = new Set<string>();
@@ -137,6 +139,33 @@ export class NativeSources {
         error: safeError.message,
       });
       throw safeError;
+    } finally {
+      this.reading.delete(sourceId);
+    }
+  }
+  async scheduler(sourceId: string) {
+    const source = this.store.get<NativeSource>('native_sources', sourceId);
+    assert(
+      source?.kind === 'hermes-schedules',
+      409,
+      'Native ticker evidence is available only for a Hermes schedule profile.',
+    );
+    assert(
+      !this.reading.size && !this.options.isManagedBusy?.(),
+      409,
+      'Check the native scheduler after the current native worker or source read finishes.',
+    );
+    this.reading.add(sourceId);
+    try {
+      const scheduler = await (this.options.schedulerProbe ?? readSchedulerObservation)(source);
+      const available = scheduler.provider !== null;
+      const result = {
+        ...source,
+        scheduler: available ? scheduler : source.scheduler,
+        schedulerCheck: { observedAt: now(), available },
+      };
+      this.store.put('native_sources', sourceId, result);
+      return result;
     } finally {
       this.reading.delete(sourceId);
     }

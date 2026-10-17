@@ -351,6 +351,8 @@ export interface NativeSession {
 export type NativeSourceKind =
   'codex' | 'claude' | 'codex-schedules' | 'hermes-schedules' | 'hermes' | 'openclaw' | 't3-code';
 export interface NativeSource {
+  scheduler?: import('./scheduler.js').SchedulerObservation;
+  schedulerCheck?: { observedAt: string; available: boolean };
   id: string;
   kind: NativeSourceKind;
   label: string;

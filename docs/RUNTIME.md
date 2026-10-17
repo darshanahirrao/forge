@@ -135,3 +135,8 @@ Stop Forge before restoring a rollback copy with its corresponding application c
 ## Notifications at v0.20
 
 Optional ntfy publishing adds generic attention alerts over existing native subscriber apps. Committed native receipts feed a bounded-view SQLite outbox; pending approvals are rechecked before network delivery, and uncertainty is preserved across restart without retry. Local setup stores a private mode-0600 destination reference outside SQLite/exports. The workspace attention list surfaces delivery problems. HTTP acknowledgement does not establish device delivery, native approval, worker exit or work acceptance. Read [NOTIFICATIONS.md](NOTIFICATIONS.md); actual subscriber/tailnet verification remains open.
+
+
+## Native scheduler observations at v0.21
+
+Activity can explicitly check native Hermes ticker evidence through its installed configuration/marker readers. Saved loop/success ages distinguish current-at-check, stale, unknown and externally configured coverage, and age between checks. Invalid/future epochs cannot appear freshly healthy. Native definitions, scheduler ownership, job effects and provider plugins remain untouched. The compiled native fixture and an existing-profile read preserve definition/configuration bytes. No job or model starts; schedule controls and other providers remain open. Read [SCHEDULER_EVIDENCE.md](SCHEDULER_EVIDENCE.md).

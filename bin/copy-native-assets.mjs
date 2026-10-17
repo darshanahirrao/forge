@@ -4,3 +4,7 @@ await copyFile(
   new URL('../server/adapters/hermes-native.py', import.meta.url),
   new URL('../dist/server/adapters/hermes-native.py', import.meta.url),
 );
+await copyFile(
+  new URL('../server/adapters/hermes-scheduler.py', import.meta.url),
+  new URL('../dist/server/adapters/hermes-scheduler.py', import.meta.url),
+);

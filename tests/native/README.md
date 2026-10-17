@@ -69,3 +69,8 @@ Tested with official T3 v0.1.0 and Codex 0.159.3. Account switching currently yi
 Run `npm run test:native:companion` with an installed Hermes MCP interpreter. Set `FORGE_OPENCLAW_BINARY` and `FORGE_OPENCLAW_NODE` for the optional native OpenClaw 2026.10.4 MCP runtime check. Hermes discovery/registry calls read selected memory and save an idempotent checkpoint/work record; OpenClaw continues that same work and profile. A separate official SDK client verifies retained context after access replacement/revocation. Native memory bytes stay unchanged, with zero inference calls. Only the isolated OpenClaw fixture imports its version-pinned bundled runtime; production Forge uses standard MCP. Neither check starts native heartbeat/planner loops or rewrites private configuration.
 
 The T3 execution check now dispatches its crash-stage native run through a finite MCP grant. Compiled Forge restarts on the same port; repeating the request ID returns the original run without another native turn or approval. See [the companion contract](../../docs/COMPANION_ACCESS.md).
+
+
+## Native scheduler evidence
+
+Build first, then run `npm run test:native:scheduler` with an installed Hermes interpreter. This opt-in isolated-profile check uses the compiled module and packaged Python asset, validates missing/current/stale/malformed/nonfinite/future/oversized markers and external-provider configuration, and verifies every fixture profile byte is unchanged by each read. It starts no job, tick, plugin provider or model. See [the contract and limits](../../docs/SCHEDULER_EVIDENCE.md).
