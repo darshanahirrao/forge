@@ -255,12 +255,19 @@ export function codexScheduleRow(
 export interface InventoryOptions {
   rpcFactory?: RpcFactory;
   codexBinary?: string;
+  t3Reader?: (
+    source: NativeSource,
+  ) => Promise<{ inventory: NativeInventory; capabilities: string[] }>;
 }
 export async function readNativeInventory(
   source: NativeSource,
   options: InventoryOptions = {},
 ): Promise<{ inventory: NativeInventory; capabilities: string[] }> {
   const checkedAt = now();
+  if (source.kind === 't3-code') {
+    assert(options.t3Reader, 409, 'Connect T3 Code from Activity to enable native MCP discovery.');
+    return options.t3Reader(source);
+  }
   if (source.kind === 'codex') {
     const binary = options.codexBinary ?? (await findBinary('codex'));
     assert(binary, 409, 'Install native Codex before reading its session catalog.');

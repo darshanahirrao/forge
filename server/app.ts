@@ -4,7 +4,7 @@ import fastifyStatic from '@fastify/static';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { realpath, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
-import { isAbsolute, resolve } from 'node:path';
+import { dirname, isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z, ZodError } from 'zod';
 import type {
@@ -46,6 +46,7 @@ import { workspaceHeaders } from './http-security.js';
 import { bridgeActor, type PhoneBridge } from './phone.js';
 import { seedDemo } from './demo.js';
 import { checkMemoryAdmission } from './memory-pressure.js';
+import { T3Connections, t3Endpoint } from './t3.js';
 
 const harness = z.enum(['codex', 'claude', 'opencode', 'hermes', 'openclaw']);
 const text = (max: number) => z.string().trim().max(max);
@@ -131,9 +132,14 @@ export async function createApp(options: AppOptions) {
   const machine = new MachineMonitor(options.memoryPressureReader);
   const continuity = new Continuity(local, controller);
   const probing = new Set<string>();
+  const t3 = new T3Connections(
+    local,
+    options.filename === ':memory:' ? undefined : dirname(options.filename),
+  );
   const nativeSources = new NativeSources(local, {
     rpcFactory: options.rpcFactory,
     codexBinary: options.codexBinary,
+    t3Reader: (source) => t3.read(source),
     ...options.nativeSourcesOptions,
     isManagedBusy: () => controller.activeCount > 0 || probing.size > 0,
   });
@@ -664,6 +670,42 @@ export async function createApp(options: AppOptions) {
     );
     return nativeSources.discover();
   });
+  app.post('/api/native/t3/authorize', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo activity never connects to a native server.');
+    assert(
+      bridgeActor(request.headers, options.phoneBridge).kind === 'local',
+      409,
+      'Connect T3 Code from a browser on the Forge host, then view saved activity on your phone.',
+    );
+    const input = z
+      .object({ endpoint: t3Endpoint, label: text(100).min(1) })
+      .strict()
+      .parse(request.body);
+    return t3.begin(input, `http://${request.headers.host}/api/native/t3/callback`);
+  });
+  const t3Return = (result: 'connected' | 'denied' | 'failed') =>
+    `${options.development ? 'http://127.0.0.1:5173' : ''}/?t3=${result}`;
+  app.get('/api/native/t3/callback', async (request, reply) => {
+    const input = z
+      .object({
+        state: z.string().length(64),
+        code: text(4000).optional(),
+        iss: text(300).optional(),
+        error: text(200).optional(),
+      })
+      .parse(request.query);
+    if (input.error) {
+      t3.cancel(input.state);
+      return reply.redirect(t3Return('denied'));
+    }
+    try {
+      assert(input.code && input.iss, 400, 'T3 Code sign-in did not include its code and issuer.');
+      await t3.finish(input.state, input.code, input.iss);
+      return reply.redirect(t3Return('connected'));
+    } catch {
+      return reply.redirect(t3Return('failed'));
+    }
+  });
   app.post('/api/native/sources', async (request) => {
     assert(mode(request) === 'local', 409, 'Demo sources never connect to native services.');
     const body = z
@@ -703,12 +745,15 @@ export async function createApp(options: AppOptions) {
   app.delete('/api/native/sources/:id', async (request) => {
     assert(mode(request) === 'local', 409, 'Demo sources never disconnect native profiles.');
     const sourceId = (request.params as { id: string }).id;
+    const source = local.get<import('../shared/types.js').NativeSource>('native_sources', sourceId);
+    t3.assertCanForget(sourceId);
     assert(
       !profiles.list().some((profile) => profile.companionSourceId === sourceId),
       409,
       'A profile references this native companion. Change its binding before forgetting the source.',
     );
     nativeSources.remove(sourceId);
+    if (source?.kind === 't3-code') await t3.forget(source);
     return { ok: true };
   });
   const profileSchema = z
@@ -833,6 +878,7 @@ export async function createApp(options: AppOptions) {
     );
   }
   app.addHook('onClose', async () => {
+    await t3.close();
     await controller.close();
     local.close();
     demo.close();

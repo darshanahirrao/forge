@@ -1,6 +1,88 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
+test('T3 Code signs in natively for read-only activity, retains revoked observations and disconnects in both themes and mobile', async ({
+  page,
+}) => {
+  await page.goto('/');
+  const fixture = await (await page.request.get('/api/test/t3')).json();
+  await page.getByRole('navigation').getByRole('button', { name: 'Activity', exact: true }).click();
+  await page.getByRole('button', { name: 'Add source', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Connect existing activity.' });
+  await dialog.getByLabel('Source type').selectOption('t3-code');
+  await dialog.getByLabel('Source label').fill('T3 browser workspace');
+  await dialog.getByLabel('T3 Code address').fill(fixture.endpoint + '/mcp');
+  await expect(dialog.getByLabel('Token environment variable')).toHaveCount(0);
+  await expect(dialog.getByText(/native grant covers all projects/)).toBeVisible();
+  await dialog.screenshot({ path: 'artifacts/forge-t3-connect-light.png' });
+  expect(
+    (
+      await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()
+    ).violations.map((v) => v.id),
+  ).toEqual([]);
+  await dialog.getByRole('button', { name: 'Sign in to T3 Code' }).click();
+  await expect(page.getByRole('heading', { name: 'T3 Code test sign-in' })).toBeVisible();
+  await page.getByRole('button', { name: 'Allow read-only activity' }).click();
+  const source = page
+    .locator('.native-source')
+    .filter({ has: page.getByRole('heading', { name: 'T3 browser workspace', exact: true }) });
+  await expect(source).toBeVisible();
+  await expect(page).not.toHaveURL(/state=|code=|t3=/);
+  await source.getByRole('button', { name: 'Read T3 browser workspace', exact: true }).click();
+  await expect(page.getByText('Native T3 work', { exact: true })).toBeVisible();
+  await page.getByText('Native T3 work', { exact: true }).click();
+  const nativeDetails = page.getByRole('dialog', { name: 'Native T3 work', exact: true });
+  await expect(nativeDetails.getByText('Native provider instance', { exact: true })).toBeVisible();
+  await expect(nativeDetails.getByText('codex-work', { exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(nativeDetails).toHaveCount(0);
+  await source.getByText('Source and coverage', { exact: true }).click();
+  await expect(source.getByRole('link', { name: 'Open T3 Code' })).toHaveAttribute(
+    'href',
+    fixture.endpoint,
+  );
+  await expect(
+    source.getByText(/transcripts, schedules and approval controls are not imported/),
+  ).toBeVisible();
+  const message = page.getByRole('button', { name: 'Dismiss message', exact: true });
+  if (await message.isVisible()) await message.click();
+  for (const dark of [false, true]) {
+    if (dark) await page.getByRole('button', { name: 'Use dark theme' }).click();
+    for (const mobile of [false, true]) {
+      await page.setViewportSize(
+        mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 },
+      );
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+      ).toBe(true);
+      expect(
+        (
+          await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze()
+        ).violations.map((v) => v.id),
+      ).toEqual([]);
+      await page.screenshot({
+        path: `artifacts/forge-t3-activity-${mobile ? 'mobile' : 'desktop'}-${dark ? 'dark' : 'light'}.png`,
+        fullPage: true,
+      });
+    }
+  }
+  const snapshot = await (await page.request.get('/api/snapshot')).json();
+  const revoked = await page.request.post('/api/test/t3/revoke', {
+    data: {},
+    headers: { 'x-forge-csrf': snapshot.csrf },
+  });
+  expect(revoked.ok()).toBe(true);
+  await source.getByRole('button', { name: 'Read T3 browser workspace', exact: true }).click();
+  await expect(source.getByText('Refresh failed', { exact: true })).toBeVisible();
+  await expect(page.getByText('Native T3 work', { exact: true })).toBeVisible();
+  await source.getByRole('button', { name: 'Reconnect' }).click();
+  await expect(dialog.getByLabel('T3 Code address')).toHaveValue(fixture.endpoint);
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('button', { name: 'Forget T3 browser workspace', exact: true }).click();
+  await expect(source).toHaveCount(0);
+  await expect(page.getByText('Native T3 work', { exact: true })).toHaveCount(0);
+});
+
 test('memory protection persists and explains a native pressure hold without sending task input', async ({
   page,
 }) => {

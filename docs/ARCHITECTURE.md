@@ -4,7 +4,7 @@ This document defines the broader architecture. The first local application is i
 
 Proposal dated 16 October 2026. Components and contracts below are design decisions to validate, not implemented functionality.
 
-Reuse update, 17 October: [T3 Code's pinned review](T3_CODE_REVIEW.md) establishes substantial overlap and makes it the first existing foundation to evaluate before extending duplicate infrastructure. The current v0.12 runtime remains unchanged. If T3 supplies execution, Forge must call its supported boundary and keep one native owner; a Forge control surface must not independently dispatch, approve or clean up the same T3-owned worker. Product fit, native Hermes/OpenClaw behavior and whole-stack overhead still need isolated runtime evidence.
+Reuse update, 17 October: [T3 Code's pinned review](T3_CODE_REVIEW.md) establishes substantial overlap and makes it the first existing foundation to evaluate before extending duplicate infrastructure. The v0.13 [read-only T3 bridge](T3_CODE.md) passes the first native MCP observation gate. Managed T3 execution and whole-product adoption remain open. If T3 supplies execution, Forge must call its supported boundary and keep one native owner; a Forge control surface must not independently dispatch, approve or clean up the same T3-owned worker. Product fit, native Hermes/OpenClaw behavior and whole-stack overhead still need isolated runtime evidence.
 
 ## A permanent workspace with replaceable execution
 

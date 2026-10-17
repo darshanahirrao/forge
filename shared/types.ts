@@ -264,10 +264,16 @@ export interface NativeSession {
   id: string;
   title: string;
   harness: string;
+  providerInstanceId?: string;
   status: string;
   project: string;
   source:
-    'agent-deck' | 'codex/app-server' | 'claude/agent-sdk' | 'hermes/api' | 'openclaw/gateway';
+    | 'agent-deck'
+    | 'codex/app-server'
+    | 'claude/agent-sdk'
+    | 'hermes/api'
+    | 'openclaw/gateway'
+    | 't3-code/mcp';
   sourceId?: string;
   updatedAt?: string | null;
   cwd?: string;
@@ -275,7 +281,7 @@ export interface NativeSession {
   control?: 'observed';
 }
 export type NativeSourceKind =
-  'codex' | 'claude' | 'codex-schedules' | 'hermes-schedules' | 'hermes' | 'openclaw';
+  'codex' | 'claude' | 'codex-schedules' | 'hermes-schedules' | 'hermes' | 'openclaw' | 't3-code';
 export interface NativeSource {
   id: string;
   kind: NativeSourceKind;
@@ -283,11 +289,12 @@ export interface NativeSource {
   home: string;
   endpoint: string;
   tokenEnv?: string;
+  authentication?: 'oauth';
   state: 'configured' | 'connected' | 'error';
   checkedAt: string | null;
   error: string | null;
   capabilities: string[];
-  observation?: { sessions: number; schedules: number; moreAvailable: boolean };
+  observation?: { sessions: number; schedules: number; moreAvailable: boolean; projects?: number };
 }
 export interface NativeSchedule {
   id: string;
@@ -303,6 +310,7 @@ export interface NativeSchedule {
   observedAt: string;
 }
 export interface NativeInventory {
+  projects?: number;
   sessions: NativeSession[];
   schedules: NativeSchedule[];
   moreAvailable: boolean;

@@ -22,6 +22,7 @@ const sourceNames: Record<NativeSourceKind, string> = {
   'hermes-schedules': 'Hermes schedules',
   hermes: 'Hermes API',
   openclaw: 'OpenClaw gateway',
+  't3-code': 'T3 Code workspace',
 };
 const nativeDate = (value: string | null) =>
   value ? new Date(value).toLocaleString() : 'Not reported';
@@ -31,7 +32,7 @@ export function ActivityPage({ data, mutate }: { data: Snapshot; mutate: Mutate 
   const [tab, setTab] = useState<'chats' | 'schedules'>('chats');
   const [query, setQuery] = useState('');
   const [sourceId, setSourceId] = useState('all');
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState<NativeSource | true | null>(null);
   const [selected, setSelected] = useState<NativeSession | null>(null);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -46,7 +47,7 @@ export function ActivityPage({ data, mutate }: { data: Snapshot; mutate: Mutate 
     .filter((session) =>
       matches(
         session.sourceId,
-        `${session.title} ${session.project} ${session.harness} ${label(session.sourceId)}`,
+        `${session.title} ${session.project} ${session.harness} ${session.providerInstanceId ?? ''} ${label(session.sourceId)}`,
       ),
     )
     .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''));
@@ -130,8 +131,17 @@ export function ActivityPage({ data, mutate }: { data: Snapshot; mutate: Mutate 
                 </p>
                 {source.observation && (
                   <p>
-                    {quantity(source.observation.sessions, 'chat')} ·{' '}
-                    {quantity(source.observation.schedules, 'schedule')}
+                    {source.observation.projects !== undefined && (
+                      <>{quantity(source.observation.projects, 'project')} · </>
+                    )}
+                    {quantity(
+                      source.observation.sessions,
+                      source.kind === 't3-code' ? 'thread' : 'chat',
+                    )}{' '}
+                    ·{' '}
+                    {source.kind === 't3-code'
+                      ? 'Schedules not read'
+                      : quantity(source.observation.schedules, 'schedule')}
                     {source.observation.moreAvailable
                       ? ' · More available in the native client'
                       : ''}
@@ -153,8 +163,19 @@ export function ActivityPage({ data, mutate }: { data: Snapshot; mutate: Mutate 
                         ? 'Up to 100 recent native SDK sessions, including programmatic sessions.'
                         : source.kind.endsWith('schedules')
                           ? 'Native definitions only. The native scheduler owns execution; its liveness is not inferred.'
-                          : 'Up to 100 native session records. The gateway retains execution, permissions and tool policy.'}
+                          : source.kind === 't3-code'
+                            ? 'Up to 20 projects and 100 threads through read-only MCP. Threads stay in T3 Code; transcripts, schedules and approval controls are not imported.'
+                            : 'Up to 100 native session records. The gateway retains execution, permissions and tool policy.'}
                   </p>
+                  {source.kind === 't3-code' && (
+                    <p>
+                      <a href={source.endpoint} target="_blank" rel="noreferrer">
+                        Open T3 Code
+                      </a>
+                      {' · '}Disconnect removes Forge's local sign-in. Revoke the native grant in T3
+                      Code Connections.
+                    </p>
+                  )}
                   {source.checkedAt && <p>Observed {nativeDate(source.checkedAt)}</p>}
                   <p>
                     {source.capabilities.join(' · ') ||
@@ -162,6 +183,15 @@ export function ActivityPage({ data, mutate }: { data: Snapshot; mutate: Mutate 
                   </p>
                 </details>
                 <div className="native-source-actions">
+                  {source.kind === 't3-code' && (
+                    <button
+                      className="button secondary small"
+                      disabled={!!busy}
+                      onClick={() => setAdding(source)}
+                    >
+                      Reconnect
+                    </button>
+                  )}
                   <button
                     className="button secondary small"
                     disabled={!!busy || managedActive}
@@ -348,9 +378,10 @@ export function ActivityPage({ data, mutate }: { data: Snapshot; mutate: Mutate 
       {adding && (
         <SourceForm
           mutate={mutate}
-          onClose={() => setAdding(false)}
+          initial={adding === true ? undefined : adding}
+          onClose={() => setAdding(null)}
           onSaved={() => {
-            setAdding(false);
+            setAdding(null);
             setNotice('Source registered. Read it when you are ready.');
           }}
         />
@@ -367,6 +398,12 @@ export function ActivityPage({ data, mutate }: { data: Snapshot; mutate: Mutate 
                 <dt>Owner</dt>
                 <dd>{label(selected.sourceId)}</dd>
               </div>
+              {selected.providerInstanceId && (
+                <div>
+                  <dt>Native provider instance</dt>
+                  <dd className="mono">{selected.providerInstanceId}</dd>
+                </div>
+              )}
               <div>
                 <dt>Native state</dt>
                 <dd>{selected.status}</dd>
@@ -401,26 +438,36 @@ export function ActivityPage({ data, mutate }: { data: Snapshot; mutate: Mutate 
 
 function SourceForm({
   mutate,
+  initial,
   onClose,
   onSaved,
 }: {
   mutate: Mutate;
+  initial?: NativeSource;
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [kind, setKind] = useState<NativeSourceKind>('codex');
-  const [label, setLabel] = useState(sourceNames.codex);
+  const [kind, setKind] = useState<NativeSourceKind>(initial?.kind ?? 'codex');
+  const [label, setLabel] = useState(initial?.label ?? sourceNames.codex);
   const [home, setHome] = useState('');
-  const [endpoint, setEndpoint] = useState('http://127.0.0.1:8642');
+  const [endpoint, setEndpoint] = useState(initial?.endpoint ?? 'http://127.0.0.1:8642');
   const [tokenEnv, setTokenEnv] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const runtime = kind === 'hermes' || kind === 'openclaw';
+  const runtime = kind === 'hermes' || kind === 'openclaw' || kind === 't3-code';
   async function submit(event: FormEvent) {
     event.preventDefault();
     setSaving(true);
     setError('');
     try {
+      if (kind === 't3-code') {
+        const result = await mutate<{ authorizationUrl: string }>('/native/t3/authorize', 'POST', {
+          endpoint,
+          label,
+        });
+        window.location.assign(result.authorizationUrl);
+        return;
+      }
       await mutate<NativeSource>('/native/sources', 'POST', {
         kind,
         label,
@@ -444,7 +491,13 @@ function SourceForm({
               const next = event.target.value as NativeSourceKind;
               setKind(next);
               setLabel(sourceNames[next]);
-              setEndpoint(next === 'openclaw' ? 'http://127.0.0.1:18789' : 'http://127.0.0.1:8642');
+              setEndpoint(
+                next === 'openclaw'
+                  ? 'http://127.0.0.1:18789'
+                  : next === 't3-code'
+                    ? 'http://127.0.0.1:3773'
+                    : 'http://127.0.0.1:8642',
+              );
             }}
           >
             {Object.entries(sourceNames).map(([key, name]) => (
@@ -466,7 +519,7 @@ function SourceForm({
         {runtime ? (
           <>
             <label>
-              Local API address
+              {kind === 't3-code' ? 'T3 Code address' : 'Local API address'}
               <input
                 type="url"
                 value={endpoint}
@@ -475,22 +528,31 @@ function SourceForm({
                 required
               />
               <small>
-                Use an existing loopback API. Its native authentication and tool policy apply.
+                {kind === 't3-code'
+                  ? 'Paste the local T3 Code address or its copied MCP URL. Sign in on this computer and choose Read only.'
+                  : 'Use an existing loopback API. Its native authentication and tool policy apply.'}
               </small>
             </label>
-            <label>
-              Token environment variable <span className="optional">Optional</span>
-              <input
-                value={tokenEnv}
-                onChange={(event) => setTokenEnv(event.target.value)}
-                pattern="FORGE_[A-Z0-9_]+"
-                maxLength={128}
-                placeholder="FORGE_RUNTIME_TOKEN"
-              />
-              <small>
-                Save the environment variable name. Keep its secret value outside Forge.
-              </small>
-            </label>
+            {kind === 't3-code' ? (
+              <p className="source-note">
+                T3 Code keeps its threads, tools and approvals. Forge reads project and thread
+                summaries on demand. Its native grant covers all projects.
+              </p>
+            ) : (
+              <label>
+                Token environment variable <span className="optional">Optional</span>
+                <input
+                  value={tokenEnv}
+                  onChange={(event) => setTokenEnv(event.target.value)}
+                  pattern="FORGE_[A-Z0-9_]+"
+                  maxLength={128}
+                  placeholder="FORGE_RUNTIME_TOKEN"
+                />
+                <small>
+                  Save the environment variable name. Keep its secret value outside Forge.
+                </small>
+              </label>
+            )}
           </>
         ) : (
           <label>
@@ -510,8 +572,9 @@ function SourceForm({
           </label>
         )}
         <p className="source-note">
-          Only the source reference is saved now. A separate read collects native titles and
-          summaries. Full transcripts and schedule instructions stay native.
+          {kind === 't3-code'
+            ? 'Forge remembers this read-only connection on this computer. Read its activity after connecting.'
+            : 'Only the source reference is saved now. A separate read collects native titles and summaries. Full transcripts and schedule instructions stay native.'}
         </p>
         <FormError error={error} />
         <footer className="form-footer handoff-footer">
@@ -519,7 +582,8 @@ function SourceForm({
             Cancel
           </button>
           <button className="button primary" disabled={saving}>
-            {saving && <LoaderCircle size={16} className="spin" />}Save source reference
+            {saving && <LoaderCircle size={16} className="spin" />}
+            {kind === 't3-code' ? 'Sign in to T3 Code' : 'Save source reference'}
           </button>
         </footer>
       </form>

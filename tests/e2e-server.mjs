@@ -10,6 +10,8 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp } from '../dist/server/app.js';
 import { NativeRpc } from '../dist/server/adapters/rpc.js';
+import { t3Fixture } from './fixtures/t3-mcp.ts';
+const t3 = await t3Fixture();
 const directory = mkdtempSync(join(tmpdir(), 'forge-browser-'));
 const nativeHome = join(directory, 'native-fixture');
 mkdirSync(join(nativeHome, 'automations', 'fixture-schedule'), { recursive: true });
@@ -60,6 +62,11 @@ const { app } = await createApp({
     }),
 });
 app.get('/api/fixture/memory', async () => ({ path: memoryPath, project: memoryProject }));
+app.get('/api/test/t3', () => ({ endpoint: t3.origin }));
+app.post('/api/test/t3/revoke', () => {
+  t3.settings.revoked = true;
+  return { ok: true };
+});
 await app.listen({ host: '127.0.0.1', port: 4711 });
 const gateway = await createPhoneGateway(
   { origin: phoneOrigin, users: ['alice@example.com'], port: 4712 },
@@ -129,6 +136,7 @@ for (const signal of ['SIGTERM', 'SIGINT'])
       await new Promise((resolve) => phoneProxy.close(resolve));
       await gateway.close();
       await app.close();
+      await t3.close();
     } finally {
       rmSync(directory, { recursive: true, force: true });
       process.exit(0);

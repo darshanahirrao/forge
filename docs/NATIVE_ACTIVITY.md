@@ -1,5 +1,7 @@
 # Native activity
 
+The v0.13 [T3 Code source](T3_CODE.md) uses native OAuth and a strictly read-only MCP grant. Connect from Activity using a local server address or copied MCP URL, then read bounded project/thread metadata. T3 keeps execution, approvals and schedules. Provider-instance IDs stay separate from harness/account identity. Revocation retains the prior observation; reconnect and disconnect preserve the native owner.
+
 Forge's Activity view keeps native session references and schedule observations together. It reuses installed native interfaces and preserves the existing execution and scheduling owners. Adding a source does not launch an agent, adopt a foreign chat or enable approval controls.
 
 ## Connect existing activity

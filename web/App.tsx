@@ -48,13 +48,23 @@ import { HandoffDialog } from './components/HandoffDialog';
 import { SearchDialog } from './components/SearchDialog';
 
 export function App() {
+  const t3Result = new URLSearchParams(window.location.search).get('t3');
+  const returnedFromT3 = ['connected', 'denied', 'failed'].includes(t3Result ?? '');
   const [mode, setMode] = useState<WorkspaceMode>(() =>
-    localStorage.getItem('forge.workspace') === 'demo' ? 'demo' : 'local',
+    !returnedFromT3 && localStorage.getItem('forge.workspace') === 'demo' ? 'demo' : 'local',
   );
-  const [view, setView] = useState<View>('overview');
+  const [view, setView] = useState<View>(returnedFromT3 ? 'activity' : 'overview');
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [networkError, setNetworkError] = useState('');
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState(
+    t3Result === 'connected'
+      ? 'T3 Code connected. Read its activity when you are ready.'
+      : t3Result === 'denied'
+        ? 'T3 Code sign-in was cancelled. Your existing sources are unchanged.'
+        : t3Result === 'failed'
+          ? 'T3 Code could not connect. Check its server, start a new sign-in and choose Read only.'
+          : '',
+  );
   const [theme, setTheme] = useState(() => localStorage.getItem('forge.theme') ?? 'light');
   const [mobileNav, setMobileNav] = useState(false);
   const [newWork, setNewWork] = useState(false);
@@ -70,6 +80,10 @@ export function App() {
   const [busy, setBusy] = useState('');
   const activeMode = useRef(mode);
   activeMode.current = mode;
+  useEffect(() => {
+    if (returnedFromT3)
+      window.history.replaceState(null, '', window.location.pathname + window.location.hash);
+  }, []);
   const load = useCallback(async () => {
     try {
       const data = await request<Snapshot>('/snapshot', mode);

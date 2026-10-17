@@ -1,5 +1,7 @@
 # Native tool conformance
 
+`npm run test:native:t3` separately exercises an existing native T3 CLI with `FORGE_T3_BINARY=/absolute/path/to/t3`. It checks actual OAuth/PKCE, read-only write rejection, native CLI project metadata, revocation, observation retention and root/collector exit. It submits no model task and uses temporary homes/data. The tested macOS arm64 release is v0.1.0; see [T3 evidence and limits](../../docs/T3_CODE.md). This opt-in check is separate from the combined command and Linux CI, and does not use the inference fixtures below.
+
 These opt-in checks exercise actual native executables. They supply deterministic model responses through ephemeral loopback HTTP fixtures, use synthetic credentials only, and keep project/configuration/state inside temporary directories. Native tools perform the file write; the fixture server does not write the proof artifact. No model provider subscription, API key or paid endpoint is required.
 
 ```sh

@@ -1,5 +1,7 @@
 # T3 Code reuse decision
 
+Implementation update: v0.13 adds a [read-only native T3 connection](T3_CODE.md) and stable-release OAuth, metadata, mutation-denial and revocation checks. The source-review boundary below describes checkpoint `456ad84`; later runtime evidence is recorded separately. The first MCP observation gate passes. Full foundation adoption, account/companion continuity and whole-stack fit remain unproven.
+
 Reviewed 17 October 2026 at upstream commit `02d48aec5c75e6abb90d06fd2c63939a82bd3718` in [pingdotgg/t3code][upstream]. This is a source and interface review, not a runtime benchmark or an integration release.
 
 ## Decision

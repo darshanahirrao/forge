@@ -1,5 +1,7 @@
 # Background workspace on macOS
 
+The optional [T3 Code observation connection](T3_CODE.md) reuses its private read-only MCP credential from the same Forge data directory after a restart. It does not depend on copying provider-key environment values. T3 must remain available under its own owner; Forge never installs or starts it. Missing or expired grants require native sign-in again.
+
 Forge can run outside Codex and start at login through the native macOS user service manager, launchd. It runs the same local application, private SQLite workspace and optional phone gateway. No model loop, native scheduler or new process supervisor is added.
 
 This is an opt-in user login service. The Mac must be awake and you must be logged in. It does not keep a sleeping laptop online or provide mobile push notifications. Linux and Windows use the foreground application until their native service backends are implemented and verified.

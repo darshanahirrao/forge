@@ -1,6 +1,6 @@
 {
   "name": "@forge-workspace/forge",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "A local workspace for continuous work across agent harnesses.",
   "private": true,
   "type": "module",
@@ -30,13 +30,15 @@
     "test:native:hermes": "tsx tests/native/hermes-conformance.ts",
     "test:native:openclaw": "tsx tests/native/openclaw-conformance.ts",
     "test:native:service": "node tests/native/service-conformance.mjs",
-    "test:native:pressure": "node tests/native/pressure-conformance.mjs"
+    "test:native:pressure": "node tests/native/pressure-conformance.mjs",
+    "test:native:t3": "tsx tests/native/t3-conformance.ts"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.9.0",
     "@anthropic-ai/claude-agent-sdk": "0.3.301",
     "@fastify/http-proxy": "11.6.4",
     "@fastify/static": "^10.1.6",
+    "@modelcontextprotocol/sdk": "1.32.1",
     "@openclaw/gateway-client": "2026.10.4",
     "@opencode/client": "2.0.6",
     "fastify": "^5.6.0",

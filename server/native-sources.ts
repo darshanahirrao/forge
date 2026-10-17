@@ -111,6 +111,9 @@ export class NativeSources {
           error: null,
           capabilities: result.capabilities,
           observation: {
+            ...(result.inventory.projects !== undefined
+              ? { projects: result.inventory.projects }
+              : {}),
             sessions: result.inventory.sessions.length,
             schedules: result.inventory.schedules.length,
             moreAvailable: result.inventory.moreAvailable,

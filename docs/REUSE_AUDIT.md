@@ -1,5 +1,7 @@
 # Initial reuse audit
 
+Runtime update: the v0.13 [T3 connection](T3_CODE.md) reuses native MCP/OAuth with official MIT MCP SDK 1.32.1. It observes projects/threads, retains native ownership and starts no T3 process in production. Actual stable v0.1.0 authentication, native read-only write rejection, project CLI metadata, revocation and root/collector exit pass in an isolated synthetic installation. No upstream control-plane source was copied. Whole-product adoption remains gated by the [full comparison](T3_CODE_REVIEW.md), including a defined whole-stack benchmark.
+
 Reviewed 16 October 2026 from primary project documentation and GitHub metadata. This is an initial candidate map, not an integration decision or exhaustive market review. No candidate was installed, executed, benchmarked, or connected to private user data.
 
 Update, 17 October 2026: the user added T3 Code as a reference. Its pinned source and license review is recorded in [T3_CODE_REVIEW.md](T3_CODE_REVIEW.md). T3 is now the first whole-product foundation to evaluate before extending overlapping Forge infrastructure. This later review checked source in an isolated sparse checkout; it did not execute T3 or change the current runtime.

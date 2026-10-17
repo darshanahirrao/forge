@@ -6,7 +6,7 @@ Forge is an open-source local workspace for people who work across AI runtimes a
 
 We call the product concept **Persistent Agency**: your agent profile, memory, workspace, work history, shared connections, schedules, and policies remain in Forge while you change a compatible execution harness at a verified checkpoint.
 
-**Status: early local application, v0.12.0.** Persistent work/profiles, scoped native memory, account slots, native activity, machine telemetry and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic quota fallback, always-on companion planning/control, background approval notifications, native schedule controls, full memory-provider migration and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md).
+**Status: early local application, v0.13.0.** Persistent work/profiles, scoped native memory, account slots, native activity, machine telemetry and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Automatic quota fallback, always-on companion planning/control, background approval notifications, native schedule controls, full memory-provider migration and hard resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md).
 
 ## Run Forge
 
@@ -31,6 +31,8 @@ OpenClaw reuses its native foreground Gateway and official client with a dedicat
 For phone review, the opt-in private gateway reuses Tailscale Serve and an explicit owner allowlist. [Phone setup and evidence](docs/PHONE_ACCESS.md) describe the authenticated route and the remaining live-device verification. The default service remains local.
 
 To see existing work, open **Activity**, discover profile references, then read the sources you want. Codex and Claude session catalogs, Codex and Hermes schedule definitions, and existing Hermes/OpenClaw session APIs retain their native owners. [Native activity coverage and setup](docs/NATIVE_ACTIVITY.md) explain the limits and private metadata handling.
+
+T3 Code is now an optional [native activity source](docs/T3_CODE.md). Forge reuses its MCP/OAuth interface for read-only project/thread discovery, with native sign-in and explicit ownership. It connects to an existing server on demand; T3 foundation adoption and managed continuation remain under evaluation.
 
 Open **Memory** to create a persistent profile and pin scoped native Markdown files or sections. The launch dialog shows the current selection. Corrections invalidate stale reviews and start a fresh native conversation while retaining the work and earlier history. [Profile and memory setup](docs/MEMORY.md) explains scope, provenance and native ownership.
 

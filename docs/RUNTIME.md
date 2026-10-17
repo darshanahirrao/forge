@@ -1,4 +1,6 @@
-# Forge v0.12.0
+# Forge v0.13.0
+
+The latest addition is an optional [native T3 Code connection](T3_CODE.md): supported SDK OAuth/PKCE, a strictly read-only grant, bounded project/thread observations and private restart-persistent credentials. Stable T3 v0.1.0 passes isolated authentication, metadata, mutation-denial and revocation checks. The source retains T3's ownership; account execution, quota, approval and schedule controls are not imported. Whole-product adoption remains open.
 
 Implementation checkpoint, 17 October 2026. New managed launches now check native macOS memory pressure before creating a worker, with explicit unknown coverage and observe-only policy. Opt-in macOS user-service operation now reuses native launchd, including actual graceful/crash restart evidence. Managed native work now has OS-checked resource attribution across Codex, Claude API, OpenCode v2, Hermes ACP and OpenClaw Gateway. Stable native UUID/routing-key bindings and asynchronous shutdown retain ownership through native cleanup. Private phone access still reuses native Tailscale Serve and the same workspace/inbox, with recorded reviewer identity. The full Persistent Agency architecture remains a delivery plan rather than a claim of completed interoperability.
 
