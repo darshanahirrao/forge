@@ -149,7 +149,7 @@ export function Overview({
         </button>
       </section>
       <div className="workspace-grid">
-        <aside className="workspace-rail" aria-label="Decisions and setup">
+        <aside className="workspace-rail workspace-decisions" aria-label="Decisions">
           {(pending.length > 0 ||
             notificationIssues > 0 ||
             nativeControlIssues > 0 ||
@@ -257,35 +257,6 @@ export function Overview({
               </h2>
               <p>No decisions waiting.</p>
               <small>Native requests from managed work appear here.</small>
-            </section>
-          )}
-          {data.mode === 'local' && data.accounts.length === 0 && (
-            <div className="setup-inline">
-              <p>
-                <strong>
-                  {data.connections.filter((connection) => connection.installed).length} tools
-                  detected.
-                </strong>{' '}
-                Link an existing account to run work from Forge.
-              </p>
-              <button className="text-button" onClick={onLinkAccount}>
-                Link account <ArrowRight size={14} />
-              </button>
-            </div>
-          )}
-          {(data.mode === 'demo' || data.work.length === 0) && (
-            <section className="continuity-intro" aria-label="Explore work continuity">
-              <div>
-                <h2>Cross-harness continuity</h2>
-                <p>
-                  {data.mode === 'demo'
-                    ? 'Follow a fictional Codex-to-Hermes task, then review its shareable receipt.'
-                    : 'Keep goals, selected memory, approvals and usage together as native tools change.'}
-                </p>
-              </div>
-              <button className="text-button" onClick={onDemo}>
-                See a handoff example <ArrowRight size={14} />
-              </button>
             </section>
           )}
         </aside>
@@ -415,6 +386,37 @@ export function Overview({
             stay in the native client. Active attempts above are managed by Forge.
           </p>
         </div>
+        <aside className="workspace-rail workspace-setup" aria-label="Workspace setup">
+          {data.mode === 'local' && data.accounts.length === 0 && (
+            <div className="setup-inline">
+              <p>
+                <strong>
+                  {data.connections.filter((connection) => connection.installed).length} tools
+                  detected.
+                </strong>{' '}
+                Link an existing account to run work from Forge.
+              </p>
+              <button className="text-button" onClick={onLinkAccount}>
+                Link account <ArrowRight size={14} />
+              </button>
+            </div>
+          )}
+          {(data.mode === 'demo' || data.work.length === 0) && (
+            <section className="continuity-intro" aria-label="Explore work continuity">
+              <div>
+                <h2>Cross-harness continuity</h2>
+                <p>
+                  {data.mode === 'demo'
+                    ? 'Follow a fictional Codex-to-Hermes task, then review its shareable receipt.'
+                    : 'Keep goals, selected memory, approvals and usage together as native tools change.'}
+                </p>
+              </div>
+              <button className="text-button" onClick={onDemo}>
+                See a handoff example <ArrowRight size={14} />
+              </button>
+            </section>
+          )}
+        </aside>
       </div>
     </div>
   );

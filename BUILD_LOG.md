@@ -10,6 +10,8 @@ Validation: 345 functional cases, 47 browser flows, seven compiled-package check
 
 Final visual review caught a memory action clipped inside a phone panel despite no page overflow. Responsive header wrapping now keeps action groups inside their panel, with a geometry regression across all views/themes/widths. Focused display and portable-memory flows, fresh renders, type/format/build/diff checks pass after the fix.
 
+The actual 805 px Codex browser panel exposed a second efficiency issue: first-run setup preceded existing activity. Decision and setup regions are now separate; narrow layouts place work before setup, and an empty inbox uses one line. Cross-view renders/axe/action geometry now also cover the 805 px panel, alongside desktop and phone widths. Empty-inbox height/order checks and the public handoff/receipt flow pass after the correction.
+
 State remains 16. The original owned idle foreground was verified and restarted after the final build; served version/state/JS/CSS status and MIME are correct, persistent inventory/settings are unchanged, and the existing browser tab was refreshed to the new controls. No personal native job/account/provider/service/phone/notification configuration changed. Known full-vision limits remain in the completion audit. Checkpoint: the commit containing this entry and rollback tag forge-v0.41.0; verify the exact remote main SHA/main CI, peeled tag/tag CI and public archive/checksum independently.
 
 ## 2026-10-18 · forge-v0.40.0

@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
+test.afterEach(async ({ page }) => {
+  await page.unrouteAll({ behavior: 'wait' });
+});
+
 async function openDemo(page: import('@playwright/test').Page) {
   await page.goto('/');
   await page.evaluate(() => {
@@ -99,6 +103,17 @@ test('display preferences and keyboard navigation persist without mutating work 
   for (const key of ['work', 'accounts', 'approvals', 'settings'])
     expect(after[key]).toEqual(before[key]);
   expect(mutations).toEqual([]);
+  await page.route('**/api/snapshot', async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({ response, json: { ...(await response.json()), approvals: [] } });
+  });
+  await page.setViewportSize({ width: 805, height: 827 });
+  await page.reload();
+  await expect(page.getByText('No decisions waiting.', { exact: true })).toBeVisible();
+  expect((await page.locator('.attention-clear').boundingBox())!.height).toBeLessThan(40);
+  expect((await page.locator('.workspace-primary').boundingBox())!.y).toBeLessThan(
+    (await page.locator('.workspace-setup').boundingBox())!.y,
+  );
 });
 
 test('the workbench and mobile navigation retain accessible controls across all views and both themes', async ({
@@ -118,10 +133,13 @@ test('the workbench and mobile navigation retain accessible controls across all 
   ];
   for (const theme of ['light', 'dark']) {
     if (theme === 'dark') await page.getByRole('button', { name: 'Use dark theme' }).click();
-    for (const mobile of [false, true]) {
-      await page.setViewportSize(
-        mobile ? { width: 390, height: 844 } : { width: 1440, height: 1000 },
-      );
+    for (const viewport of [
+      { name: 'desktop', width: 1440, height: 1000 },
+      { name: 'panel', width: 805, height: 827 },
+      { name: 'phone', width: 390, height: 844 },
+    ]) {
+      const mobile = viewport.width <= 720;
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
       for (const [view, label] of views) {
         await page.goto('/#' + view);
         await expect(page.locator('main h1')).toHaveText(label);
@@ -145,6 +163,11 @@ test('the workbench and mobile navigation retain accessible controls across all 
               .map((button) => button.textContent?.trim()),
           );
         expect(clippedActions).toEqual([]);
+        if (view === 'overview' && viewport.width <= 1100) {
+          expect((await page.locator('.workspace-primary').boundingBox())!.y).toBeLessThan(
+            (await page.locator('.workspace-setup').boundingBox())!.y,
+          );
+        }
         const result = await new AxeBuilder({ page })
           .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
           .analyze();
@@ -152,7 +175,7 @@ test('the workbench and mobile navigation retain accessible controls across all 
           result.violations.map((v) => ({ id: v.id, nodes: v.nodes.map((n) => n.target) })),
         ).toEqual([]);
         await page.screenshot({
-          path: `artifacts/ui-v041/after-${view}-${theme}-${mobile ? 'phone' : 'desktop'}.png`,
+          path: `artifacts/ui-v041/after-${view}-${theme}-${viewport.name}.png`,
           fullPage: true,
         });
       }
@@ -163,7 +186,7 @@ test('the workbench and mobile navigation retain accessible controls across all 
           .violations,
       ).toEqual([]);
       await options.screenshot({
-        path: `artifacts/ui-v041/view-options-${theme}-${mobile ? 'phone' : 'desktop'}.png`,
+        path: `artifacts/ui-v041/view-options-${theme}-${viewport.name}.png`,
       });
       await page.keyboard.press('Escape');
       if (mobile) {
