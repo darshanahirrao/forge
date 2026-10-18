@@ -806,7 +806,10 @@ test('OpenClaw profile slots and launch review explain native authority on deskt
   );
   await page.getByLabel('Native OpenClaw execution profile').fill(process.cwd());
   await page.getByLabel('Native credential environment variable').fill('STUDIO_OPENCLAW_KEY');
-  await page.getByText('Reviewed native project', { exact: true }).click();
+  await page
+    .getByRole('dialog', { name: 'Link account', exact: true })
+    .getByText('Reviewed native project', { exact: true })
+    .click();
   await page.getByLabel('Native project directory').fill(process.cwd());
   await page.getByRole('button', { name: 'Save account slot' }).click();
   await page.getByRole('button', { name: 'Work', exact: true }).click();

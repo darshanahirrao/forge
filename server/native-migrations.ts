@@ -49,15 +49,19 @@ export class NativeMigrations {
     private bridge: NativeMigrationBridge = nativeMigrationBridge,
   ) {
     if (directory) this.directory = realpathSync(directory);
-    for (const row of store
-      .all<Stored>('native_migrations')
-      .filter((row) => row.state === 'preparing'))
+    for (const record of store.db
+      .prepare(
+        "SELECT data FROM records WHERE collection='native_migrations' AND json_extract(data,'$.state')='preparing'",
+      )
+      .all()) {
+      const row = JSON.parse(String(record.data)) as Stored;
       this.save({
         ...row,
         state: 'failed',
         detail:
           'Preparation ended before a verified native profile was ready. Partial private files were retained; no account or operation was replayed.',
       });
+    }
   }
   get isBusy() {
     return this.busy;
@@ -84,7 +88,7 @@ export class NativeMigrations {
   list() {
     return this.store.db
       .prepare(
-        "SELECT data FROM records WHERE collection='native_migrations' ORDER BY rowid DESC LIMIT 20",
+        "SELECT json_remove(data,'$.sourceBinding','$.sourceRoots','$.items') AS data FROM records WHERE collection='native_migrations' ORDER BY rowid DESC LIMIT 20",
       )
       .all()
       .map((row) => this.public(JSON.parse(String(row.data))));

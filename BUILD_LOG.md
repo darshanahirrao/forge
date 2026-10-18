@@ -1,5 +1,9 @@
 # Build log
 
+## 2026-10-18 · forge-v0.34.0 history projection
+
+Reduced native import history overhead: startup fetches only interrupted preparations, and the 20-row dashboard projection removes item/path/binding payloads inside SQLite before returning records to JavaScript. Full native item details still load only for an explicit review. An owned 24-report fixture returns 20 dashboard rows, reducing SQLite result payload from 22,003,888 to 8,308 bytes; this measures returned metadata rather than full-stack RSS. Account/native activation and recovery semantics are unchanged. The first feature main workflow (39101552588) passed 37 browser flows but exposed an ambiguous unscoped test selector when a background account already had the same project label. The selector now targets the open account dialog; native production behavior was not changed by this correction. Existing migration/restart/privacy acceptance, full functional/type/format checks and compiled browser/package gates validate this follow-up; final remote/CI/tag verification remains required. Checkpoint: the commit containing this entry, included in the forge-v0.34.0 rollback milestone.
+
 ## 2026-10-18 · forge-v0.34.0
 
 Added a complete local profile-import-to-work-handoff flow using the installed native Hermes/OpenClaw importers. Native dry runs and application target fresh mode-0700 profiles, retain private mode-0600 reports/backups, exclude native credentials and expose imported/archived/skipped/overflowed items. Exact source/stage/binding checks and original-profile leases fence activation. The account and receipt commit atomically; repeated activation retains the same digest, credential-reference choice and project scope. Failed/changed/interrupted preparations never register partial accounts or replay. Existing canonical work/profile/curated memory bindings remain explicit.
