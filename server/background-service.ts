@@ -11,6 +11,7 @@ import { DatabaseSync } from 'node:sqlite';
 import type { BackgroundRuntime } from '../shared/types.js';
 import { phoneConfig, type PhoneConfig } from './phone.js';
 import { assert } from './errors.js';
+import { extensionPaths } from './extension-config.js';
 
 const exec = promisify(execFile);
 const receiptName = '.forge-service.json';
@@ -232,7 +233,7 @@ async function receipt(directory: string, c: ServiceContext): Promise<ServiceRec
   assert(
     r.environment &&
       Object.keys(r.environment).every((k) =>
-        ['HOME', 'PATH', 'LANG', ...nativeOverrides].includes(k),
+        ['HOME', 'PATH', 'LANG', 'FORGE_EXTENSION_MODULES', ...nativeOverrides].includes(k),
       ) &&
       r.environment.HOME === c.home &&
       Object.values(r.environment).every(
@@ -247,6 +248,7 @@ async function receipt(directory: string, c: ServiceContext): Promise<ServiceRec
       409,
       'Native runtime overrides must be absolute paths.',
     );
+  extensionPaths(r.environment.FORGE_EXTENSION_MODULES);
   const checked = phoneConfig(
     r.phone
       ? {
@@ -442,6 +444,11 @@ async function buildDefinition(
       await access(env[key]);
       r.environment[key] = env[key];
     }
+  if (env.FORGE_EXTENSION_MODULES) {
+    const modules = extensionPaths(env.FORGE_EXTENSION_MODULES);
+    for (const filename of modules) await access(filename);
+    r.environment.FORGE_EXTENSION_MODULES = JSON.stringify(modules);
+  }
   r.phone = phoneConfig(
     r.phone
       ? {
@@ -693,6 +700,7 @@ export async function runServiceCommand(args: string[]) {
   let port = Number(process.env.FORGE_PORT ?? 4710);
   const env = { ...process.env };
   const users: string[] = [];
+  const extensions: string[] = [];
   for (let i = 0; i < args.length; i++) {
     const flag = args[i],
       value = args[i + 1];
@@ -706,9 +714,11 @@ export async function runServiceCommand(args: string[]) {
     else if (command === 'install' && flag === '--phone-origin') env.FORGE_PHONE_ORIGIN = args[++i];
     else if (command === 'install' && flag === '--phone-port') env.FORGE_PHONE_PORT = args[++i];
     else if (command === 'install' && flag === '--phone-user') users.push(args[++i]);
+    else if (command === 'install' && flag === '--extension') extensions.push(resolve(args[++i]));
     else throw new Error('Unknown service option. Run forge --help for supported options.');
   }
   if (users.length) env.FORGE_PHONE_USERS = users.join(',');
+  if (extensions.length) env.FORGE_EXTENSION_MODULES = JSON.stringify(extensions);
   const result =
     command === 'install'
       ? await installService({

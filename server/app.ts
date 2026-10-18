@@ -58,7 +58,11 @@ import {
   runtimeRegistration,
   runtimeStopDecision,
 } from './companion-runtimes.js';
-import type { CompanionProviderDefinition } from './companion-providers.js';
+import {
+  companionProviders as builtinCompanionProviders,
+  type CompanionProviderDefinition,
+} from './companion-providers.js';
+import type { LoadedExtensions } from './extensions.js';
 import { registerCompanionMcp } from './companion-mcp.js';
 import { Blueprints, blueprintSchema } from './blueprints.js';
 import { AccountRouting, routePrepareSchema } from './routing.js';
@@ -119,6 +123,8 @@ const accountSchema = z
   })
   .strict();
 export interface AppOptions {
+  /** Original startup owner, acquired before trusted extension initialization. */
+  store?: Store;
   /** Explicit owned test directory enables supervision for in-memory fixtures. */
   workerDirectory?: string;
   availability?: AvailabilityOptions;
@@ -139,6 +145,7 @@ export interface AppOptions {
   rpcFactory?: RpcFactory;
   driverFactory?: DriverFactory;
   companionProviders?: Record<string, CompanionProviderDefinition>;
+  extensions?: LoadedExtensions;
   accountProbe?: typeof probeAccount;
   nativeSourcesOptions?: NativeSourcesOptions;
   resolveDirectory?: (value: string) => Promise<string>;
@@ -150,7 +157,21 @@ export interface AppOptions {
 
 export async function createApp(options: AppOptions) {
   const app = Fastify({ logger: false, bodyLimit: 512 * 1024, requestTimeout: 35000 });
-  const local = new Store(options.filename);
+  const local = options.store ?? new Store(options.filename);
+  const runtimeProviders = {
+    ...(options.companionProviders ?? builtinCompanionProviders),
+    ...options.extensions?.providers,
+  };
+  for (const provider of options.extensions?.runtimes ?? []) {
+    if (local.get('connectors', provider.id)) {
+      local.close();
+      assert(
+        false,
+        409,
+        'A loaded native runtime extension conflicts with an installed ACP connector ID. Use distinct versioned provider IDs.',
+      );
+    }
+  }
   const resourceGovernance = new ResourceGovernance(
     local,
     options.filename !== ':memory:',
@@ -402,7 +423,7 @@ export async function createApp(options: AppOptions) {
         'Reconcile existing native work before starting a native gateway.',
       );
     },
-    options.companionProviders,
+    runtimeProviders,
     options.filename !== ':memory:',
     resourceGovernance,
   );
@@ -782,6 +803,7 @@ export async function createApp(options: AppOptions) {
       companionRuntimes.resourceRoots(),
     );
     const result: Snapshot = {
+      runtimeProviders: mode(request) === 'demo' ? [] : [...(options.extensions?.runtimes ?? [])],
       service: options.background ?? { mode: 'foreground' },
       availability: mode(request) === 'demo' ? undefined : await availability.snapshot(),
       memoryPacks: mode(request) === 'demo' ? [] : memoryPacks.list(),
@@ -1277,6 +1299,7 @@ export async function createApp(options: AppOptions) {
       'Wait for the native profile preparation before adding another account.',
     );
     const { connectorId, ...body } = accountSchema.parse(request.body);
+    const nativeProvider = runtimeProviders[body.harness]?.extension;
     assert(
       !body.openClawProjectRoot ||
         (mode(request) === 'local' &&
@@ -1287,9 +1310,18 @@ export async function createApp(options: AppOptions) {
       'Review dedicated OpenClaw project access on the local Forge host.',
     );
     assert(
-      !body.harness.startsWith('ext.') || connectorId,
+      !body.harness.startsWith('ext.') || connectorId || nativeProvider,
       400,
       'Select an installed native connector for this harness.',
+    );
+    assert(
+      !nativeProvider ||
+        (!connectorId &&
+          mode(request) === 'local' &&
+          bridgeActor(request.headers, options.phoneBridge).kind === 'local' &&
+          body.billingMode !== 'subscription'),
+      403,
+      'Link native runtime extensions locally using their native or API configuration.',
     );
     assert(
       !connectorId ||
@@ -1313,6 +1345,16 @@ export async function createApp(options: AppOptions) {
       : undefined;
     const account: Account = {
       ...body,
+      ...(nativeProvider
+        ? {
+            nativeProvider: {
+              id: nativeProvider.id,
+              extensionId: nativeProvider.extensionId,
+              extensionVersion: nativeProvider.extensionVersion,
+              digest: nativeProvider.digest,
+            },
+          }
+        : {}),
       ...(connectorId
         ? { connector: connectors.binding(connectorId, body.harness), connectorReady: true }
         : {}),
@@ -1329,6 +1371,8 @@ export async function createApp(options: AppOptions) {
       createdAt: now(),
     };
     if (account.credentialReference) credentialTarget(account);
+    if (account.nativeProvider)
+      assert(account.nativeHome, 400, 'Choose an explicit native runtime profile directory.');
     if (account.connector) {
       assert(account.nativeHome, 400, 'Choose an explicit native profile directory.');
       assert(
@@ -1345,6 +1389,24 @@ export async function createApp(options: AppOptions) {
     return reply.code(201).send(account);
   });
   async function refreshAccount(account: Account) {
+    if (account.nativeProvider) {
+      const provider = runtimeProviders[account.harness]?.extension;
+      assert(
+        provider?.digest === account.nativeProvider.digest,
+        409,
+        'This native runtime extension changed or is unavailable. Keep the existing slot for its history and link a reviewed current slot.',
+      );
+      return local.put('accounts', account.id, {
+        ...account,
+        state: 'configured',
+        identity: null,
+        identityKey: null,
+        plan: null,
+        quotas: [],
+        checkedAt: now(),
+        error: null,
+      });
+    }
     let credentials: Awaited<ReturnType<typeof resolveCredential>>;
     const result = await (async () => {
       if (account.backend)
@@ -1879,6 +1941,14 @@ export async function createApp(options: AppOptions) {
     );
   app.post('/api/connectors/prepare', async (request) => {
     assertConnectorAuthority(request);
+    assert(
+      !Object.hasOwn(
+        options.extensions?.providers ?? {},
+        (request.body as { id?: string })?.id ?? '',
+      ),
+      409,
+      'This ID belongs to a loaded native runtime extension. Use a distinct ACP connector ID.',
+    );
     return connectors.prepare(request.body);
   });
   app.post('/api/connectors/install', async (request) => {

@@ -42,6 +42,7 @@ type Collection =
   | 'config';
 export const now = () => new Date().toISOString();
 export const id = () => randomUUID();
+export const workspaceVersion = 14;
 
 // SQLite is the source of truth. Every mutation and its receipt share a transaction.
 export class Store {
@@ -59,7 +60,7 @@ export class Store {
     try {
       const version = this.db.prepare('PRAGMA user_version').get() as { user_version: number };
       assert(
-        version.user_version <= 13,
+        version.user_version <= workspaceVersion,
         409,
         'This workspace was created by a newer Forge version. Open it with that version.',
       );
@@ -85,8 +86,12 @@ export class Store {
       CREATE INDEX IF NOT EXISTS schedule_transfers_by_source ON records(json_extract(data,'$.sourceId'), json_extract(data,'$.sourceJobId'), json_extract(data,'$.state')) WHERE collection='schedule_transfers';
       `);
       let backup: string | null = null;
-      if (version.user_version > 0 && version.user_version < 13 && filename !== ':memory:') {
-        backup = `${filename}.before-v13.${randomUUID()}.sqlite`;
+      if (
+        version.user_version > 0 &&
+        version.user_version < workspaceVersion &&
+        filename !== ':memory:'
+      ) {
+        backup = `${filename}.before-v14.${randomUUID()}.sqlite`;
         writeFileSync(backup, '', { flag: 'wx', mode: 0o600 });
         try {
           this.db.prepare('VACUUM INTO ?').run(backup);
@@ -95,7 +100,7 @@ export class Store {
           throw error;
         }
       }
-      this.db.exec('PRAGMA user_version = 13');
+      this.db.exec('PRAGMA user_version = 14');
       this.migrationBackup = backup;
     } catch (error) {
       this.db.close();

@@ -31,7 +31,7 @@ export function ConnectionsPage({
 }: {
   data: Snapshot;
   mutate: Mutate;
-  onNewAccount: () => void;
+  onNewAccount: (harness?: string) => void;
   onDownload: () => void;
   busy: string;
   act: (key: string, fn: () => Promise<unknown>, message?: string) => Promise<void>;
@@ -59,6 +59,44 @@ export function ConnectionsPage({
     <div className="page-stack">
       <BackendsPanel data={data} mutate={mutate} />
       <ConnectorsPanel data={data} mutate={mutate} />
+      {data.mode === 'local' && Boolean(data.runtimeProviders?.length) && (
+        <section className="panel" aria-label="Native runtime extensions">
+          <div className="section-heading">
+            <div>
+              <h2>Native runtime extensions</h2>
+              <p>Link a native profile, then review its start in Companion access.</p>
+            </div>
+          </div>
+          <div className="native-entry-list">
+            {data.runtimeProviders!.map((provider) => (
+              <article className="native-entry" key={provider.id}>
+                <div className="native-entry-copy">
+                  <h3>{provider.name}</h3>
+                  <p>
+                    {provider.extensionName} · {provider.extensionVersion} · Native{' '}
+                    {provider.nativeVersion}
+                  </p>
+                  <details className="native-details">
+                    <summary>Provider binding</summary>
+                    <p className="mono">{provider.id}</p>
+                    <p className="native-rule">{provider.digest}</p>
+                    <p>
+                      Native models, tools, memory, permissions and schedules keep their existing
+                      owner. Loading a provider does not start a native runtime.
+                    </p>
+                  </details>
+                </div>
+                <button
+                  className="button secondary small"
+                  onClick={() => onNewAccount(provider.id)}
+                >
+                  Link an account
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
       <CompanionsPanel data={data} mutate={mutate} runtimeFocus={runtimeFocus} />
       <NotificationsPanel data={data} mutate={mutate} />
       <AvailabilityPanel data={data} mutate={mutate} />
@@ -175,7 +213,7 @@ export function ConnectionsPage({
                     {c.id === 'agent-deck' ? 'Read sessions' : 'Read usage'}
                   </button>
                 ) : c.id === 'codex' || c.id === 'claude' ? (
-                  <button className="button secondary small" onClick={onNewAccount}>
+                  <button className="button secondary small" onClick={() => onNewAccount()}>
                     <Plus size={14} />
                     Add account
                   </button>

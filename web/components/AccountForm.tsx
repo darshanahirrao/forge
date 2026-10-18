@@ -5,6 +5,7 @@ import { Dialog, FormError } from './primitives';
 import { names } from '../lib/format';
 import { ShieldCheck, LoaderCircle } from 'lucide-react';
 import type { NativeConnector } from '../../shared/connectors';
+import type { NativeRuntimeProvider } from '../../shared/extensions';
 
 export function AccountForm({
   mode,
@@ -12,23 +13,29 @@ export function AccountForm({
   onClose,
   onSaved,
   connectors = [],
+  runtimeProviders = [],
+  initialHarness = 'codex',
 }: {
   mode: WorkspaceMode;
   mutate: Mutate;
   onClose: () => void;
   onSaved: () => void;
   connectors?: NativeConnector[];
+  runtimeProviders?: readonly NativeRuntimeProvider[];
+  initialHarness?: Harness;
 }) {
-  const [harness, setHarness] = useState<Harness>('codex');
+  const [harness, setHarness] = useState<Harness>(initialHarness);
   const [billingMode, setBillingMode] = useState('native');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [credentialSource, setCredentialSource] = useState('environment');
   const connector = connectors.find((item) => item.id === harness);
+  const runtimeProvider = runtimeProviders.find((item) => item.id === harness);
+  const nativeSlot = Boolean(connector || runtimeProvider);
   const credentialSupport =
     (['claude', 'codex'].includes(harness) && billingMode === 'api') ||
     ['opencode', 'hermes', 'openclaw'].includes(harness) ||
-    Boolean(connector);
+    nativeSlot;
   async function save(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSaving(true);
@@ -51,7 +58,7 @@ export function AccountForm({
                   (harness === 'claude' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY'),
               ).trim(),
             }
-          : (['opencode', 'hermes', 'openclaw'].includes(harness) || connector) &&
+          : (['opencode', 'hermes', 'openclaw'].includes(harness) || nativeSlot) &&
               String(form.get('credentialEnv') || '').trim()
             ? { credentialEnv: String(form.get('credentialEnv')).trim() }
             : {}),
@@ -107,7 +114,11 @@ export function AccountForm({
               onChange={(e) => {
                 const next = e.target.value as Harness;
                 setHarness(next);
-                if (connectors.some((item) => item.id === next) && billingMode === 'subscription')
+                if (
+                  (connectors.some((item) => item.id === next) ||
+                    runtimeProviders.some((item) => item.id === next)) &&
+                  billingMode === 'subscription'
+                )
                   setBillingMode('native');
               }}
             >
@@ -123,6 +134,11 @@ export function AccountForm({
                     {item.manifest.name} · ACP connector
                   </option>
                 ))}
+              {runtimeProviders.map((provider) => (
+                <option key={provider.id} value={provider.id}>
+                  {provider.name} · Native runtime
+                </option>
+              ))}
             </select>
           </label>
           <label>
@@ -133,7 +149,7 @@ export function AccountForm({
               onChange={(e) => setBillingMode(e.target.value)}
             >
               <option value="native">Use native configuration</option>
-              {!connector && <option value="subscription">Require subscription access</option>}
+              {!nativeSlot && <option value="subscription">Require subscription access</option>}
               <option value="api">API account</option>
             </select>
             <small>
@@ -142,13 +158,13 @@ export function AccountForm({
           </label>
           {credentialSupport && (
             <label>
-              {connector || ['opencode', 'hermes', 'openclaw'].includes(harness)
+              {nativeSlot || ['opencode', 'hermes', 'openclaw'].includes(harness)
                 ? 'Native credential environment variable'
                 : 'API credential environment variable'}
               <input
                 name="credentialEnv"
                 placeholder={
-                  connector || ['opencode', 'hermes', 'openclaw'].includes(harness)
+                  nativeSlot || ['opencode', 'hermes', 'openclaw'].includes(harness)
                     ? 'Optional native credential variable'
                     : harness === 'claude'
                       ? 'ANTHROPIC_API_KEY'
@@ -158,7 +174,7 @@ export function AccountForm({
                 maxLength={128}
               />
               <small>
-                {connector || ['opencode', 'hermes', 'openclaw'].includes(harness)
+                {nativeSlot || ['opencode', 'hermes', 'openclaw'].includes(harness)
                   ? 'Optional when the native profile stores its own credentials. Set a selected provider variable outside Forge; other ambient provider keys are excluded. Enter only its name.'
                   : 'Enter a variable name, such as CLAUDE_STUDIO_KEY. Set its value outside Forge before starting the service. Never paste a key here.'}
               </small>
@@ -242,7 +258,7 @@ export function AccountForm({
             </details>
           )}
           <label>
-            {connector
+            {nativeSlot
               ? 'Native profile root'
               : harness === 'hermes'
                 ? 'Native Hermes home'
@@ -251,13 +267,13 @@ export function AccountForm({
                   : harness === 'opencode'
                     ? 'Native profile root'
                     : 'Native configuration directory'}{' '}
-            {!connector && !['opencode', 'hermes', 'openclaw'].includes(harness) && (
+            {!nativeSlot && !['opencode', 'hermes', 'openclaw'].includes(harness) && (
               <span className="optional">Optional</span>
             )}
             <input
               name="nativeHome"
               placeholder={
-                connector
+                nativeSlot
                   ? '/absolute/path/to/your/native-profile'
                   : harness === 'hermes'
                     ? '/path/to/your/hermes-home'
@@ -269,22 +285,24 @@ export function AccountForm({
               }
               disabled={mode === 'demo'}
               required={
-                (Boolean(connector) || ['opencode', 'hermes', 'openclaw'].includes(harness)) &&
+                (nativeSlot || ['opencode', 'hermes', 'openclaw'].includes(harness)) &&
                 mode !== 'demo'
               }
             />
             <small>
-              {connector
-                ? 'An existing native profile. The connector maps its reviewed home variables into this directory. Configure sign-in and the model through the native agent first; provider identity, limits and billing remain unknown.'
-                : harness === 'codex'
-                  ? 'References CODEX_HOME. The chosen credential backend must support separate native identities.'
-                  : harness === 'claude'
-                    ? 'References CLAUDE_CONFIG_DIR. Keyless Console sign-ins have different isolation rules.'
-                    : harness === 'opencode'
-                      ? 'A native profile root containing config, data, state and cache directories. Configure OpenCode with these XDG homes and select a default model first. Forge never copies another profile’s credentials.'
-                      : harness === 'hermes'
-                        ? 'References HERMES_HOME. Configure its native provider first. Hermes keeps its own tools, skills, memory and credentials in this home. Forge uses the installed native ACP runtime.'
-                        : 'Use a dedicated native execution profile with local Gateway, reload off, cron disabled and heartbeat every 0m. Native channels and schedules stay with their existing companion owner. Configure its model through OpenClaw first.'}
+              {runtimeProvider
+                ? `Native ${runtimeProvider.name} profile. Its runtime keeps its own model, tools, memory and sign-in. Use the reviewed native runtime controls in Connections; provider identity, allowance and billing remain native.`
+                : connector
+                  ? 'An existing native profile. The connector maps its reviewed home variables into this directory. Configure sign-in and the model through the native agent first; provider identity, limits and billing remain unknown.'
+                  : harness === 'codex'
+                    ? 'References CODEX_HOME. The chosen credential backend must support separate native identities.'
+                    : harness === 'claude'
+                      ? 'References CLAUDE_CONFIG_DIR. Keyless Console sign-ins have different isolation rules.'
+                      : harness === 'opencode'
+                        ? 'A native profile root containing config, data, state and cache directories. Configure OpenCode with these XDG homes and select a default model first. Forge never copies another profile’s credentials.'
+                        : harness === 'hermes'
+                          ? 'References HERMES_HOME. Configure its native provider first. Hermes keeps its own tools, skills, memory and credentials in this home. Forge uses the installed native ACP runtime.'
+                          : 'Use a dedicated native execution profile with local Gateway, reload off, cron disabled and heartbeat every 0m. Native channels and schedules stay with their existing companion owner. Configure its model through OpenClaw first.'}
             </small>
           </label>
           {harness === 'openclaw' && mode === 'local' && (

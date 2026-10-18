@@ -51,7 +51,10 @@ export function AccountsPage({
                 <HarnessMark harness={a.harness} />
                 <div>
                   <h2>{a.label}</h2>
-                  <p>{harnessName(a.harness)}</p>
+                  <p>
+                    {data.runtimeProviders?.find((provider) => provider.id === a.harness)?.name ??
+                      harnessName(a.harness)}
+                  </p>
                 </div>
                 <Status
                   value={a.state}
@@ -65,6 +68,14 @@ export function AccountsPage({
                 />
               </div>
               <dl className="account-facts">
+                {a.nativeProvider && (
+                  <div>
+                    <dt>Native runtime extension</dt>
+                    <dd>
+                      {a.nativeProvider.extensionId} · {a.nativeProvider.extensionVersion}
+                    </dd>
+                  </div>
+                )}
                 {a.openClawProjectRoot && (
                   <div>
                     <dt>Reviewed native project</dt>
@@ -166,15 +177,22 @@ export function AccountsPage({
                   disabled={
                     busy === a.id ||
                     data.mode === 'demo' ||
-                    !(a.backend || a.connector || managedHarnesses.includes(a.harness))
+                    !(
+                      a.backend ||
+                      a.connector ||
+                      a.nativeProvider ||
+                      managedHarnesses.includes(a.harness)
+                    )
                   }
                   onClick={() => onProbe(a)}
                   title={
                     data.mode === 'demo'
                       ? 'Demo accounts never contact native tools'
-                      : !(a.backend || a.connector || managedHarnesses.includes(a.harness))
-                        ? 'No supported native status adapter'
-                        : 'Read native authentication status'
+                      : a.nativeProvider
+                        ? 'Check the loaded runtime extension binding; identity and allowance remain native'
+                        : !(a.backend || a.connector || managedHarnesses.includes(a.harness))
+                          ? 'No supported native status adapter'
+                          : 'Read native authentication status'
                   }
                 >
                   {busy === a.id ? (
@@ -182,7 +200,7 @@ export function AccountsPage({
                   ) : (
                     <RefreshCw size={14} />
                   )}
-                  Check native account
+                  {a.nativeProvider ? 'Check runtime binding' : 'Check native account'}
                 </button>
               </div>
             </section>

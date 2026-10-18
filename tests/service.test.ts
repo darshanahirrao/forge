@@ -58,6 +58,30 @@ test('unsupported background platforms do not create files or issue native contr
   assert.deepEqual(f.calls, []);
   await assert.rejects(stat(f.dataDirectory));
 });
+test('reviewed native service configuration retains explicit extension modules without loading their code or provider keys', async (t) => {
+  const f = await fixture(t),
+    module = join(f.home, 'native-extension.mjs');
+  await writeFile(module, "throw Error('This module must not execute during service review.');\n");
+  const options = {
+    ...f.options,
+    environment: { ...f.options.environment, FORGE_EXTENSION_MODULES: JSON.stringify([module]) },
+  };
+  await installService(options, f.context);
+  const { receipt } = await record(f);
+  assert.equal(receipt.environment.FORGE_EXTENSION_MODULES, JSON.stringify([module]));
+  assert.equal(JSON.stringify(receipt).includes('fixture-secret'), false);
+  assert.equal((await serviceStatus(f.dataDirectory, f.context)).state, 'installed');
+  await controlService('uninstall', f.dataDirectory, f.context);
+  await assert.rejects(
+    installService(
+      {
+        ...options,
+        environment: { ...options.environment, FORGE_EXTENSION_MODULES: '["relative.mjs"]' },
+      },
+      f.context,
+    ),
+  );
+});
 test('service install uses private exact ownership, escapes native arguments and excludes provider keys', async (t) => {
   const f = await fixture(t);
   const result = await installService(f.options, f.context);

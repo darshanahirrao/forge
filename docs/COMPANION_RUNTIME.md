@@ -6,7 +6,7 @@ Forge v0.30 can start and stop a supported native Hermes or OpenClaw gateway fro
 
 1. Configure the native gateway using its own tools. Use an explicit native profile with its intended interfaces, credentials, channels and schedule settings.
 2. Add that native account in Forge and create scoped companion access for the intended project/profile. Link the account and access under Native runtimes. Linking starts no process.
-3. Choose **Review start**. Review the account, project, native home and configuration fingerprints. Explicitly accept the native activity and provider spending policy before starting.
+3. Choose **Start**. Review the account, project, native home and configuration fingerprints. Explicitly accept the native activity and provider spending policy before starting.
 4. Forge returns a durable starting receipt before waiting for native readiness. The dashboard receives lifecycle changes through the existing payload-free change stream.
 
 Configuration values and secret file contents are not returned in the review. Bounded SHA-256 fingerprints of the provider's declared files bind the review; changing those files requires a new review. Reviews expire after two minutes. The same launch ID and digest return the original receipt without starting another process.
@@ -20,7 +20,7 @@ Native gateway spending follows its native policy and is outside Forge's per-wor
 | Hermes   | 0.17.0, public `gateway.run.start_gateway`           | Preserves configured channels and API address/key. Refuses multi-profile multiplexing. Readiness checks the native status record against the original child.                   |
 | OpenClaw | 2026.10.4, native `gateway run` and `gateway health` | Requires a local gateway with native reload off. Preserves its configured address, port, authentication and channels. No service install/start/replace operation is requested. |
 
-Supported lifecycle ownership requires a persistent file-backed Forge workspace on macOS or Linux. Native installation/version and profile compatibility are checked before accepting readiness. In-memory demo workspaces do not start gateways. Provider definitions use contract version 1; this is an integration interface, not a general downloaded-plugin installer.
+Supported lifecycle ownership requires a persistent file-backed Forge workspace on macOS or Linux. Native installation/version and profile compatibility are checked before accepting readiness. In-memory demo workspaces do not start gateways. Provider definitions use contract version 1. From v0.36, explicitly trusted local modules can register first-class providers through the [typed extension SDK](EXTENSIONS.md), reusing this lifecycle without core changes. Modules are local host-privilege adapters; no downloaded-plugin installer or sandbox is supplied.
 
 ## Ownership and resource use
 
@@ -51,7 +51,7 @@ An unexpected close or lost owner appears in the workspace attention list. If th
 
 Before [replacing companion access](COMPANION_HANDOFF.md), stop and reconcile any managed source gateway. The handoff digest includes that lifecycle boundary. Stage the replacement access, configure its native client, start its reviewed native runtime, obtain the target's authenticated readiness acknowledgement and activate through human review. Work/profile identity, selected context, remaining access allowance and operation lineage stay canonical in Forge.
 
-Native schedule definitions remain in their own profiles. The lifecycle does not translate job definitions, migrate learned-memory engines, stop foreign planners or prove detached/external effects settled. Scheduler-owner transfer, broader providers and live account/device acceptance remain in the [completion audit](COMPLETION_AUDIT.md).
+Native schedule definitions remain in their own profiles. The lifecycle does not translate job definitions, migrate learned-memory engines, stop foreign planners or prove detached/external effects settled. Compatible native schedule-owner transfer has a [separate reviewed contract](SCHEDULE_TRANSFERS.md). Richer provider mappings and live account/device acceptance remain in the [completion audit](COMPLETION_AUDIT.md).
 
 ## Compatibility and verification
 

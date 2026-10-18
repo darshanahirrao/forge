@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.server.json",
+  "compilerOptions": {
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "sourceMap": false
+  },
+  "include": ["server/extension-sdk.ts", "server/worker-proof.d.mts"]
+}

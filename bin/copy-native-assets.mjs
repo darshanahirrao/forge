@@ -5,7 +5,7 @@ await copyFile(
   new URL('../dist/server/adapters/hermes-schedule-transfer.py', import.meta.url),
 );
 
-for (const filename of ['native-worker.mjs', 'worker-proof.mjs'])
+for (const filename of ['native-worker.mjs', 'worker-proof.mjs', 'worker-proof.d.mts'])
   await copyFile(
     new URL(`../server/${filename}`, import.meta.url),
     new URL(`../dist/server/${filename}`, import.meta.url),

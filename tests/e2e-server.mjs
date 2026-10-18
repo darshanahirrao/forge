@@ -17,6 +17,7 @@ import { serviceContext } from '../dist/server/background-service.js';
 import { companionProviderFixture } from './fixtures/companion-provider.mjs';
 import { nativeFileSnapshot } from '../dist/server/native-file-snapshot.js';
 import { scheduleTransferFixture } from './fixtures/schedule-transfer.ts';
+import { loadExtensions } from '../dist/server/extensions.js';
 const transferNative = scheduleTransferFixture();
 const t3 = await t3Fixture();
 // Owned loopback sink only. Browser tests never publish to an external topic.
@@ -49,6 +50,17 @@ writeFileSync(join(memoryProject, 'native-migration-proof.txt'), 'Owned migratio
 const companionHome = join(directory, 'owned-companion');
 mkdirSync(companionHome);
 writeFileSync(join(companionHome, 'config.yaml'), 'native-fixture: true\n', { mode: 0o600 });
+const extensionHome = join(directory, 'owned-extension');
+mkdirSync(extensionHome);
+writeFileSync(join(extensionHome, 'config.yaml'), 'owned-extension: true\n', { mode: 0o600 });
+const extensionEntry = join(directory, 'runtime-extension.mjs');
+writeFileSync(
+  extensionEntry,
+  `import {companionProviderFixture} from ${JSON.stringify(new URL('./fixtures/companion-provider.mjs', import.meta.url).href)};
+export default {format:'forge.extension',version:1,id:'owned.browser-extension',name:'Browser extension',release:'1.0.0',companions:[{...companionProviderFixture,id:'ext.browser.runtime',name:'Browser native runtime'}]};`,
+  { mode: 0o600 },
+);
+const extensions = await loadExtensions([extensionEntry]);
 const migrationHome = join(directory, 'owned-migration-source');
 mkdirSync(join(migrationHome, 'memories'), { recursive: true });
 writeFileSync(join(migrationHome, 'config.yaml'), 'native-fixture: true\n', { mode: 0o600 });
@@ -98,6 +110,7 @@ const fixtureRpc = (options = {}) =>
     env: { PATH: process.env.PATH },
   });
 const { app, nativeSources } = await createApp({
+  extensions,
   scheduleTransferBridge: transferNative.transfer,
   nativeMigrationBridge: async (request) => {
     if (request.source !== migrationHome)
@@ -335,6 +348,11 @@ app.get('/api/fixture/connectors', async () => ({
     mode: 'review',
     homeVariables: { FIXTURE_AGENT_HOME: '.' },
   },
+}));
+app.get('/api/fixture/extensions', async () => ({
+  nativeHome: extensionHome,
+  project: memoryProject,
+  provider: extensions.runtimes[0],
 }));
 app.post('/api/fixture/native-controls', async (request) => {
   nativeControlMode = request.body.mode;

@@ -78,7 +78,7 @@ export function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('forge.theme') ?? 'light');
   const [mobileNav, setMobileNav] = useState(false);
   const [newWork, setNewWork] = useState(false);
-  const [newAccount, setNewAccount] = useState(false);
+  const [newAccount, setNewAccount] = useState<boolean | string>(false);
   const [selected, setSelected] = useState<string | null>(null);
   const [nativeSelected, setNativeSelected] = useState<NativeSession | null>(null);
   const [detail, setDetail] = useState<{ work: Work; events: WorkEvent[]; runs?: Run[] } | null>(
@@ -468,7 +468,9 @@ export function App() {
                     void act(
                       account.id,
                       () => mutate(`/accounts/${account.id}/probe`, 'POST'),
-                      'Native account check finished.',
+                      account.nativeProvider
+                        ? 'Runtime binding checked. Native identity and allowance remain unknown.'
+                        : 'Native account check finished.',
                     )
                   }
                   busy={busy}
@@ -524,7 +526,7 @@ export function App() {
                   data={snapshot}
                   runtimeFocus={runtimeFocus}
                   mutate={mutate}
-                  onNewAccount={() => setNewAccount(true)}
+                  onNewAccount={(harness) => setNewAccount(harness ?? true)}
                   onDownload={() =>
                     void act(
                       'blueprint',
@@ -583,6 +585,8 @@ export function App() {
         <AccountForm
           mode={mode}
           connectors={snapshot.connectors}
+          runtimeProviders={snapshot.runtimeProviders}
+          initialHarness={typeof newAccount === 'string' ? newAccount : undefined}
           mutate={mutate}
           onClose={() => setNewAccount(false)}
           onSaved={() => {

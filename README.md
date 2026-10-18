@@ -6,11 +6,13 @@ Forge is an open-source local workspace for people who work across AI runtimes a
 
 We call the product concept **Persistent Agency**: your agent profile, memory, workspace, work history, shared connections, schedules, and policies remain in Forge while you change a compatible execution harness at a verified checkpoint.
 
-**Status: early local application, v0.35.0.** Persistent work/profiles, scoped native memory and private portable copies, reviewed setup blueprints, account routing, private credential references, spending admission, native activity, a shared-sample resource map and private diagnostics, optional ntfy alerts, reviewed macOS background activation, reviewed Hermes/OpenClaw pause/resume and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Reviewed native Hermes/OpenClaw gateway start, stop and exact-close recovery are implemented. OpenClaw execution profiles retain the same device identity after a host crash when their captured original closure verifies. Automatic continuation after uncertain effects, broader companion providers, rich schedule/provider mappings, full memory-provider migration, live device/provider acceptance and whole-family/cross-platform resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md) and [full completion audit](docs/COMPLETION_AUDIT.md).
+**Status: early local application, v0.36.0.** Persistent work/profiles, scoped native memory and private portable copies, reviewed setup blueprints, account routing, private credential references, spending admission, native activity, a shared-sample resource map and private diagnostics, optional ntfy alerts, reviewed macOS background activation, reviewed Hermes/OpenClaw pause/resume and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Reviewed native Hermes/OpenClaw gateway start, stop and exact-close recovery are implemented. OpenClaw execution profiles retain the same device identity after a host crash when their captured original closure verifies. Automatic continuation after uncertain effects, broader companion providers, rich schedule/provider mappings, full memory-provider migration, live device/provider acceptance and whole-family/cross-platform resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md) and [full completion audit](docs/COMPLETION_AUDIT.md).
+
+Version 0.36 adds [native runtime extensions](docs/EXTENSIONS.md): explicitly configured local modules become first-class native providers through a typed public SDK. They reuse existing account, context, lifecycle, resource and recovery controls. The included Hermes adapter example passes actual native Hermes-to-OpenClaw replacement without model input.
 
 Version 0.35 adds [reviewed native schedule transfer](docs/SCHEDULE_TRANSFERS.md) between compatible Hermes/OpenClaw profiles: disabled staging, separate activation, durable source resume holds and human outcome reconciliation without native replay. Native timing, tools, models and delivery retain their owners.
 
-[OpenClaw schedule controls](docs/OPENCLAW_SCHEDULES.md) add read-only native inventory and optional locally reviewed administrator access for exact pause/resume. Native job revisions fence changes, while uncertain outcomes retain their human review hold. Scheduler ownership transfer remains open.
+[OpenClaw schedule controls](docs/OPENCLAW_SCHEDULES.md) add read-only native inventory and optional locally reviewed administrator access for exact pause/resume. Native job revisions fence changes, while uncertain outcomes retain their human review hold. Compatible basic schedule ownership can move through the separately reviewed transfer flow; richer mappings remain open.
 
 [Native crash recovery](docs/NATIVE_RECOVERY.md) adds signed original-child closure, explicit interrupted-worker review and durable profile fences. It never replays native input or treats PID disappearance as exit.
 
@@ -24,7 +26,7 @@ Version 0.35 adds [reviewed native schedule transfer](docs/SCHEDULE_TRANSFERS.md
 
 The workspace now starts with your managed work and existing native chats, compact resource/usage status and exact pending approvals. Ctrl/Cmd K searches work and commands; optional creation fields stay folded until needed. See [the experience decisions and upstream references](docs/UI_EXPERIENCE.md).
 
-[Native profile imports](docs/NATIVE_MIGRATIONS.md) reuse installed Hermes and OpenClaw migration utilities, retain private reports and explicit memory limits, then open the existing verified work handoff with the new account selected. Native project access and provider reference reuse remain explicit local choices. Scheduled definitions can be archived; scheduler ownership transfer remains open.
+[Native profile imports](docs/NATIVE_MIGRATIONS.md) reuse installed Hermes and OpenClaw migration utilities, retain private reports and explicit memory limits, then open the existing verified work handoff with the new account selected. Native project access and provider reference reuse remain explicit local choices. Scheduled definitions can be archived or moved through the compatible native schedule-transfer flow.
 
 ## Run Forge
 
@@ -49,6 +51,8 @@ OpenClaw reuses its native foreground Gateway and official client with a dedicat
 Existing Hermes, OpenClaw and other MCP clients can use [scoped companion access](docs/COMPANION_ACCESS.md) to keep the same Forge profile, selected memory and work. Optional native dispatch has explicit account, billing and finite-run grants; approvals stay on the human path. Forge adds no agent loop or scheduler.
 
 [Native harness connectors](docs/NATIVE_CONNECTORS.md) register an installed ACP v1 agent without adding a provider-specific core driver. Reviewed executable/model/mode bindings use the same work, profiles, selected context and native approval path. Unknown usage and unsupported native behavior stay explicit.
+
+[Native runtime extensions](docs/EXTENSIONS.md) load explicitly trusted local adapters with `node bin/forge.mjs start --extension ./examples/hermes-runtime-extension.mjs`. Repeat the option for another provider. Loading and linking start no gateway.
 
 [Workspace blueprints](docs/BLUEPRINTS.md) reuse setup roles and optional work templates. Bind your own native accounts and selected memory, review the import, and roll back unused setup. Existing native credentials, schedules and work retain their owners.
 

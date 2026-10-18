@@ -156,6 +156,7 @@ export class CompanionRuntimes {
   private async boundary(runtime: CompanionRuntime) {
     this.grant(runtime);
     const account = this.store.account(runtime.accountId);
+    this.assertProvider(account);
     assert(
       !account.backend &&
         !account.connector &&
@@ -248,6 +249,20 @@ export class CompanionRuntimes {
       }),
     };
   }
+  private assertProvider(account: import('../shared/types.js').Account) {
+    const provider = this.providers[account.harness]?.extension;
+    assert(
+      (!provider && !account.nativeProvider) ||
+        (provider &&
+          account.nativeProvider &&
+          provider.digest === account.nativeProvider.digest &&
+          provider.id === account.nativeProvider.id &&
+          provider.extensionId === account.nativeProvider.extensionId &&
+          provider.extensionVersion === account.nativeProvider.extensionVersion),
+      409,
+      'This native runtime extension binding changed or is unavailable. Keep the original slot and history, and link a reviewed current provider.',
+    );
+  }
   register(value: unknown) {
     assert(
       this.supported && !this.closing && !this.busy,
@@ -257,6 +272,7 @@ export class CompanionRuntimes {
     const input = runtimeRegistration.parse(value),
       account = this.store.account(input.accountId),
       grant = this.store.get<CompanionGrant>('companion_grants', input.grantId);
+    this.assertProvider(account);
     assert(
       this.providers[account.harness] &&
         account.nativeHome &&
@@ -418,6 +434,8 @@ export class CompanionRuntimes {
           const current = this.launch(launch.id);
           return (
             !this.closing &&
+            !live!.abort.signal.aborted &&
+            !current.exitConfirmed &&
             !current.stopRequestedAt &&
             current.state === 'starting' &&
             accountBinding(this.store.account(runtime.accountId)) ===
@@ -442,46 +460,95 @@ export class CompanionRuntimes {
             }),
           phaseChanged: (proof) => this.store.put('companion_supervisions', proof.id, proof),
         });
-        const connection = await this.providers[runtime.harness].connect(
-          boundary.account,
-          runtime.root,
-          live.credentials,
-          (command, args, options, policy) => {
-            const child = spawner(
-              command,
-              args,
-              { ...options, signal: live!.abort.signal },
-              policy,
-            );
-            live!.child = child;
-            child.once('close', () => {
-              this.track(this.complete(launch.id));
-            });
-            this.track(
-              child.nativeStarted.then(async (pid) => {
-                if (!pid) return;
-                const ownerPid = child.pid;
-                assert(ownerPid, 409, 'The original native child owner is unavailable.');
-                const identity = await captureWorker(ownerPid);
-                const current = this.launch(launch.id);
-                if (!current.exitConfirmed)
-                  this.saveLaunch({
-                    ...current,
-                    nativePid: pid,
-                    nativeWorker: {
-                      version: 2,
-                      pid: ownerPid,
-                      ownerPid: process.pid,
-                      ...identity,
-                      supervisionId: current.supervisionId,
-                      capturedAt: now(),
-                    },
-                  });
-              }),
-            );
-            return child;
-          },
-        );
+        const provider = this.providers[runtime.harness];
+        const connect = () =>
+          provider.connect(
+            boundary.account,
+            runtime.root,
+            live!.credentials,
+            (command, args, options, policy) => {
+              const child = spawner(
+                command,
+                args,
+                { ...options, signal: live!.abort.signal },
+                policy,
+              );
+              live!.child = child;
+              child.once('close', () => {
+                this.track(this.complete(launch.id));
+              });
+              this.track(
+                child.nativeStarted.then(async (pid) => {
+                  if (!pid) return;
+                  const ownerPid = child.pid;
+                  assert(ownerPid, 409, 'The original native child owner is unavailable.');
+                  const identity = await captureWorker(ownerPid);
+                  const current = this.launch(launch.id);
+                  if (!current.exitConfirmed)
+                    this.saveLaunch({
+                      ...current,
+                      nativePid: pid,
+                      nativeWorker: {
+                        version: 2,
+                        pid: ownerPid,
+                        ownerPid: process.pid,
+                        ...identity,
+                        supervisionId: current.supervisionId,
+                        capturedAt: now(),
+                      },
+                    });
+                }),
+              );
+              return child;
+            },
+          );
+        const pendingConnection = provider.extension
+          ? Promise.resolve()
+              .then(connect)
+              .catch(() => {
+                throw new Error(
+                  'The native runtime extension did not acknowledge readiness. Check its native profile and extension installation.',
+                );
+              })
+          : connect();
+        let timer: NodeJS.Timeout | undefined;
+        let expired = false;
+        let interrupted: (() => void) | undefined;
+        let connection: CompanionConnection;
+        try {
+          connection = provider.extension
+            ? await Promise.race([
+                pendingConnection,
+                new Promise<CompanionConnection>((_resolve, reject) => {
+                  timer = setTimeout(() => {
+                    expired = true;
+                    live!.abort.abort();
+                    reject(
+                      new Error(
+                        'Native runtime extension startup exceeded its finite readiness deadline. No native operation will be replayed.',
+                      ),
+                    );
+                  }, 45000);
+                }),
+                new Promise<CompanionConnection>((_resolve, reject) => {
+                  interrupted = () => {
+                    expired = true;
+                    reject(
+                      new Error(
+                        'The native runtime extension startup was interrupted. No operation was replayed.',
+                      ),
+                    );
+                  };
+                  if (live!.abort.signal.aborted) interrupted();
+                  else live!.abort.signal.addEventListener('abort', interrupted, { once: true });
+                }),
+              ])
+            : await pendingConnection;
+        } finally {
+          clearTimeout(timer);
+          if (interrupted) live!.abort.signal.removeEventListener('abort', interrupted);
+          if (expired) void pendingConnection.then((late) => late.stop()).catch(() => {});
+        }
         live.connection = connection;
         assert(
           live.child &&
@@ -612,7 +679,7 @@ export class CompanionRuntimes {
           state: 'closed',
           exitConfirmed: true,
           endedAt: now(),
-          detail: 'The native provider returned before an owned gateway launch was prepared.',
+          detail: 'No owned gateway launch was prepared. The original startup was stopped.',
         });
       else await this.complete(launchId);
       live.credentials?.dispose();

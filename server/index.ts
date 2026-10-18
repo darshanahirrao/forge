@@ -4,11 +4,22 @@ import { randomBytes } from 'node:crypto';
 import { phoneConfig, createPhoneGateway } from './phone.js';
 import { createApp } from './app.js';
 import { backgroundRuntime, defaultDataDirectory, serviceContext } from './background-service.js';
+import { loadExtensions } from './extensions.js';
+import { extensionPaths } from './extension-config.js';
+import { Store } from './store.js';
 
 const port = Number(process.env.FORGE_PORT ?? 4710);
 if (!Number.isInteger(port) || port < 1024 || port > 65535)
   throw new Error('FORGE_PORT must be an integer between 1024 and 65535.');
 const dataDirectory = defaultDataDirectory();
+const store = new Store(join(dataDirectory, 'workspace.sqlite'));
+let extensions: Awaited<ReturnType<typeof loadExtensions>>;
+try {
+  extensions = await loadExtensions(extensionPaths(process.env.FORGE_EXTENSION_MODULES));
+} catch (error) {
+  store.close();
+  throw error;
+}
 const phone = phoneConfig(process.env, port);
 const phoneBridge = phone
   ? { origin: phone.origin, proof: randomBytes(32).toString('hex') }
@@ -28,6 +39,8 @@ const shutdown = async () => {
   }
 };
 const { app } = await createApp({
+  store,
+  extensions,
   phoneBridge,
   background: backgroundRuntime(),
   filename: join(dataDirectory, 'workspace.sqlite'),

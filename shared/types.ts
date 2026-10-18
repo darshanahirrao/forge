@@ -22,6 +22,7 @@ export interface WorkspaceBackend {
 }
 
 export interface Account {
+  nativeProvider?: import('./extensions.js').NativeProviderBinding;
   connector?: { id: string; digest: string };
   connectorReady?: boolean;
   backend?: BackendAccountReference;
@@ -454,6 +455,7 @@ export interface BackgroundRuntime {
   definitionDirectory?: string;
 }
 export interface Snapshot {
+  runtimeProviders?: import('./extensions.js').NativeRuntimeProvider[];
   scheduleTransfers?: import('./schedule-transfers.js').ScheduleTransfer[];
   nativeMigrations?: {
     supported: boolean;

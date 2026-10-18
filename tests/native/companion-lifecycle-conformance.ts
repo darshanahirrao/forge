@@ -3,7 +3,12 @@ import { createServer } from 'node:http';
 import { mkdtemp, mkdir, readFile, writeFile, realpath, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { createApp } from '../../server/app.js';
+const { createApp } = (await import(
+  new URL('../../dist/server/app.js', import.meta.url).href
+)) as typeof import('../../server/app.js');
+const { loadExtensions } = (await import(
+  new URL('../../dist/server/extensions.js', import.meta.url).href
+)) as typeof import('../../server/extensions.js');
 import { unknownPressure } from '../../server/memory-pressure.js';
 import { Profiles, inspectMemory } from '../../server/memory.js';
 import { id, now } from '../../server/store.js';
@@ -92,7 +97,14 @@ const configBefore = await Promise.all([
   readFile(join(hermesHome, 'config.yaml'), 'utf8'),
   readFile(join(openClawHome, 'openclaw.json'), 'utf8'),
 ]);
+const extensionRuntime = process.argv.includes('--extension-runtime');
+const extensions = extensionRuntime
+  ? await loadExtensions([
+      new URL('../../examples/hermes-runtime-extension.mjs', import.meta.url).pathname,
+    ])
+  : undefined;
 const app = await createApp({
+  extensions,
   filename: join(root, 'state.sqlite'),
   port: 0,
   test: true,
@@ -131,6 +143,22 @@ const nativeAccount = (harness: string, nativeHome: string): Account => ({
   createdAt: now(),
 });
 const accounts = [nativeAccount('hermes', hermesHome), nativeAccount('openclaw', openClawHome)];
+if (extensionRuntime) {
+  const response = await app.app.inject({
+    method: 'POST',
+    url: '/api/accounts',
+    headers: { host: '127.0.0.1:0', 'x-forge-csrf': app.csrf },
+    payload: {
+      label: 'Actual external Hermes runtime',
+      harness: extensions!.runtimes[0].id,
+      nativeHome: hermesHome,
+      billingMode: 'native',
+    },
+  });
+  assert.equal(response.statusCode, 201, response.body);
+  accounts[0] = response.json<Account>();
+  assert.equal(accounts[0].nativeProvider?.digest, extensions!.runtimes[0].digest);
+}
 for (const account of accounts) app.local.put('accounts', account.id, account);
 const original = await app.companions.create({
   label: 'Actual Hermes gateway',
@@ -274,6 +302,7 @@ try {
       configuredNativeInterfacesPreserved: true,
       scheduleDefinitionsTransferred: false,
       sameWorkAndProfile: true,
+      externalRuntimeExtension: extensionRuntime,
       selectedMemory: true,
       nativeConfigAndMemoryUnchanged: true,
       sourceMustStopBeforeHandoff: true,

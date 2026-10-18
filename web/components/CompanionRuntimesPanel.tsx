@@ -159,7 +159,7 @@ export function CompanionRuntimesPanel({
                     onClick={() => void prepare(runtime.id)}
                     aria-label={`Start ${runtime.label}`}
                   >
-                    Review start
+                    Start
                   </button>
                 )}
                 {open && ['starting', 'running'].includes(launch!.state) && (
@@ -290,8 +290,10 @@ export function CompanionRuntimesPanel({
           <form className="dialog-form" onSubmit={start}>
             <div className="dialog-body form-stack">
               <p>
-                Start {review.runtime.label} with the installed {review.account.harness} gateway.
-                Its native channels, schedules and provider configuration become active.
+                Start {review.runtime.label} with the installed{' '}
+                {data.runtimeProviders?.find((provider) => provider.id === review.account.harness)
+                  ?.name ?? review.account.harness}{' '}
+                gateway. Its native channels, schedules and provider configuration become active.
               </p>
               <div className="launch-context">
                 <strong>{review.account.label}</strong>

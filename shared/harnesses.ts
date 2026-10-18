@@ -22,6 +22,7 @@ export function executionName(harness: Harness) {
 }
 
 export function canExecuteAccount(account?: Account): boolean {
+  if (account?.nativeProvider) return false;
   if (account?.connector)
     return Boolean(
       account.connectorReady && account.nativeHome && account.billingMode !== 'subscription',

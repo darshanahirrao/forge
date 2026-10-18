@@ -1,6 +1,6 @@
 {
   "name": "@forge-workspace/forge",
-  "version": "0.35.0",
+  "version": "0.36.0",
   "description": "A local workspace for continuous work across agent harnesses.",
   "private": true,
   "type": "module",
@@ -11,9 +11,15 @@
   "bin": {
     "forge": "bin/forge.mjs"
   },
+  "exports": {
+    "./sdk": {
+      "types": "./dist/server/extension-sdk.d.ts",
+      "import": "./dist/server/extension-sdk.js"
+    }
+  },
   "scripts": {
     "dev": "concurrently -k -n server,web \"tsx watch server/index.ts\" \"vite --host 127.0.0.1\"",
-    "build": "tsc -p tsconfig.server.json && node bin/copy-native-assets.mjs && vite build",
+    "build": "tsc -p tsconfig.server.json && tsc -p tsconfig.sdk.json && node bin/copy-native-assets.mjs && vite build",
     "start": "node dist/server/index.js",
     "check": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.tests.json",
     "format": "prettier --write --ignore-unknown web server shared tests bin *.json *.ts",
@@ -46,7 +52,8 @@
     "test:native:openclaw-recovery": "tsx tests/native/openclaw-recovery-conformance.ts",
     "test:native:openclaw-scheduler": "tsx tests/native/openclaw-scheduler-conformance.ts",
     "test:native:migration": "tsx tests/native/migration-conformance.ts",
-    "test:native:schedule-transfer": "tsx tests/native/schedule-transfer-conformance.ts"
+    "test:native:schedule-transfer": "tsx tests/native/schedule-transfer-conformance.ts",
+    "test:native:extension": "tsx tests/native/companion-lifecycle-conformance.ts --extension-runtime"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.9.0",

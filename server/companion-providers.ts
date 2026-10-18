@@ -33,6 +33,7 @@ export interface CompanionProviderDefinition {
   nativeVersion: string;
   profileFiles: readonly string[];
   connect: CompanionProvider;
+  extension?: import('../shared/extensions.js').NativeRuntimeProvider;
 }
 
 function nativeLifetime(child: SupervisedChild, release: () => void) {
@@ -86,6 +87,60 @@ async function waitReady(lifetime: { closed: boolean }, probe: () => Promise<boo
     409,
     'The native gateway did not become ready. Inspect this native profile and its configured interfaces.',
   );
+}
+/** Reuse original-child signing, native profile fencing and finite readiness for extension providers. */
+export async function nativeCompanion(options: {
+  account: Account;
+  root: string;
+  spawn: NativeSpawn;
+  command: string;
+  args: string[];
+  environment: NodeJS.ProcessEnv;
+  version: string;
+  probe: (pid: number, signal: AbortSignal) => Promise<boolean>;
+  graceMs?: number;
+}): Promise<CompanionConnection> {
+  const release = await acquireProfileLease(options.account.nativeHome);
+  let handedOff = false;
+  try {
+    const child = options.spawn(
+      options.command,
+      options.args,
+      { cwd: options.root, env: options.environment, windowsHide: true },
+      { input: 'ignore', graceMs: options.graceMs ?? 5000 },
+    );
+    const lifetime = nativeLifetime(child, release);
+    try {
+      const pid = await child.nativeStarted;
+      assert(pid, 409, 'The original extension runtime did not start.');
+      await waitReady(lifetime, async () => {
+        const abort = new AbortController();
+        let timer: NodeJS.Timeout | undefined;
+        try {
+          return await Promise.race([
+            options.probe(pid, abort.signal),
+            new Promise<boolean>((resolve) => {
+              timer = setTimeout(() => {
+                abort.abort();
+                resolve(false);
+              }, 2000);
+            }),
+          ]);
+        } finally {
+          clearTimeout(timer);
+          abort.abort();
+        }
+      });
+      assert(!lifetime.closed, 409, 'The extension runtime closed during native readiness.');
+      handedOff = true;
+      return { pid, version: options.version, signal: lifetime.signal, stop: lifetime.stop };
+    } catch (error) {
+      await lifetime.stop();
+      throw error;
+    }
+  } finally {
+    if (!handedOff) release();
+  }
 }
 async function nativeStatus(path: string) {
   const file = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
