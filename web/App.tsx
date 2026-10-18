@@ -605,6 +605,7 @@ export function App() {
           mode={mode}
           connectors={snapshot.connectors}
           runtimeProviders={snapshot.runtimeProviders}
+          nativeHarnesses={snapshot.nativeHarnesses}
           initialHarness={
             typeof newAccount === 'string'
               ? newAccount

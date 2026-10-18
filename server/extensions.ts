@@ -7,6 +7,7 @@ import type { NativeRuntimeProvider } from '../shared/extensions.js';
 import type { CompanionProviderDefinition } from './companion-providers.js';
 import { extensionPaths } from './extension-config.js';
 import { assert } from './errors.js';
+import type { NativeHarnessDefinition } from './harness-providers.js';
 
 export interface ForgeExtension {
   format: 'forge.extension';
@@ -14,11 +15,14 @@ export interface ForgeExtension {
   id: string;
   name: string;
   release: string;
-  companions: (CompanionProviderDefinition & { id: string; name: string })[];
+  companions?: (CompanionProviderDefinition & { id: string; name: string })[];
+  harnesses?: NativeHarnessDefinition[];
 }
 export interface LoadedExtensions {
   providers: Record<string, CompanionProviderDefinition>;
   runtimes: readonly NativeRuntimeProvider[];
+  executors?: Readonly<Record<string, NativeHarnessDefinition>>;
+  harnesses?: readonly NativeRuntimeProvider[];
 }
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const text = (max: number) => z.string().trim().min(1).max(max);
@@ -50,9 +54,28 @@ const extensionSchema = z
     id: text(100).regex(/^[a-z][a-z0-9.-]+$/),
     name: text(80),
     release: text(80),
-    companions: z.array(definitionSchema).min(1).max(16),
+    companions: z.array(definitionSchema).min(1).max(16).optional(),
+    harnesses: z
+      .array(
+        definitionSchema
+          .omit({ connect: true })
+          .extend({
+            create: z.custom<NativeHarnessDefinition['create']>(
+              (value) => typeof value === 'function',
+            ),
+            accountReader: z.enum(['codex', 'claude', 'opencode', 'hermes', 'openclaw']).optional(),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(16)
+      .optional(),
   })
-  .strict();
+  .strict()
+  .refine(
+    (value) => Boolean(value.companions?.length || value.harnesses?.length),
+    'Declare a native runtime or harness.',
+  );
 
 async function entrySnapshot(path: string) {
   const canonical = await realpath(path);
@@ -94,6 +117,8 @@ export async function loadExtensions(paths: readonly string[] = []): Promise<Loa
   const selected = extensionPaths(JSON.stringify(paths));
   const providers: LoadedExtensions['providers'] = Object.create(null),
     runtimes: NativeRuntimeProvider[] = [];
+  const executors: Record<string, NativeHarnessDefinition> = Object.create(null),
+    harnesses: NativeRuntimeProvider[] = [];
   const ids = new Set<string>(),
     entries = new Set<string>();
   for (const path of selected) {
@@ -131,9 +156,9 @@ export async function loadExtensions(paths: readonly string[] = []): Promise<Loa
       409,
       'The extension entry changed during module initialization. Restart before using its providers.',
     );
-    for (const provider of definition.companions) {
+    for (const provider of definition.companions ?? []) {
       assert(
-        !Object.hasOwn(providers, provider.id),
+        !Object.hasOwn(providers, provider.id) && !Object.hasOwn(executors, provider.id),
         409,
         'Native runtime provider IDs must be unique.',
       );
@@ -162,8 +187,45 @@ export async function loadExtensions(paths: readonly string[] = []): Promise<Loa
         extension: metadata,
       });
     }
+    for (const provider of definition.harnesses ?? []) {
+      assert(
+        !Object.hasOwn(providers, provider.id) && !Object.hasOwn(executors, provider.id),
+        409,
+        'Native runtime and harness provider IDs must be unique.',
+      );
+      const metadata: NativeRuntimeProvider = Object.freeze({
+        id: provider.id,
+        name: provider.name,
+        nativeVersion: provider.nativeVersion,
+        extensionId: definition.id,
+        extensionName: definition.name,
+        extensionVersion: definition.release,
+        digest: hash([
+          'forge.native-harness/1',
+          definition.id,
+          definition.release,
+          entry.digest,
+          provider.id,
+          provider.nativeVersion,
+          provider.profileFiles,
+          provider.accountReader,
+        ]),
+        ...(provider.accountReader ? { accountReader: provider.accountReader } : {}),
+      });
+      harnesses.push(metadata);
+      executors[provider.id] = Object.freeze({
+        ...provider,
+        profileFiles: Object.freeze([...provider.profileFiles]),
+        extension: metadata,
+      });
+    }
   }
-  return { providers: Object.freeze(providers), runtimes: Object.freeze(runtimes) };
+  return {
+    providers: Object.freeze(providers),
+    runtimes: Object.freeze(runtimes),
+    executors: Object.freeze(executors),
+    harnesses: Object.freeze(harnesses),
+  };
 }
 
 export function defineExtension<T extends ForgeExtension>(extension: T): T {

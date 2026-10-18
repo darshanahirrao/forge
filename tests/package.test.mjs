@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { workspaceVersion } from '../dist/server/store.js';
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { createServer } from 'node:net';
@@ -50,17 +51,20 @@ test('the public extension SDK imports without starting a workspace and ships us
       'nativeCompanion',
       'hermesCompanion',
       'openClawCompanion',
+      'CodexDriver',
+      'HermesDriver',
+      'OpenClawDriver',
     ])
       assert(names.includes(name));
     await assert.rejects(stat(absent));
     const consumer = join(root, 'consumer.mts');
     await writeFile(
       consumer,
-      `import { defineExtension, nativeCompanion } from '@forge-workspace/forge/sdk';
+      `import { defineExtension, nativeCompanion, CodexDriver } from '@forge-workspace/forge/sdk';
 export default defineExtension({ format:'forge.extension', version:1, id:'owned.consumer', name:'Owned consumer', release:'1', companions:[{
  id:'ext.owned.consumer', name:'Native consumer', contract:1, nativeVersion:'1', profileFiles:['config.json'],
  connect:async(account,root,_credentials,spawn)=>nativeCompanion({ account,root,spawn,command:'/native/owned',args:[],environment:{},version:'1',probe:async(_pid,signal)=>!signal.aborted })
-}]});
+}], harnesses:[{id:'ext.owned.executor',name:'Native executor',contract:1,nativeVersion:'app-server',profileFiles:['config.toml'],create:()=>new CodexDriver()}]});
 // @ts-expect-error The public SDK must retain its versioned contract, not any.
 defineExtension({format:'forge.extension',version:99});\n`,
     );
@@ -145,7 +149,7 @@ test('future workspace versions are refused before explicit extension initializa
     module = join(root, 'owned.mjs'),
     marker = join(root, 'extension-executed');
   const database = new DatabaseSync(join(root, 'workspace.sqlite'));
-  database.exec('PRAGMA user_version = 16');
+  database.exec('PRAGMA user_version = ' + (workspaceVersion + 1));
   database.close();
   await writeFile(
     module,
@@ -172,7 +176,7 @@ test('future workspace versions are refused before explicit extension initializa
     );
     await assert.rejects(stat(marker));
     const check = new DatabaseSync(join(root, 'workspace.sqlite'), { readOnly: true });
-    assert.equal(check.prepare('PRAGMA user_version').get().user_version, 16);
+    assert.equal(check.prepare('PRAGMA user_version').get().user_version, workspaceVersion + 1);
     check.close();
   } finally {
     await rm(root, { recursive: true, force: true });

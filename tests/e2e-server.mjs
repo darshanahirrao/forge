@@ -18,6 +18,7 @@ import { companionProviderFixture } from './fixtures/companion-provider.mjs';
 import { nativeFileSnapshot } from '../dist/server/native-file-snapshot.js';
 import { scheduleTransferFixture } from './fixtures/schedule-transfer.ts';
 import { loadExtensions } from '../dist/server/extensions.js';
+import { harnessExtensionCode } from './fixtures/harness-extension.mjs';
 const transferNative = scheduleTransferFixture();
 const t3 = await t3Fixture();
 // Owned loopback sink only. Browser tests never publish to an external topic.
@@ -60,7 +61,17 @@ writeFileSync(
 export default {format:'forge.extension',version:1,id:'owned.browser-extension',name:'Browser extension',release:'1.0.0',companions:[{...companionProviderFixture,id:'ext.browser.runtime',name:'Browser native runtime'}]};`,
   { mode: 0o600 },
 );
-const extensions = await loadExtensions([extensionEntry]);
+const harnessEntry = join(directory, 'harness-extension.mjs');
+writeFileSync(
+  harnessEntry,
+  harnessExtensionCode({
+    sdk: new URL('../dist/server/extension-sdk.js', import.meta.url).href,
+    rpc: new URL('../dist/server/adapters/rpc.js', import.meta.url).href,
+    agent: fileURLToPath(new URL('./fixtures/codex-app-server.mjs', import.meta.url)),
+  }),
+  { mode: 0o600 },
+);
+const extensions = await loadExtensions([extensionEntry, harnessEntry]);
 const migrationHome = join(directory, 'owned-migration-source');
 mkdirSync(join(migrationHome, 'memories'), { recursive: true });
 writeFileSync(join(migrationHome, 'config.yaml'), 'native-fixture: true\n', { mode: 0o600 });
@@ -354,6 +365,7 @@ app.get('/api/fixture/extensions', async () => ({
   nativeHome: extensionHome,
   project: memoryProject,
   provider: extensions.runtimes[0],
+  harness: extensions.harnesses[0],
 }));
 app.post('/api/fixture/native-controls', async (request) => {
   nativeControlMode = request.body.mode;

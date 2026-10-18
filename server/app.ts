@@ -63,6 +63,7 @@ import {
   type CompanionProviderDefinition,
 } from './companion-providers.js';
 import type { LoadedExtensions } from './extensions.js';
+import { NativeHarnesses } from './harness-providers.js';
 import { registerCompanionMcp } from './companion-mcp.js';
 import { Blueprints, blueprintSchema } from './blueprints.js';
 import { AccountRouting, routePrepareSchema } from './routing.js';
@@ -161,11 +162,15 @@ export interface AppOptions {
 export async function createApp(options: AppOptions) {
   const app = Fastify({ logger: false, bodyLimit: 512 * 1024, requestTimeout: 35000 });
   const local = options.store ?? new Store(options.filename);
+  const nativeHarnesses = new NativeHarnesses(options.extensions?.executors);
   const runtimeProviders = {
     ...(options.companionProviders ?? builtinCompanionProviders),
     ...options.extensions?.providers,
   };
-  for (const provider of options.extensions?.runtimes ?? []) {
+  for (const provider of [
+    ...(options.extensions?.runtimes ?? []),
+    ...(options.extensions?.harnesses ?? []),
+  ]) {
     if (local.get('connectors', provider.id)) {
       local.close();
       assert(
@@ -199,6 +204,7 @@ export async function createApp(options: AppOptions) {
     local,
     options.driverFactory ??
       ((context) => {
+        if (context.account.nativeExecutor) return nativeHarnesses.driver(context);
         if (context.account.connector) return connectors.driver(context);
         if (context.account.backend) return new T3Driver(backends, context);
         if (context.work.harness === 'codex')
@@ -233,6 +239,7 @@ export async function createApp(options: AppOptions) {
     },
     (work, account, allowMetered) => routing.authorize(work, account, allowMetered),
     async (account) => {
+      nativeHarnesses.validate(account);
       await connectors.validateAccount(account);
       return resolveCredential(account);
     },
@@ -814,6 +821,7 @@ export async function createApp(options: AppOptions) {
       companionRuntimes.resourceRoots(),
     );
     const result: Snapshot = {
+      nativeHarnesses: mode(request) === 'demo' ? [] : [...(options.extensions?.harnesses ?? [])],
       runtimeProviders: mode(request) === 'demo' ? [] : [...(options.extensions?.runtimes ?? [])],
       service: options.background ?? { mode: 'foreground' },
       availability: mode(request) === 'demo' ? undefined : await availability.snapshot(),
@@ -838,7 +846,15 @@ export async function createApp(options: AppOptions) {
         const rank = { waiting: 0, running: 1, failed: 2, interrupted: 2, ready: 3, completed: 4 };
         return rank[a.status] - rank[b.status] || b.updatedAt.localeCompare(a.updatedAt);
       }),
-      accounts: db.all<Account>('accounts'),
+      accounts: db.all<Account>('accounts').map((account) =>
+        account.nativeExecutor
+          ? {
+              ...account,
+              nativeExecutorReady:
+                nativeHarnesses.current(account) && Boolean(supervisions.directory),
+            }
+          : account,
+      ),
       companionGrants: mode(request) === 'demo' ? [] : companions.list(),
       companionHandoffs: mode(request) === 'demo' ? [] : companionHandoffs.list(),
       companionRuntime: mode(request) === 'demo' ? undefined : companionRuntimes.snapshot(),
@@ -1036,7 +1052,11 @@ export async function createApp(options: AppOptions) {
       builtinHarness.safeParse(value).success ||
         db
           .all<Account>('accounts')
-          .some((account) => account.harness === value && (account.backend || account.connector)),
+          .some(
+            (account) =>
+              account.harness === value &&
+              (account.backend || account.connector || account.nativeExecutor),
+          ),
       400,
       'Connect a native backend or installed connector offering this harness first.',
     );
@@ -1311,6 +1331,7 @@ export async function createApp(options: AppOptions) {
     );
     const { connectorId, ...body } = accountSchema.parse(request.body);
     const nativeProvider = runtimeProviders[body.harness]?.extension;
+    const nativeExecutor = options.extensions?.executors?.[body.harness]?.extension;
     assert(
       !body.openClawProjectRoot ||
         (mode(request) === 'local' &&
@@ -1321,7 +1342,7 @@ export async function createApp(options: AppOptions) {
       'Review dedicated OpenClaw project access on the local Forge host.',
     );
     assert(
-      !body.harness.startsWith('ext.') || connectorId || nativeProvider,
+      !body.harness.startsWith('ext.') || connectorId || nativeProvider || nativeExecutor,
       400,
       'Select an installed native connector for this harness.',
     );
@@ -1333,6 +1354,16 @@ export async function createApp(options: AppOptions) {
           body.billingMode !== 'subscription'),
       403,
       'Link native runtime extensions locally using their native or API configuration.',
+    );
+    assert(
+      !nativeExecutor ||
+        (!connectorId &&
+          !nativeProvider &&
+          mode(request) === 'local' &&
+          bridgeActor(request.headers, options.phoneBridge).kind === 'local' &&
+          body.billingMode !== 'subscription'),
+      403,
+      'Link native harness extensions locally using native or API billing.',
     );
     assert(
       !connectorId ||
@@ -1356,6 +1387,21 @@ export async function createApp(options: AppOptions) {
       : undefined;
     const account: Account = {
       ...body,
+      ...(nativeExecutor
+        ? {
+            nativeExecutor: {
+              id: nativeExecutor.id,
+              name: nativeExecutor.name,
+              ...(nativeExecutor.accountReader
+                ? { accountReader: nativeExecutor.accountReader }
+                : {}),
+              extensionId: nativeExecutor.extensionId,
+              extensionVersion: nativeExecutor.extensionVersion,
+              digest: nativeExecutor.digest,
+            },
+            nativeExecutorReady: true,
+          }
+        : {}),
       ...(nativeProvider
         ? {
             nativeProvider: {
@@ -1382,6 +1428,10 @@ export async function createApp(options: AppOptions) {
       createdAt: now(),
     };
     if (account.credentialReference) credentialTarget(account);
+    if (account.nativeExecutor) {
+      assert(account.nativeHome, 400, 'Choose an explicit native harness profile directory.');
+      nativeHarnesses.validate(account);
+    }
     if (account.nativeProvider)
       assert(account.nativeHome, 400, 'Choose an explicit native runtime profile directory.');
     if (account.connector) {
@@ -1400,6 +1450,30 @@ export async function createApp(options: AppOptions) {
     return reply.code(201).send(account);
   });
   async function refreshAccount(account: Account) {
+    if (account.nativeExecutor) {
+      nativeHarnesses.validate(account);
+      if (!account.nativeExecutor.accountReader) return account;
+      assert(
+        !local.settings().quietMode,
+        409,
+        'Resume managed native reads before checking this harness account.',
+      );
+      checkMemoryAdmission(local.settings(), await machine.freshPressure());
+      assert(
+        !local.settings().quietMode,
+        409,
+        'Native account preparation ended while new work was paused.',
+      );
+      const credentials = await resolveCredential(account);
+      try {
+        const result = await nativeHarnesses
+          .probe(account, credentials)
+          .catch((error) => failedProbe(account, error));
+        return local.put('accounts', account.id, result);
+      } finally {
+        credentials?.dispose();
+      }
+    }
     if (account.nativeProvider) {
       const provider = runtimeProviders[account.harness]?.extension;
       assert(
@@ -1974,7 +2048,11 @@ export async function createApp(options: AppOptions) {
       !Object.hasOwn(
         options.extensions?.providers ?? {},
         (request.body as { id?: string })?.id ?? '',
-      ),
+      ) &&
+        !Object.hasOwn(
+          options.extensions?.executors ?? {},
+          (request.body as { id?: string })?.id ?? '',
+        ),
       409,
       'This ID belongs to a loaded native runtime extension. Use a distinct ACP connector ID.',
     );

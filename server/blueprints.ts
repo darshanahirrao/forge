@@ -104,6 +104,7 @@ const accountBinding = (account: Account) => ({
   id: account.id,
   harness: account.harness,
   ...(account.nativeProvider ? { nativeProvider: account.nativeProvider } : {}),
+  ...(account.nativeExecutor ? { nativeExecutor: account.nativeExecutor } : {}),
   ...(account.connector ? { connector: account.connector } : {}),
   billingMode: account.billingMode,
   nativeHome: account.nativeHome,

@@ -1,6 +1,13 @@
 // Protocol fixture only. It performs no shell commands, model calls, or project writes.
 import readline from 'node:readline';
 import { randomUUID } from 'node:crypto';
+import { writeFileSync } from 'node:fs';
+if (process.env.FORGE_FIXTURE_EXECUTOR_CAPTURE)
+  writeFileSync(
+    process.env.FORGE_FIXTURE_EXECUTOR_CAPTURE,
+    JSON.stringify({ home: process.env.CODEX_HOME, credential: process.env.LOCAL_NATIVE_KEY }),
+    { mode: 0o600 },
+  );
 const send = (value) => process.stdout.write(`${JSON.stringify(value)}\n`);
 let initialized = false;
 let threadId = randomUUID();

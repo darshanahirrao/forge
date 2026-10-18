@@ -1,5 +1,7 @@
 # Native runtime extensions
 
+Managed turn providers also use this loading/host-trust contract. See [native harness extensions](NATIVE_HARNESS_EXTENSIONS.md) for the public execution driver and account-reader contract.
+
 Forge can load a native companion provider from an explicitly configured local Node module. It appears in Accounts and Connections and uses the existing profile, scoped MCP context, runtime review, original-child supervision, resources, stop, recovery and companion-handoff controls. There is no separate work database, approval inbox, model loop or tool implementation.
 
 Build once, then load the included working example:

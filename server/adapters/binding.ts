@@ -8,6 +8,7 @@ export const accountBinding = (account: Account) =>
       JSON.stringify({
         harness: account.harness,
         ...(account.nativeProvider ? { nativeProvider: account.nativeProvider } : {}),
+        ...(account.nativeExecutor ? { nativeExecutor: account.nativeExecutor } : {}),
         ...(account.connector ? { connector: account.connector } : {}),
         home: account.nativeHome,
         ...(account.openClawProjectRoot

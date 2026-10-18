@@ -373,6 +373,8 @@ export class Continuity {
             JSON.stringify(currentAccount.credentialReference) ===
               JSON.stringify(account.credentialReference) &&
             JSON.stringify(currentAccount.connector) === JSON.stringify(account.connector) &&
+            JSON.stringify(currentAccount.nativeExecutor) ===
+              JSON.stringify(account.nativeExecutor) &&
             JSON.stringify(currentAccount.backend) === JSON.stringify(account.backend),
           409,
           'The destination account configuration changed during verification. Review the target again.',

@@ -52,7 +52,8 @@ export function AccountsPage({
                 <div>
                   <h2>{a.label}</h2>
                   <p>
-                    {data.runtimeProviders?.find((provider) => provider.id === a.harness)?.name ??
+                    {data.nativeHarnesses?.find((provider) => provider.id === a.harness)?.name ??
+                      data.runtimeProviders?.find((provider) => provider.id === a.harness)?.name ??
                       harnessName(a.harness)}
                   </p>
                 </div>
@@ -68,6 +69,15 @@ export function AccountsPage({
                 />
               </div>
               <dl className="account-facts">
+                {a.nativeExecutor && (
+                  <div>
+                    <dt>Native harness extension</dt>
+                    <dd>
+                      {a.nativeExecutor.extensionId} · {a.nativeExecutor.extensionVersion}
+                      {a.nativeExecutorReady === false ? ' · Execution unavailable' : ''}
+                    </dd>
+                  </div>
+                )}
                 {a.nativeProvider && (
                   <div>
                     <dt>Native runtime extension</dt>
@@ -181,6 +191,7 @@ export function AccountsPage({
                       a.backend ||
                       a.connector ||
                       a.nativeProvider ||
+                      a.nativeExecutor ||
                       managedHarnesses.includes(a.harness)
                     )
                   }
@@ -188,11 +199,18 @@ export function AccountsPage({
                   title={
                     data.mode === 'demo'
                       ? 'Demo accounts never contact native tools'
-                      : a.nativeProvider
-                        ? 'Check the loaded runtime extension binding; identity and allowance remain native'
-                        : !(a.backend || a.connector || managedHarnesses.includes(a.harness))
-                          ? 'No supported native status adapter'
-                          : 'Read native authentication status'
+                      : a.nativeExecutor && !a.nativeExecutor.accountReader
+                        ? 'Check the loaded harness binding; existing native identity and allowance evidence keeps its original timestamp'
+                        : a.nativeProvider
+                          ? 'Check the loaded runtime extension binding; identity and allowance remain native'
+                          : !(
+                                a.backend ||
+                                a.connector ||
+                                a.nativeExecutor ||
+                                managedHarnesses.includes(a.harness)
+                              )
+                            ? 'No supported native status adapter'
+                            : 'Read native authentication status'
                   }
                 >
                   {busy === a.id ? (
@@ -200,7 +218,11 @@ export function AccountsPage({
                   ) : (
                     <RefreshCw size={14} />
                   )}
-                  {a.nativeProvider ? 'Check runtime binding' : 'Check native account'}
+                  {a.nativeExecutor && !a.nativeExecutor.accountReader
+                    ? 'Check harness binding'
+                    : a.nativeProvider
+                      ? 'Check runtime binding'
+                      : 'Check native account'}
                 </button>
               </div>
             </section>

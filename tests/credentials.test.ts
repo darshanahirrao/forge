@@ -308,7 +308,7 @@ test('state 5 upgrades with private rollback and retains reference metadata with
   store.close();
   store = new Store(filename);
   try {
-    assert.match(store.migrationBackup!, /before-v15/);
+    assert.match(store.migrationBackup!, /before-v16/);
     if (process.platform !== 'win32')
       assert.equal((await stat(store.migrationBackup!)).mode & 0o777, 0o600);
     const backup = new DatabaseSync(store.migrationBackup!, { readOnly: true });
@@ -323,7 +323,7 @@ test('state 5 upgrades with private rollback and retains reference metadata with
     assert.deepEqual(store.account(a.id).credentialReference, a.credentialReference);
     assert.equal(
       (store.db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version,
-      15,
+      16,
     );
     assert.equal(
       JSON.stringify(store.db.prepare('SELECT data FROM records').all()).includes('fixture-first'),

@@ -7,7 +7,8 @@ export const managedHarnesses: readonly Harness[] = [
   'hermes',
   'openclaw',
 ];
-export function executionName(harness: Harness) {
+export function executionName(harness: Harness, account?: Account) {
+  if (account?.nativeExecutor?.name) return account.nativeExecutor.name;
   return harness === 'claude'
     ? 'Claude'
     : harness === 'codex'
@@ -23,6 +24,12 @@ export function executionName(harness: Harness) {
 
 export function canExecuteAccount(account?: Account): boolean {
   if (account?.nativeProvider) return false;
+  if (account?.nativeExecutor)
+    return Boolean(
+      account.nativeExecutorReady !== false &&
+      account.nativeHome &&
+      account.billingMode !== 'subscription',
+    );
   if (account?.connector)
     return Boolean(
       account.connectorReady && account.nativeHome && account.billingMode !== 'subscription',

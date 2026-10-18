@@ -148,7 +148,7 @@ export function LaunchDialog({
   return (
     <Dialog
       title="Ready to use the native harness?"
-      subtitle={`START A ${executionName(work.harness).toUpperCase()} ATTEMPT`}
+      subtitle={`START A ${executionName(work.harness, account).toUpperCase()} ATTEMPT`}
       onClose={onClose}
     >
       <form className="dialog-form" onSubmit={start}>
@@ -193,9 +193,9 @@ export function LaunchDialog({
             </p>
           )}
           <p>
-            {executionName(work.harness)} receives this task's goal, acceptance criteria, context
-            and checkpoints, with access to the selected project. Native tools and permission rules
-            apply. Supported permission requests arrive in Forge.
+            {executionName(work.harness, account)} receives this task's goal, acceptance criteria,
+            context and checkpoints, with access to the selected project. Native tools and
+            permission rules apply. Supported permission requests arrive in Forge.
           </p>
           {account?.connector && (
             <p className="source-note">

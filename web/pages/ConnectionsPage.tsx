@@ -59,6 +59,45 @@ export function ConnectionsPage({
     <div className="page-stack">
       <BackendsPanel data={data} mutate={mutate} />
       <ConnectorsPanel data={data} mutate={mutate} />
+      {data.mode === 'local' && Boolean(data.nativeHarnesses?.length) && (
+        <section className="panel" aria-label="Native harness extensions">
+          <div className="section-heading">
+            <div>
+              <h2>Native harness extensions</h2>
+              <p>Link a native profile, then select it for managed work.</p>
+            </div>
+          </div>
+          <div className="native-entry-list">
+            {data.nativeHarnesses!.map((provider) => (
+              <article className="native-entry" key={provider.id}>
+                <div className="native-entry-copy">
+                  <h3>{provider.name}</h3>
+                  <p>
+                    {provider.extensionName} · {provider.extensionVersion} · Native{' '}
+                    {provider.nativeVersion}
+                  </p>
+                  <details className="native-details">
+                    <summary>Provider binding</summary>
+                    <p className="mono">{provider.id}</p>
+                    <p className="native-rule">{provider.digest}</p>
+                    <p>
+                      The native adapter keeps its tools, permissions and conversation. Forge
+                      retains the same work, selected context, approvals, usage and original-child
+                      recovery. Loading a provider starts no worker.
+                    </p>
+                  </details>
+                </div>
+                <button
+                  className="button secondary small"
+                  onClick={() => onNewAccount(provider.id)}
+                >
+                  Link an account
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
       {data.mode === 'local' && Boolean(data.runtimeProviders?.length) && (
         <section className="panel" aria-label="Native runtime extensions">
           <div className="section-heading">

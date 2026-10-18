@@ -105,7 +105,8 @@ export function WorkForm({
                 ...new Set([...Object.keys(names), ...accounts.map((account) => account.harness)]),
               ].map((key) => (
                 <option key={key} value={key}>
-                  {harnessName(key)}
+                  {accounts.find((account) => account.harness === key)?.nativeExecutor?.name ??
+                    harnessName(key)}
                 </option>
               ))}
             </select>

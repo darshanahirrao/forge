@@ -159,6 +159,7 @@ export class CompanionRuntimes {
     this.assertProvider(account);
     assert(
       !account.backend &&
+        !account.nativeExecutor &&
         !account.connector &&
         account.harness === runtime.harness &&
         this.providers[account.harness],
@@ -276,6 +277,7 @@ export class CompanionRuntimes {
     assert(
       this.providers[account.harness] &&
         account.nativeHome &&
+        !account.nativeExecutor &&
         !account.backend &&
         !account.connector,
       409,

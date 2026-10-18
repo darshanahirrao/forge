@@ -159,7 +159,7 @@ export function WorkDetail({
         <div className="binding-box">
           <HarnessMark harness={work.harness} />
           <div>
-            <strong>{harnessName(work.harness)}</strong>
+            <strong>{account?.nativeExecutor?.name ?? harnessName(work.harness)}</strong>
             <p>{account?.label ?? 'Choose a native account to run this task.'}</p>
           </div>
           <button className="text-button" disabled={Boolean(work.activeRunId)} onClick={onEdit}>
@@ -280,7 +280,7 @@ export function WorkDetail({
           >
             <Play size={16} />
             {work.nativeSessionId ? 'Continue with ' : 'Run with '}
-            {executionName(work.harness)}
+            {executionName(work.harness, account)}
           </button>
         ) : (
           <span className="source-note">

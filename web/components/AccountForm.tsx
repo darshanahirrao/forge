@@ -14,6 +14,7 @@ export function AccountForm({
   onSaved,
   connectors = [],
   runtimeProviders = [],
+  nativeHarnesses = [],
   initialHarness = 'codex',
   initialNativeHome = '',
 }: {
@@ -23,6 +24,7 @@ export function AccountForm({
   onSaved: () => void;
   connectors?: NativeConnector[];
   runtimeProviders?: readonly NativeRuntimeProvider[];
+  nativeHarnesses?: readonly NativeRuntimeProvider[];
   initialHarness?: Harness;
   initialNativeHome?: string;
 }) {
@@ -33,7 +35,8 @@ export function AccountForm({
   const [credentialSource, setCredentialSource] = useState('environment');
   const connector = connectors.find((item) => item.id === harness);
   const runtimeProvider = runtimeProviders.find((item) => item.id === harness);
-  const nativeSlot = Boolean(connector || runtimeProvider);
+  const nativeHarness = nativeHarnesses.find((item) => item.id === harness);
+  const nativeSlot = Boolean(connector || runtimeProvider || nativeHarness);
   const credentialSupport =
     (['claude', 'codex'].includes(harness) && billingMode === 'api') ||
     ['opencode', 'hermes', 'openclaw'].includes(harness) ||
@@ -118,7 +121,8 @@ export function AccountForm({
                 setHarness(next);
                 if (
                   (connectors.some((item) => item.id === next) ||
-                    runtimeProviders.some((item) => item.id === next)) &&
+                    runtimeProviders.some((item) => item.id === next) ||
+                    nativeHarnesses.some((item) => item.id === next)) &&
                   billingMode === 'subscription'
                 )
                   setBillingMode('native');
@@ -139,6 +143,11 @@ export function AccountForm({
               {runtimeProviders.map((provider) => (
                 <option key={provider.id} value={provider.id}>
                   {provider.name} · Native runtime
+                </option>
+              ))}
+              {nativeHarnesses.map((provider) => (
+                <option key={provider.id} value={provider.id}>
+                  {provider.name} · Native harness
                 </option>
               ))}
             </select>
@@ -293,19 +302,21 @@ export function AccountForm({
               }
             />
             <small>
-              {runtimeProvider
-                ? `Native ${runtimeProvider.name} profile. Its runtime keeps its own model, tools, memory and sign-in. Use the reviewed native runtime controls in Connections; provider identity, allowance and billing remain native.`
-                : connector
-                  ? 'An existing native profile. The connector maps its reviewed home variables into this directory. Configure sign-in and the model through the native agent first; provider identity, limits and billing remain unknown.'
-                  : harness === 'codex'
-                    ? 'References CODEX_HOME. The chosen credential backend must support separate native identities.'
-                    : harness === 'claude'
-                      ? 'References CLAUDE_CONFIG_DIR. Keyless Console sign-ins have different isolation rules.'
-                      : harness === 'opencode'
-                        ? 'A native profile root containing config, data, state and cache directories. Configure OpenCode with these XDG homes and select a default model first. Forge never copies another profile’s credentials.'
-                        : harness === 'hermes'
-                          ? 'References HERMES_HOME. Configure its native provider first. Hermes keeps its own tools, skills, memory and credentials in this home. Forge uses the installed native ACP runtime.'
-                          : 'Use a dedicated native execution profile with local Gateway, reload off, cron disabled and heartbeat every 0m. Native channels and schedules stay with their existing companion owner. Configure its model through OpenClaw first.'}
+              {nativeHarness
+                ? `Native ${nativeHarness.name} profile. Managed work reuses this provider's native tools, model and permissions. Provider identity and allowance are verified only where the native adapter reports them. Linking starts no worker.`
+                : runtimeProvider
+                  ? `Native ${runtimeProvider.name} profile. Its runtime keeps its own model, tools, memory and sign-in. Use the reviewed native runtime controls in Connections; provider identity, allowance and billing remain native.`
+                  : connector
+                    ? 'An existing native profile. The connector maps its reviewed home variables into this directory. Configure sign-in and the model through the native agent first; provider identity, limits and billing remain unknown.'
+                    : harness === 'codex'
+                      ? 'References CODEX_HOME. The chosen credential backend must support separate native identities.'
+                      : harness === 'claude'
+                        ? 'References CLAUDE_CONFIG_DIR. Keyless Console sign-ins have different isolation rules.'
+                        : harness === 'opencode'
+                          ? 'A native profile root containing config, data, state and cache directories. Configure OpenCode with these XDG homes and select a default model first. Forge never copies another profile’s credentials.'
+                          : harness === 'hermes'
+                            ? 'References HERMES_HOME. Configure its native provider first. Hermes keeps its own tools, skills, memory and credentials in this home. Forge uses the installed native ACP runtime.'
+                            : 'Use a dedicated native execution profile with local Gateway, reload off, cron disabled and heartbeat every 0m. Native channels and schedules stay with their existing companion owner. Configure its model through OpenClaw first.'}
             </small>
           </label>
           {harness === 'openclaw' && mode === 'local' && (
