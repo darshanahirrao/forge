@@ -29,6 +29,9 @@ import {
   Terminal,
   FileText,
   ShieldCheck,
+  PanelLeftClose,
+  PanelLeftOpen,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { IconButton, Dialog } from './components/primitives';
 import { PageHeading } from './components/PageHeading';
@@ -47,6 +50,8 @@ import { ApprovalDialog } from './components/ApprovalDialog';
 import { LaunchDialog } from './components/LaunchDialog';
 import { HandoffDialog } from './components/HandoffDialog';
 import { SearchDialog } from './components/SearchDialog';
+import { ViewOptions, KeyboardShortcuts } from './components/ViewOptions';
+import { useDisplayPreferences } from './lib/display';
 import { NativeSessionDialog } from './components/NativeSessionDialog';
 import {
   NativeContinuationDialog,
@@ -86,7 +91,11 @@ export function App() {
           : '',
   );
   const [theme, setTheme] = useState(() => localStorage.getItem('forge.theme') ?? 'light');
+  const { display, updateDisplay } = useDisplayPreferences();
+  const [viewOptions, setViewOptions] = useState(false);
   const [mobileNav, setMobileNav] = useState(false);
+  const sidebarRef = useRef<HTMLElement>(null);
+  const mobileNavTrigger = useRef<HTMLButtonElement>(null);
   const [newWork, setNewWork] = useState(false);
   const [newAccount, setNewAccount] = useState<
     | boolean
@@ -111,6 +120,12 @@ export function App() {
   const [busy, setBusy] = useState('');
   const activeMode = useRef(mode);
   activeMode.current = mode;
+  const navigate = useCallback((next: View, nativeRuntimeId?: string) => {
+    if (window.location.hash !== `#${next}`) window.history.pushState(null, '', `#${next}`);
+    setView(next);
+    setRuntimeFocus(nativeRuntimeId);
+    setMobileNav(false);
+  }, []);
   useEffect(() => {
     if (returnedFromT3)
       window.history.replaceState(null, '', window.location.pathname + window.location.hash);
@@ -173,14 +188,104 @@ export function App() {
   }, [theme]);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing || e.repeat) return;
+      const modal = document.querySelector('dialog[open]');
+      if (modal) {
+        if (
+          searchOpen &&
+          modal.querySelector('.command-dialog') &&
+          (e.metaKey || e.ctrlKey) &&
+          e.key.toLowerCase() === 'k'
+        ) {
+          e.preventDefault();
+          setSearchOpen(false);
+        }
+        return;
+      }
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        setSearchOpen((v) => !v);
+        setMobileNav(false);
+        setSearchOpen(true);
+        return;
+      }
+      const target = e.target instanceof Element ? e.target : null;
+      if (
+        target?.closest(
+          'input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="textbox"], [role="combobox"]',
+        )
+      )
+        return;
+      if ((e.metaKey || e.ctrlKey) && e.code === 'Backslash' && !e.altKey) {
+        if (window.matchMedia('(min-width: 721px)').matches) {
+          e.preventDefault();
+          updateDisplay({ sidebarCollapsed: !display.sidebarCollapsed });
+        }
+        return;
+      }
+      if (e.altKey && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+        const index = Number(e.code.match(/^Digit([1-8])$/)?.[1]) - 1;
+        if (nav[index]) {
+          e.preventDefault();
+          navigate(nav[index].id);
+        }
+        return;
+      }
+      if (!display.singleKeyShortcuts || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === '/') {
+        e.preventDefault();
+        setMobileNav(false);
+        setSearchOpen(true);
+      } else if (e.key.toLowerCase() === 'n' && snapshot) {
+        e.preventDefault();
+        setMobileNav(false);
+        setNewWork(true);
+      } else if (e.key === '?') {
+        e.preventDefault();
+        setMobileNav(false);
+        setHelp(true);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [searchOpen, snapshot, display, updateDisplay, navigate]);
+  useEffect(() => {
+    if (!mobileNav) return;
+    const sidebar = sidebarRef.current!;
+    const focusable = () =>
+      Array.from(sidebar.querySelectorAll<HTMLElement>('a[href], button:not(:disabled)'));
+    focusable()[0]?.focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const closeOnDesktop = () => {
+      if (window.matchMedia('(min-width: 721px)').matches) setMobileNav(false);
+    };
+    const keydown = (event: KeyboardEvent) => {
+      if (document.querySelector('dialog[open]')) return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setMobileNav(false);
+      } else if (event.key === 'Tab') {
+        const items = focusable();
+        const first = items[0],
+          last = items[items.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      }
+    };
+    window.addEventListener('resize', closeOnDesktop);
+    window.addEventListener('keydown', keydown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('resize', closeOnDesktop);
+      window.removeEventListener('keydown', keydown);
+      if (!document.querySelector('dialog[open]')) mobileNavTrigger.current?.focus();
+    };
+  }, [mobileNav]);
   useEffect(() => {
     const restore = () => {
       setView(currentView());
@@ -208,12 +313,6 @@ export function App() {
     setNewAccount(false);
     setSearchOpen(false);
     setSelected(null);
-    setMobileNav(false);
-  }
-  function navigate(next: View, nativeRuntimeId?: string) {
-    if (window.location.hash !== `#${next}`) window.history.pushState(null, '', `#${next}`);
-    setView(next);
-    setRuntimeFocus(nativeRuntimeId);
     setMobileNav(false);
   }
   async function mutate<T = unknown>(path: string, method: string, body?: unknown): Promise<T> {
@@ -259,7 +358,7 @@ export function App() {
   }, [selected, selectedSummary?.revision, latestEvent, mode]);
   const selectedWork = detail?.work.id === selected ? detail.work : null;
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${display.sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       <a
         className="skip-link"
         href="#main"
@@ -278,18 +377,27 @@ export function App() {
         />
       )}
       <aside
+        id="workspace-navigation"
+        ref={sidebarRef}
         className={`sidebar ${mobileNav ? 'sidebar-open' : ''}`}
         aria-label="Workspace navigation"
+        role={mobileNav ? 'dialog' : undefined}
+        aria-modal={mobileNav || undefined}
       >
         <a
           className="wordmark"
           href="#"
+          aria-label="Forge workspace"
+          title="Forge workspace"
           onClick={(e) => {
             e.preventDefault();
             navigate('overview');
           }}
         >
-          forge<span className="wordmark-period">.</span>
+          <span className="wordmark-full">forge</span>
+          <span className="wordmark-short" aria-hidden="true">
+            f
+          </span>
         </a>
         <button
           className="workspace-picker"
@@ -301,7 +409,7 @@ export function App() {
           }
         >
           <span className="workspace-monogram">{mode === 'local' ? 'L' : 'D'}</span>
-          <span>
+          <span className="workspace-picker-label">
             <strong>{mode === 'local' ? 'Local workspace' : 'Demo workspace'}</strong>
             <small>{mode === 'local' ? 'Switch to demo' : 'Return to local'}</small>
           </span>
@@ -317,41 +425,100 @@ export function App() {
                 onClick={() => navigate(item.id)}
                 className={`nav-item ${view === item.id ? 'selected' : ''}`}
                 aria-current={view === item.id ? 'page' : undefined}
+                aria-label={item.label}
+                aria-description={
+                  item.id === 'approvals' && pending.length
+                    ? `${pending.length} pending`
+                    : undefined
+                }
+                aria-keyshortcuts={`Alt+${index + 1}`}
               >
                 <item.icon size={18} strokeWidth={1.6} />
-                <span>{item.label}</span>
+                <span className="nav-item-label">{item.label}</span>
                 {item.id === 'approvals' && pending.length > 0 && (
                   <span className="nav-count">{pending.length}</span>
                 )}
+                <span className="nav-tooltip" aria-hidden="true">
+                  {item.label}
+                  <kbd>Alt {index + 1}</kbd>
+                </span>
               </button>
             </div>
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <button className="nav-item" onClick={() => setSearchOpen(true)}>
+          <button
+            className="nav-item"
+            aria-label="Commands"
+            onClick={() => {
+              setMobileNav(false);
+              setSearchOpen(true);
+            }}
+          >
             <Command size={18} strokeWidth={1.6} />
-            <span>Commands</span>
+            <span className="nav-item-label">Commands</span>
             <span className="nav-shortcut" title="Ctrl/Cmd K">
               K
             </span>
+            <span className="nav-tooltip" aria-hidden="true">
+              Commands<kbd>Ctrl / Cmd K</kbd>
+            </span>
           </button>
-          <button className="nav-item" onClick={() => setHelp(true)}>
+          <button
+            className="nav-item"
+            aria-label="Help"
+            onClick={() => {
+              setMobileNav(false);
+              setHelp(true);
+            }}
+          >
             <CircleHelp size={18} strokeWidth={1.6} />
-            <span>Help</span>
+            <span className="nav-item-label">Help</span>
+            <span className="nav-tooltip" aria-hidden="true">
+              Help<kbd>?</kbd>
+            </span>
           </button>
-          <div className="local-indicator">
+          <div
+            className="local-indicator"
+            title={`Local service · v${snapshot?.version ?? version}`}
+          >
             <span className="status-dot" />
-            <span>Local service</span>
+            <span className="service-label">Local service</span>
             <span className="mono">v{snapshot?.version ?? version}</span>
           </div>
         </div>
       </aside>
-      <div className="workspace-shell">
+      <div className="workspace-shell" inert={mobileNav}>
         <header className="topbar">
           <div className="breadcrumb">
-            <IconButton label="Toggle navigation" onClick={() => setMobileNav(!mobileNav)}>
+            <button
+              className="icon-button mobile-nav-toggle"
+              ref={mobileNavTrigger}
+              aria-label="Toggle navigation"
+              aria-expanded={mobileNav}
+              aria-controls="workspace-navigation"
+              onClick={() => setMobileNav(!mobileNav)}
+            >
               <Menu className="mobile-only" size={20} />
-            </IconButton>
+            </button>
+            <button
+              className="icon-button sidebar-toggle"
+              aria-label={display.sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              title={
+                display.sidebarCollapsed
+                  ? 'Expand sidebar (Ctrl/Cmd \\)'
+                  : 'Collapse sidebar (Ctrl/Cmd \\)'
+              }
+              aria-expanded={!display.sidebarCollapsed}
+              aria-controls="workspace-navigation"
+              onClick={() => updateDisplay({ sidebarCollapsed: !display.sidebarCollapsed })}
+            >
+              {display.sidebarCollapsed ? (
+                <PanelLeftOpen size={18} />
+              ) : (
+                <PanelLeftClose size={18} />
+              )}
+            </button>
             <span>{mode === 'demo' ? 'Demo workspace' : 'Personal workspace'}</span>
             <ChevronRight size={14} />
             <strong>{nav.find((n) => n.id === view)?.label}</strong>
@@ -368,6 +535,9 @@ export function App() {
                 <Command size={10} /> K
               </kbd>
             </button>
+            <IconButton label="View options" onClick={() => setViewOptions(true)}>
+              <SlidersHorizontal size={17} />
+            </IconButton>
             <IconButton
               label={theme === 'dark' ? 'Use light theme' : 'Use dark theme'}
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
@@ -801,6 +971,13 @@ export function App() {
                     icon: UsersRound,
                     run: () => setNewAccount(true),
                   },
+                  {
+                    id: 'view-options',
+                    label: 'View options',
+                    detail: 'Density, sidebar and keyboard shortcuts',
+                    icon: SlidersHorizontal,
+                    run: () => setViewOptions(true),
+                  },
                   ...(pending.length
                     ? [
                         {
@@ -840,6 +1017,13 @@ export function App() {
           }}
         />
       )}
+      {viewOptions && (
+        <ViewOptions
+          display={display}
+          onChange={updateDisplay}
+          onClose={() => setViewOptions(false)}
+        />
+      )}
       {help && (
         <Dialog title="Using Forge" onClose={() => setHelp(false)}>
           <div className="dialog-body help-copy">
@@ -848,6 +1032,16 @@ export function App() {
               Ctrl/Cmd K to find work, change views or open setup. Prefix a search with &gt; for
               actions.
             </p>
+            <KeyboardShortcuts />
+            <button
+              className="text-button"
+              onClick={() => {
+                setHelp(false);
+                setViewOptions(true);
+              }}
+            >
+              Adjust density, navigation and shortcuts <ArrowRight size={14} />
+            </button>
             <div className="help-item">
               <UsersRound size={20} />
               <div>

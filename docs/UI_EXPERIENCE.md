@@ -17,7 +17,7 @@ Reviewed these primary sources on 2026-10-17:
 
 These are interaction references, not a comparative performance benchmark or an upstream compatibility claim. No source from these projects is copied in this change. T3 execution-foundation adoption remains a separate decision in [T3_CODE_REVIEW.md](T3_CODE_REVIEW.md). Forge continues to reuse native execution, tools, memory and scheduling rather than adding another terminal, editor or agent loop.
 
-## Design plan
+## Initial design plan, v0.14
 
 Treatment: utilitarian. Subject: existing work across native harnesses. Audience: frequent agent users. Job: find and operate the next relevant piece of work with minimal navigation.
 
@@ -26,6 +26,24 @@ Preserve the existing theme tokens: paper `#F3F7F7`, ink `#18343E`, accent `#126
 Layout: a compact sidebar with daily views above configuration, a small page title, a single operational status row, then attention and a searchable work list. Use separators and rows rather than stacked summary cards. Keep touch targets usable on mobile.
 
 Content order: operational status, exact pending decisions, setup only when needed, managed work and native observations in one filterable list, then a short explanation of observation coverage. The first screen must use real saved activity even when no Forge work records exist. Native metadata must never imply current process ownership or permission authority.
+
+## Operator interface, v0.41
+
+Decision date: 2026-10-18. Checkpoint: `forge-v0.41.0`. This plan supersedes the earlier palette and interface typography, preserving the native review and authority rules.
+
+Treatment: utilitarian. Subject: daily operation across harnesses. Audience: frequent technical operators. Job: scan current work and decisions, find the next item, and act with minimal navigation. Futuristic means precision, aligned information and immediate controls, without ornamental effects.
+
+Forge has its own visual identity: a developer workbench with an activity rail, work queue and separate decision pane. Navigation, type and structure express the operational purpose.
+
+Use cool light paper `#f6f7f8`, white panels, ink `#20262d`, muted text `#58636f`, separators `#dce1e6` and copper `#9c461f`. Dark uses graphite paper `#121518`, panel `#181c20`, ink `#edf0f2`, muted text `#a0abb6`, separators `#2b3239` and copper `#e5aa7a`. Navigation shares the cool neutral surface family. Keep warning/danger colors semantic. Use native system sans for controls and SF Mono/system monospace for structural labels, counts, measurements and keyboard keys. Corners are small and consistent. No new dependency, font, image, gradient, glass effect or decorative animation.
+
+Layout: a 60 px desktop activity rail by default, expandable to 208 px with labels, a 48 px command strip and a fluid work surface. Workspace puts the queue beside a 300 px decision/setup pane; narrow screens put pending decisions before work. Compact is the default; Comfortable adds row spacing without changing information or review controls. Desktop density never shrinks phone touch targets. Display preferences are browser-local and shared between local/demo views, with explicit reset controls. Mobile navigation retains labels and closes with Escape, scrim or selection, returning focus to its trigger.
+
+Order: one instrumentation strip, searchable work and exact pending decisions side by side, then setup only when needed, a compact handoff example and coverage. Keep the example readily reachable while moving promotional framing out of the daily work path. Use text hierarchy, tabular metadata and thin separators instead of nested cards. Preserve both themes, all essential values and existing approval semantics.
+
+Keyboard: Ctrl/Cmd K or `/` opens Commands, `N` opens the new-work draft, `?` opens help, Alt+1 through Alt+8 switch views in navigation order, and Ctrl/Cmd+backslash toggles the desktop rail. Single-key shortcuts can be disabled in View options. Single-key/view shortcuts do not intercept editable fields, composed input or modal reviews. No shortcut grants approval, starts native execution or bypasses a review. Discover shortcuts in Help and View options. Collapsed controls keep accessible names, visible focus and hover/focus labels.
+
+Acceptance: render all eight views in both themes and at desktop/phone widths; check no page overflow, contrast and accessibility, collapsed navigation labels/focus, preference persistence/reset, keyboard guards and unchanged server state. Run the existing browser regressions for reviewed native workflows. UI preference changes require no provider calls, new watcher or server schema migration.
 
 ## Acceptance and boundaries
 

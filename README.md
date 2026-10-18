@@ -4,7 +4,7 @@
 
 A local workspace for developers who use more than one agent harness. Keep your work, goals, selected memory, approvals and usage history together while Codex, Claude, OpenCode, Hermes or OpenClaw supplies native execution.
 
-**Public alpha: v0.40.0. Node.js 24+. macOS and Linux.** Native execution is experimental on the evaluated versions. The [support matrix and known limits](docs/PUBLIC_ALPHA.md) distinguish what works from what remains.
+**Public alpha: v0.41.0. Node.js 24+. macOS and Linux.** Native execution is experimental on the evaluated versions. The [support matrix and known limits](docs/PUBLIC_ALPHA.md) distinguish what works from what remains.
 
 ## Try Forge
 
@@ -13,7 +13,7 @@ Run the tagged source:
 ```sh
 git clone https://github.com/darshanahirrao/forge.git
 cd forge
-git checkout forge-v0.40.0
+git checkout forge-v0.41.0
 npm ci
 npm run build
 node bin/forge.mjs doctor
@@ -25,6 +25,8 @@ Open [Forge](http://127.0.0.1:4710). Choose **See a handoff example** to inspect
 To use your own project, create a work record, link a native account and review a launch. Native installation, sign-in and tools stay with the harness. Nothing installs a background service or changes native schedules automatically.
 
 Prefer a compiled package? Download the archive and checksum from [Releases](https://github.com/darshanahirrao/forge/releases), then follow the [three-command install and first session](docs/PUBLIC_ALPHA.md). No npm registry release or global build tools are required.
+
+A compact workbench puts the work queue beside pending decisions, with a narrow activity rail, light/dark themes, adjustable row density and keyboard navigation. Open **View options** for display preferences and shortcuts.
 
 ## Why Forge
 

@@ -1,10 +1,10 @@
 # Public alpha
 
-Forge v0.40.0 is an installable open-source alpha for individual developers on macOS and Linux. It provides a local workspace over existing native tools. The full product vision remains in [COMPLETION_AUDIT.md](COMPLETION_AUDIT.md); publishing this alpha does not close those gates.
+Forge v0.41.0 is an installable open-source alpha for individual developers on macOS and Linux. It provides a local workspace over existing native tools. The full product vision remains in [COMPLETION_AUDIT.md](COMPLETION_AUDIT.md); publishing this alpha does not close those gates.
 
 ## Install a release
 
-Install Node.js 24 or newer. Download the .tgz archive and SHA256SUMS from the [v0.40.0 release](https://github.com/darshanahirrao/forge/releases/tag/forge-v0.40.0).
+Install Node.js 24 or newer. Download the .tgz archive and SHA256SUMS from the [v0.41.0 release](https://github.com/darshanahirrao/forge/releases/tag/forge-v0.41.0).
 
 In the download directory, verify the archive:
 
@@ -18,7 +18,7 @@ sha256sum -c SHA256SUMS
 Then install the downloaded file:
 
 ```sh
-npm install --global --omit=dev --ignore-scripts ./forge-workspace-forge-0.40.0.tgz
+npm install --global --omit=dev --ignore-scripts ./forge-workspace-forge-0.41.0.tgz
 forge doctor
 forge start
 ```
@@ -32,7 +32,7 @@ The npm registry is not a release channel yet. Use the versioned GitHub archive 
 ```sh
 git clone https://github.com/darshanahirrao/forge.git
 cd forge
-git checkout forge-v0.40.0
+git checkout forge-v0.41.0
 npm ci
 npm run build
 node bin/forge.mjs doctor
@@ -81,7 +81,7 @@ Native fixtures use real installed tools with deterministic local inference. The
 
 ## Upgrade and remove
 
-Before upgrading, stop managed work, then stop the original host or reviewed service. Back up the complete private data directory and separately owned native profiles while inactive. Retain proof/ownership files and recovery holds. Install the chosen archive, run doctor and reopen the same directory. Older binaries refuse newer state; rollback may need the matching inactive backup. State remains version 16 in v0.40.
+Before upgrading, stop managed work, then stop the original host or reviewed service. Back up the complete private data directory and separately owned native profiles while inactive. Retain proof/ownership files and recovery holds. Install the chosen archive, run doctor and reopen the same directory. Older binaries refuse newer state; rollback may need the matching inactive backup. State remains version 16 in v0.41.
 
 Use forge start --data-dir DIRECTORY --port PORT for a separate workspace and loopback port. The default data root is ~/Library/Application Support/Forge on macOS or the forge directory beneath $XDG_DATA_HOME (default ~/.local/share) on Linux. Startup services, native jobs, provider logins, phone access and notifications are opt-in.
 
