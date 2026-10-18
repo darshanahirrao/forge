@@ -8,6 +8,8 @@ Added browser-local Compact/Comfortable density, navigation and single-key short
 
 Validation: 345 functional cases, 47 browser flows, seven compiled-package checks, two independent distribution checks, types/format/build/diff and local Markdown links. All eight views are rendered in both themes at desktop/phone widths with zero page overflow and no reported WCAG A/AA axe violations. New behavior checks cover persistence/reset, row-height change, accessible collapsed navigation, editable/dialog shortcut isolation, mobile focus and zero server mutations. Existing reviewed native, phone, resource, account, schedule and handoff browser flows pass. Native conformance evidence is retained from v0.40; this web-only change does not claim new live provider/device or performance acceptance.
 
+Final visual review caught a memory action clipped inside a phone panel despite no page overflow. Responsive header wrapping now keeps action groups inside their panel, with a geometry regression across all views/themes/widths. Focused display and portable-memory flows, fresh renders, type/format/build/diff checks pass after the fix.
+
 State remains 16. The original owned idle foreground was verified and restarted after the final build; served version/state/JS/CSS status and MIME are correct, persistent inventory/settings are unchanged, and the existing browser tab was refreshed to the new controls. No personal native job/account/provider/service/phone/notification configuration changed. Known full-vision limits remain in the completion audit. Checkpoint: the commit containing this entry and rollback tag forge-v0.41.0; verify the exact remote main SHA/main CI, peeled tag/tag CI and public archive/checksum independently.
 
 ## 2026-10-18 · forge-v0.40.0

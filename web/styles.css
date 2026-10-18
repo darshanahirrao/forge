@@ -3658,6 +3658,15 @@ label small,
   }
   .section-heading {
     padding: 19px 17px;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .section-heading > div {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .section-heading > div:first-child:not(.activity-actions) {
+    flex: 1 1 200px;
   }
   .section-heading p {
     font-size: 11px;

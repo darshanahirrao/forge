@@ -128,6 +128,23 @@ test('the workbench and mobile navigation retain accessible controls across all 
         expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
           true,
         );
+        const clippedActions = await page
+          .locator('.section-heading button')
+          .evaluateAll((buttons) =>
+            buttons
+              .filter((button) => {
+                if (!button.getClientRects().length) return false;
+                const bounds = button.getBoundingClientRect();
+                const panel = button.closest('.panel')?.getBoundingClientRect();
+                return (
+                  panel &&
+                  (bounds.left < Math.max(0, panel.left) - 1 ||
+                    bounds.right > Math.min(innerWidth, panel.right) + 1)
+                );
+              })
+              .map((button) => button.textContent?.trim()),
+          );
+        expect(clippedActions).toEqual([]);
         const result = await new AxeBuilder({ page })
           .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
           .analyze();
