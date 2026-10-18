@@ -258,12 +258,23 @@ export interface InventoryOptions {
   t3Reader?: (
     source: NativeSource,
   ) => Promise<{ inventory: NativeInventory; capabilities: string[] }>;
+  openClawSchedulesReader?: (
+    source: NativeSource,
+  ) => Promise<{ inventory: NativeInventory; capabilities: string[] }>;
 }
 export async function readNativeInventory(
   source: NativeSource,
   options: InventoryOptions = {},
 ): Promise<{ inventory: NativeInventory; capabilities: string[] }> {
   const checkedAt = now();
+  if (source.kind === 'openclaw-schedules') {
+    assert(
+      options.openClawSchedulesReader,
+      409,
+      'Pair the native OpenClaw scheduler before reading its jobs.',
+    );
+    return options.openClawSchedulesReader(source);
+  }
   if (source.kind === 't3-code') {
     assert(options.t3Reader, 409, 'Connect T3 Code from Activity to enable native MCP discovery.');
     return options.t3Reader(source);

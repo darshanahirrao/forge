@@ -369,8 +369,17 @@ export interface NativeSession {
   control?: 'observed';
 }
 export type NativeSourceKind =
-  'codex' | 'claude' | 'codex-schedules' | 'hermes-schedules' | 'hermes' | 'openclaw' | 't3-code';
+  | 'codex'
+  | 'claude'
+  | 'codex-schedules'
+  | 'hermes-schedules'
+  | 'openclaw-schedules'
+  | 'hermes'
+  | 'openclaw'
+  | 't3-code';
 export interface NativeSource {
+  scheduleControls?: boolean;
+  revision?: number;
   scheduler?: import('./scheduler.js').SchedulerObservation;
   schedulerCheck?: { observedAt: string; available: boolean };
   id: string;
@@ -390,7 +399,7 @@ export interface NativeSchedule {
   id: string;
   sourceId: string;
   title: string;
-  owner: 'codex' | 'hermes';
+  owner: 'codex' | 'hermes' | 'openclaw';
   kind: string;
   state: string;
   rule: string;

@@ -63,7 +63,12 @@ import { registerCompanionMcp } from './companion-mcp.js';
 import { Blueprints, blueprintSchema } from './blueprints.js';
 import { AccountRouting, routePrepareSchema } from './routing.js';
 import { Notifications } from './notifications.js';
-import { NativeControls, type NativeControlBridge } from './native-controls.js';
+import {
+  NativeControls,
+  nativeControlBridge,
+  type NativeControlBridge,
+} from './native-controls.js';
+import { OpenClawSchedules, type OpenClawScheduleClientFactory } from './openclaw-schedules.js';
 import { NativeConnectors } from './connectors.js';
 import { Availability, type AvailabilityOptions } from './availability.js';
 import { MemoryPacks, memoryPackImportSchema } from './memory-packs.js';
@@ -110,6 +115,7 @@ export interface AppOptions {
   workerDirectory?: string;
   availability?: AvailabilityOptions;
   nativeControlBridge?: NativeControlBridge;
+  openClawScheduleClientFactory?: OpenClawScheduleClientFactory;
   notificationFetch?: typeof fetch;
   notificationTimeoutMs?: number;
   filename: string;
@@ -231,10 +237,15 @@ export async function createApp(options: AppOptions) {
     local,
     options.filename === ':memory:' ? undefined : dirname(options.filename),
   );
+  const openClawSchedules = new OpenClawSchedules(
+    options.filename === ':memory:' ? undefined : dirname(options.filename),
+    options.openClawScheduleClientFactory,
+  );
   const nativeSources: NativeSources = new NativeSources(local, {
     rpcFactory: options.rpcFactory,
     codexBinary: options.codexBinary,
     t3Reader: (source) => t3.read(source),
+    openClawSchedulesReader: (source) => openClawSchedules.read(source),
     ...options.nativeSourcesOptions,
     isManagedBusy: () =>
       controller.activeCount > 0 ||
@@ -246,7 +257,11 @@ export async function createApp(options: AppOptions) {
   const nativeControls = new NativeControls(
     local,
     nativeSources,
-    options.nativeControlBridge,
+    options.nativeControlBridge ??
+      ((source, input) =>
+        source.kind === 'openclaw-schedules'
+          ? openClawSchedules.control(source, input)
+          : nativeControlBridge(source, input)),
     async () => {
       const pressure = await machine.freshPressure();
       checkMemoryAdmission(local.settings(), pressure);
@@ -1564,6 +1579,7 @@ export async function createApp(options: AppOptions) {
           'claude',
           'codex-schedules',
           'hermes-schedules',
+          'openclaw-schedules',
           'hermes',
           'openclaw',
         ]),
@@ -1574,10 +1590,25 @@ export async function createApp(options: AppOptions) {
           .string()
           .regex(/^FORGE_[A-Z0-9_]+$/)
           .optional(),
+        scheduleControls: z.boolean().optional(),
+        nativeAdminReviewed: z.literal(true).optional(),
       })
       .strict()
       .parse(request.body);
-    if (['hermes', 'openclaw'].includes(body.kind)) {
+    assert(
+      body.kind === 'openclaw-schedules' || body.scheduleControls === undefined,
+      400,
+      'Scheduler access applies only to a separately paired OpenClaw source.',
+    );
+    if (body.scheduleControls) {
+      assert(
+        bridgeActor(request.headers, options.phoneBridge).kind === 'local' &&
+          body.nativeAdminReviewed === true,
+        403,
+        'Review native administrator pairing on the local Forge host before enabling schedule controls.',
+      );
+    }
+    if (['hermes', 'openclaw', 'openclaw-schedules'].includes(body.kind)) {
       body.endpoint = loopbackEndpoint.parse(body.endpoint);
       body.home = '';
     } else {
@@ -1585,7 +1616,39 @@ export async function createApp(options: AppOptions) {
       body.endpoint = '';
       assert(!body.tokenEnv, 400, 'Local metadata sources do not use a gateway token.');
     }
-    return nativeSources.add(body);
+    const { nativeAdminReviewed: _reviewed, ...sourceInput } = body;
+    return nativeSources.add(sourceInput);
+  });
+  app.patch('/api/native/sources/:id/schedule-access', async (request) => {
+    assert(
+      mode(request) === 'local' &&
+        bridgeActor(request.headers, options.phoneBridge).kind === 'local',
+      403,
+      'Change native scheduler access from the local Forge host.',
+    );
+    const input = z
+      .object({
+        expectedRevision: z.number().int().min(0),
+        scheduleControls: z.boolean(),
+        nativeAdminReviewed: z.literal(true),
+      })
+      .strict()
+      .parse(request.body);
+    return nativeSources.atSource((request.params as { id: string }).id, async (source) => {
+      assert(
+        source.kind === 'openclaw-schedules' && (source.revision ?? 0) === input.expectedRevision,
+        409,
+        'The scheduler source changed. Review its current access.',
+      );
+      return local.put('native_sources', source.id, {
+        ...source,
+        scheduleControls: input.scheduleControls,
+        revision: await openClawSchedules.nextAccessRevision(source),
+        state: 'configured',
+        error: null,
+        capabilities: [],
+      });
+    });
   });
   app.post('/api/native/sources/:id/refresh', async (request) => {
     assert(mode(request) === 'local', 409, 'Demo sources never read native activity.');
@@ -1672,6 +1735,7 @@ export async function createApp(options: AppOptions) {
     );
     nativeSources.remove(sourceId);
     if (source?.kind === 't3-code') await t3.forget(source);
+    if (source?.kind === 'openclaw-schedules') await openClawSchedules.forget(source);
     return { ok: true };
   });
   const profileSchema = z
@@ -1876,6 +1940,8 @@ export async function createApp(options: AppOptions) {
   }
   app.addHook('onClose', async () => {
     await resourceGovernance.close();
+    await openClawSchedules.close();
+    await nativeSources.close();
     await memoryPacks.close();
     await companionRuntimes.close();
     await t3.close();

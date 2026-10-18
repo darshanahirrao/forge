@@ -42,6 +42,7 @@ function protectedPath(path: string) {
         ['.git', 'node_modules', '.venv', 'auth.json', 'credentials.json'].includes(part) ||
         /^\.env(?:\.|$)/i.test(part) ||
         /^\.forge-openclaw\.json(?:\.|$)/i.test(part) ||
+        /^\.forge-openclaw-source-/i.test(part) ||
         /\.(?:pem|key|sqlite(?:-.*)?|db(?:-.*)?|log)$/i.test(part),
     );
 }

@@ -1,5 +1,6 @@
 import type { ApprovalActor } from './types.js';
 export type ScheduleAction = 'pause' | 'resume';
+export type NativeScheduleContract = 'hermes-builtin-native-flock/1' | 'openclaw-native-revision/1';
 export interface ScheduleReview {
   id: string;
   sourceId: string;
@@ -17,7 +18,7 @@ export interface ScheduleReview {
   nextRunAt: string | null;
   jobsDigest: string;
   configDigest: string | null;
-  contract: 'hermes-builtin-native-flock/1';
+  contract: NativeScheduleContract;
 }
 export interface NativeControlReceipt {
   id: string;
@@ -30,7 +31,12 @@ export interface NativeControlReceipt {
   createdAt: string;
   updatedAt: string;
   detail: string;
-  observed?: { state: string; enabled: boolean; nextRunAt: string | null; jobsDigest: string };
+  observed?: {
+    state: string;
+    enabled: boolean | null;
+    nextRunAt: string | null;
+    jobsDigest: string;
+  };
   review?: {
     actor: ApprovalActor;
     note: string;

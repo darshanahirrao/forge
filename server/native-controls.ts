@@ -29,8 +29,8 @@ const observed = z
 const resultSchema = z.union([
   z
     .object({
-      state: z.literal('absent'),
-      contract: z.literal('hermes-builtin-native-flock/1'),
+      state: z.enum(['absent', 'not-visible']),
+      contract: z.enum(['hermes-builtin-native-flock/1', 'openclaw-native-revision/1']),
       jobsDigest: sha,
       configDigest: sha.nullable(),
     })
@@ -38,7 +38,7 @@ const resultSchema = z.union([
   z
     .object({
       state: z.literal('preview'),
-      contract: z.literal('hermes-builtin-native-flock/1'),
+      contract: z.enum(['hermes-builtin-native-flock/1', 'openclaw-native-revision/1']),
       jobsDigest: sha,
       configDigest: sha.nullable(),
       job: z
@@ -84,10 +84,25 @@ export const schedulePrepareSchema = z
   .strict();
 const binding = (source: NativeSource) =>
   createHash('sha256')
-    .update(JSON.stringify([source.id, source.kind, source.home]))
+    .update(
+      JSON.stringify([
+        source.id,
+        source.kind,
+        source.home,
+        source.endpoint,
+        source.tokenEnv ?? null,
+        Boolean(source.scheduleControls),
+        source.revision ?? 0,
+      ]),
+    )
     .digest('hex');
 
 export const nativeControlBridge: NativeControlBridge = async (source, request) => {
+  assert(
+    source.kind === 'hermes-schedules',
+    409,
+    'This source needs its native scheduler provider.',
+  );
   const home = await realpath(source.home),
     binary = await findBinary('hermes');
   assert(
@@ -164,9 +179,14 @@ export class NativeControls {
     const input = schedulePrepareSchema.parse(value);
     return this.sources.atSource(input.sourceId, async (source) => {
       assert(
-        source.kind === 'hermes-schedules',
+        ['hermes-schedules', 'openclaw-schedules'].includes(source.kind),
         409,
         'This source has no supported reviewed native scheduler control contract.',
+      );
+      assert(
+        source.kind !== 'openclaw-schedules' || source.scheduleControls,
+        409,
+        'Enable reviewed scheduler controls from this source on the local Forge host, then approve native administrator pairing.',
       );
       const result = await this.bridge(source, {
         mode: 'preview',
@@ -193,7 +213,7 @@ export class NativeControls {
       this.plans.set(plan.id, {
         ...plan,
         binding: binding(source),
-        home: await realpath(source.home),
+        home: source.kind === 'hermes-schedules' ? await realpath(source.home) : '',
       });
       return plan;
     });
@@ -211,7 +231,7 @@ export class NativeControls {
       assert(
         this.plans.get(planId) === plan &&
           binding(source) === plan.binding &&
-          (await realpath(source.home)) === plan.home,
+          (source.kind === 'hermes-schedules' ? await realpath(source.home) : '') === plan.home,
         409,
         'The native source changed. Prepare a new review.',
       );
@@ -267,7 +287,7 @@ export class NativeControls {
             ...receipt,
             state: 'rejected',
             detail:
-              'The native definition, review or supported lock contract changed. No control was applied.',
+              'The native definition, authority or review is no longer current. No control was applied. Read the source again.',
           });
       } catch {
         /* A lost acknowledgement is never authority to retry. */
@@ -300,7 +320,7 @@ export class NativeControls {
         action: receipt.action,
       });
       assert(
-        result.state === 'preview' || result.state === 'absent',
+        result.state === 'preview' || result.state === 'absent' || result.state === 'not-visible',
         409,
         'Current native state is unavailable. Reconcile through its native owner first.',
       );
@@ -311,10 +331,10 @@ export class NativeControls {
           note: note.trim(),
           observedAt: now(),
           observed:
-            result.state === 'absent'
+            result.state !== 'preview'
               ? {
-                  state: 'not-found',
-                  enabled: false,
+                  state: result.state === 'absent' ? 'not-found' : 'not-visible-or-absent',
+                  enabled: result.state === 'absent' ? false : null,
                   nextRunAt: null,
                   jobsDigest: result.jobsDigest,
                 }

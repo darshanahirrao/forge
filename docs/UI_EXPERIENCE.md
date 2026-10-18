@@ -44,3 +44,10 @@ Subject: laptop load across Forge and native harnesses. Audience: frequent opera
 ## Notification controls, v0.20
 
 The job is to configure an existing destination and resolve delivery problems. Reuse the established cool paper `#f3f7f7`, panel white `#ffffff`, ink `#18343e`, teal action `#12665f` and warning `#80501b`, with the existing dark-theme tokens. Avenir/system type carries controls and explanations; existing monospace remains for native data. No new font, UI dependency or decorative surface is added. A compact Connections section owns setup and receipts; the primary workspace attention list links directly to delivery problems. Private setup uses one scrollable column and a fixed action footer. Unreviewed failures are ordered before recent accepted receipts. Both themes, desktop/mobile action reach, credential clearing and axe are validated. The existing Commands control now derives its accessible name from its visible text.
+
+
+## Native OpenClaw schedules, v0.33
+
+Subject: native recurring work and exact pause/resume reviews. Audience: operators replacing native runtimes in one workspace. Job: connect the existing Gateway once, find a job and review its exact current definition before changing future scheduling. Treatment stays utilitarian. Reuse cool paper `#f3f7f7`, panel white `#ffffff`, ink `#18343e`, teal action `#12665f`, muted text `#4e666e` and warning `#80501b`, with existing dark tokens. Avenir/system text carries controls; SF Mono/system monospace carries native definitions and references. No new style, chart, font or UI dependency.
+
+Order: connection reference, native pairing/setup error when needed, saved schedule rows, one exact review and durable outcome receipts. Read the current native definition on demand. Setup stays one column with a scrolling body and fixed action footer. Native authorization remains visible; a device-pairing refusal explains the native repair step. Human review distinguishes whole-store Hermes locking from OpenClaw per-job native revisions. Both themes, keyboard, phone inner overflow, action reach and accessibility are acceptance gates.

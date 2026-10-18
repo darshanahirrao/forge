@@ -24,6 +24,7 @@ const sourceNames: Record<NativeSourceKind, string> = {
   claude: 'Claude Code chats',
   'codex-schedules': 'Codex schedules',
   'hermes-schedules': 'Hermes schedules',
+  'openclaw-schedules': 'OpenClaw schedules',
   hermes: 'Hermes API',
   openclaw: 'OpenClaw gateway',
   't3-code': 'T3 Code workspace',
@@ -238,6 +239,15 @@ export function ActivityPage({
                   </p>
                 </details>
                 <div className="native-source-actions">
+                  {source.kind === 'openclaw-schedules' && (
+                    <button
+                      className="button secondary small"
+                      disabled={!local || data.access?.kind !== 'local' || !!busy || managedActive}
+                      onClick={() => setAdding(source)}
+                    >
+                      Scheduler access
+                    </button>
+                  )}
                   {source.kind === 'hermes-schedules' && (
                     <button
                       className="button secondary small"
@@ -420,7 +430,9 @@ export function ActivityPage({
                     <p>Observed: {nativeDate(schedule.observedAt)}</p>
                     <p className="mono">ID: {schedule.id}</p>
                   </details>
-                  {sources.get(schedule.sourceId)?.kind === 'hermes-schedules' && (
+                  {(sources.get(schedule.sourceId)?.kind === 'hermes-schedules' ||
+                    (sources.get(schedule.sourceId)?.kind === 'openclaw-schedules' &&
+                      sources.get(schedule.sourceId)?.scheduleControls)) && (
                     <div className="activity-actions">
                       {(['pause', 'resume'] as const).map((action) => (
                         <button
@@ -463,7 +475,7 @@ export function ActivityPage({
           >
             {query || sourceId !== 'all'
               ? 'Try another source or search term.'
-              : 'Read Codex or Hermes schedule metadata. Jobs continue to run through their native scheduler.'}
+              : 'Read Codex, Hermes or OpenClaw schedules. Jobs continue through their native scheduler.'}
           </Empty>
         )}
         {(sessions.length > 0 || schedules.length > 0) && (
@@ -495,6 +507,7 @@ export function ActivityPage({
       {adding && (
         <SourceForm
           mutate={mutate}
+          localHost={data.access?.kind === 'local'}
           initial={adding === true ? undefined : adding}
           onClose={() => setAdding(null)}
           onSaved={() => {
@@ -516,11 +529,13 @@ export function ActivityPage({
 
 function SourceForm({
   mutate,
+  localHost,
   initial,
   onClose,
   onSaved,
 }: {
   mutate: Mutate;
+  localHost: boolean;
   initial?: NativeSource;
   onClose: () => void;
   onSaved: () => void;
@@ -529,15 +544,26 @@ function SourceForm({
   const [label, setLabel] = useState(initial?.label ?? sourceNames.codex);
   const [home, setHome] = useState('');
   const [endpoint, setEndpoint] = useState(initial?.endpoint ?? 'http://127.0.0.1:8642');
-  const [tokenEnv, setTokenEnv] = useState('');
+  const [tokenEnv, setTokenEnv] = useState(initial?.tokenEnv ?? '');
+  const [scheduleControls, setScheduleControls] = useState(initial?.scheduleControls ?? false);
+  const changingAccess = initial?.kind === 'openclaw-schedules';
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const runtime = kind === 'hermes' || kind === 'openclaw' || kind === 't3-code';
+  const runtime = ['hermes', 'openclaw', 'openclaw-schedules', 't3-code'].includes(kind);
   async function submit(event: FormEvent) {
     event.preventDefault();
     setSaving(true);
     setError('');
     try {
+      if (changingAccess) {
+        await mutate(`/native/sources/${initial.id}/schedule-access`, 'PATCH', {
+          expectedRevision: initial.revision ?? 0,
+          scheduleControls,
+          nativeAdminReviewed: true,
+        });
+        onSaved();
+        return;
+      }
       if (kind === 't3-code') {
         const result = await mutate<{ authorizationUrl: string }>('/native/t3/authorize', 'POST', {
           endpoint,
@@ -549,6 +575,9 @@ function SourceForm({
       await mutate<NativeSource>('/native/sources', 'POST', {
         kind,
         label,
+        ...(kind === 'openclaw-schedules'
+          ? { scheduleControls, ...(scheduleControls ? { nativeAdminReviewed: true } : {}) }
+          : {}),
         ...(runtime ? { endpoint, ...(tokenEnv ? { tokenEnv } : {}) } : { home }),
       });
       onSaved();
@@ -559,109 +588,143 @@ function SourceForm({
     }
   }
   return (
-    <Dialog title="Connect existing activity." subtitle="NATIVE SOURCE" onClose={onClose}>
-      <form className="dialog-body form-stack" onSubmit={submit}>
-        <label>
-          Source type
-          <select
-            value={kind}
-            onChange={(event) => {
-              const next = event.target.value as NativeSourceKind;
-              setKind(next);
-              setLabel(sourceNames[next]);
-              setEndpoint(
-                next === 'openclaw'
-                  ? 'http://127.0.0.1:18789'
-                  : next === 't3-code'
-                    ? 'http://127.0.0.1:3773'
-                    : 'http://127.0.0.1:8642',
-              );
-            }}
-          >
-            {Object.entries(sourceNames).map(([key, name]) => (
-              <option key={key} value={key}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Source label
-          <input
-            value={label}
-            onChange={(event) => setLabel(event.target.value)}
-            maxLength={100}
-            required
-          />
-        </label>
-        {runtime ? (
-          <>
+    <Dialog
+      title={changingAccess ? 'Scheduler access' : 'Connect existing activity.'}
+      subtitle="NATIVE SOURCE"
+      onClose={onClose}
+    >
+      <form className="dialog-form" onSubmit={submit}>
+        <div className="dialog-body form-stack">
+          <label>
+            Source type
+            <select
+              value={kind}
+              disabled={changingAccess}
+              onChange={(event) => {
+                const next = event.target.value as NativeSourceKind;
+                setKind(next);
+                setLabel(sourceNames[next]);
+                setEndpoint(
+                  ['openclaw', 'openclaw-schedules'].includes(next)
+                    ? 'http://127.0.0.1:18789'
+                    : next === 't3-code'
+                      ? 'http://127.0.0.1:3773'
+                      : 'http://127.0.0.1:8642',
+                );
+              }}
+            >
+              {Object.entries(sourceNames).map(([key, name]) => (
+                <option key={key} value={key}>
+                  {name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Source label
+            <input
+              value={label}
+              readOnly={changingAccess}
+              onChange={(event) => setLabel(event.target.value)}
+              maxLength={100}
+              required
+            />
+          </label>
+          {runtime ? (
+            <>
+              <label>
+                {kind === 't3-code' ? 'T3 Code address' : 'Local API address'}
+                <input
+                  type="url"
+                  readOnly={changingAccess}
+                  value={endpoint}
+                  onChange={(event) => setEndpoint(event.target.value)}
+                  maxLength={300}
+                  required
+                />
+                <small>
+                  {kind === 't3-code'
+                    ? 'Paste the local T3 Code address or its copied MCP URL. Sign in on this computer and choose Read only.'
+                    : 'Use an existing loopback API. Its native authentication and tool policy apply.'}
+                </small>
+              </label>
+              {kind === 't3-code' ? (
+                <p className="source-note">
+                  T3 Code keeps its threads, tools and approvals. Forge reads project and thread
+                  summaries on demand. Its native grant covers all projects.
+                </p>
+              ) : (
+                <label>
+                  Token environment variable <span className="optional">Optional</span>
+                  <input
+                    value={tokenEnv}
+                    readOnly={changingAccess}
+                    onChange={(event) => setTokenEnv(event.target.value)}
+                    pattern="FORGE_[A-Z0-9_]+"
+                    maxLength={128}
+                    placeholder="FORGE_RUNTIME_TOKEN"
+                  />
+                  <small>
+                    Save the environment variable name. Keep its secret value outside Forge.
+                  </small>
+                </label>
+              )}
+            </>
+          ) : (
             <label>
-              {kind === 't3-code' ? 'T3 Code address' : 'Local API address'}
+              Native home directory
               <input
-                type="url"
-                value={endpoint}
-                onChange={(event) => setEndpoint(event.target.value)}
-                maxLength={300}
+                value={home}
+                onChange={(event) => setHome(event.target.value)}
+                placeholder="/absolute/path/to/native/home"
+                maxLength={2000}
                 required
               />
               <small>
-                {kind === 't3-code'
-                  ? 'Paste the local T3 Code address or its copied MCP URL. Sign in on this computer and choose Read only.'
-                  : 'Use an existing loopback API. Its native authentication and tool policy apply.'}
+                {kind.endsWith('schedules')
+                  ? 'Choose the profile home containing automations/ or cron/jobs.json.'
+                  : 'Choose the existing native configuration home for this account.'}
               </small>
             </label>
-            {kind === 't3-code' ? (
-              <p className="source-note">
-                T3 Code keeps its threads, tools and approvals. Forge reads project and thread
-                summaries on demand. Its native grant covers all projects.
-              </p>
-            ) : (
-              <label>
-                Token environment variable <span className="optional">Optional</span>
+          )}
+          {kind === 'openclaw-schedules' && (
+            <div className="form-stack">
+              <label className="checkbox-label">
                 <input
-                  value={tokenEnv}
-                  onChange={(event) => setTokenEnv(event.target.value)}
-                  pattern="FORGE_[A-Z0-9_]+"
-                  maxLength={128}
-                  placeholder="FORGE_RUNTIME_TOKEN"
+                  type="checkbox"
+                  checked={scheduleControls}
+                  disabled={!localHost}
+                  onChange={(event) => setScheduleControls(event.target.checked)}
                 />
-                <small>
-                  Save the environment variable name. Keep its secret value outside Forge.
-                </small>
+                Allow reviewed native schedule changes
               </label>
-            )}
-          </>
-        ) : (
-          <label>
-            Native home directory
-            <input
-              value={home}
-              onChange={(event) => setHome(event.target.value)}
-              placeholder="/absolute/path/to/native/home"
-              maxLength={2000}
-              required
-            />
-            <small>
-              {kind.endsWith('schedules')
-                ? 'Choose the profile home containing automations/ or cron/jobs.json.'
-                : 'Choose the existing native configuration home for this account.'}
-            </small>
-          </label>
-        )}
-        <p className="source-note">
-          {kind === 't3-code'
-            ? 'Forge remembers this read-only connection on this computer. Read its activity after connecting.'
-            : 'Only the source reference is saved now. A separate read collects native titles and summaries. Full transcripts and schedule instructions stay native.'}
-        </p>
-        <FormError error={error} />
-        <footer className="form-footer handoff-footer">
+              <p className="source-note">
+                OpenClaw requires administrator access for schedule changes. Each pause or resume
+                also needs an exact human review. Read-only access is the default. Broader native
+                grants can be revoked in OpenClaw Devices.
+              </p>
+            </div>
+          )}
+          <p className="source-note">
+            {kind === 'openclaw-schedules'
+              ? 'OpenClaw authenticates a separate Forge schedules device. Set the named token outside Forge and approve native pairing when requested. Device keys and any issued grant stay private on this computer.'
+              : kind === 't3-code'
+                ? 'Forge remembers this read-only connection on this computer. Read its activity after connecting.'
+                : 'Only the source reference is saved now. A separate read collects native titles and summaries. Full transcripts and schedule instructions stay native.'}
+          </p>
+          <FormError error={error} />
+        </div>
+        <footer className="form-footer">
           <button type="button" className="button secondary" onClick={onClose}>
             Cancel
           </button>
           <button className="button primary" disabled={saving}>
             {saving && <LoaderCircle size={16} className="spin" />}
-            {kind === 't3-code' ? 'Sign in to T3 Code' : 'Save source reference'}
+            {changingAccess
+              ? 'Save scheduler access'
+              : kind === 't3-code'
+                ? 'Sign in to T3 Code'
+                : 'Save source reference'}
           </button>
         </footer>
       </form>

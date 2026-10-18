@@ -1,4 +1,6 @@
-# Forge v0.32.0
+# Forge v0.33.0
+
+Version 0.33 adds [native OpenClaw schedule inventory and reviewed controls](OPENCLAW_SCHEDULES.md). Finite public-SDK operator sessions default to read-only; native administrator access requires a local human review. Native opaque job revisions fence pause/resume at the actual Gateway transaction, with durable idempotent/uncertain receipts and private device continuity. State 11 forward-gates the new source/control authority, retains a private before-v11 state-10 copy and is refused by the previous compiled reader. Full schedule transfer, native provider-memory migration and live provider/device acceptance remain open.
 
 Version 0.32 adds [captured OpenClaw SDK profile recovery](OPENCLAW.md). An exact private attempt/root/device/signing binding is durable before original native bootstrap. After parent loss, only that original signed closure allows profile reuse; keys, native configuration and model-request count remain unchanged. Canonical worker/spending reconciliation stays human. Unknown legacy evidence remains held. Workspace state stays 10; clean native version-1 identity files get private before-v2 copies, and the previous compiled version-1 reader refuses the new marker before native startup.
 

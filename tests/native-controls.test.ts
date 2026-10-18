@@ -166,6 +166,32 @@ test('restart never replays a submitted control and preserves the original actor
   assert.equal(f.native.writes(), 0);
 });
 
+test('a native privacy-filtered missing job remains an unknown scheduling state in the human review', async (t) => {
+  const f = await fixture(t);
+  f.native.lose();
+  const plan = await f.controls.prepare({
+    sourceId: f.source.id,
+    jobId: 'native-job',
+    action: 'pause',
+  });
+  const uncertain = await f.controls.apply(plan.id, { kind: 'local' });
+  const reader: NativeControlBridge = async () => ({
+    state: 'not-visible',
+    contract: 'openclaw-native-revision/1',
+    jobsDigest: hash,
+    configDigest: hash,
+  });
+  const reviewed = await new NativeControls(f.store, f.sources, reader).review(
+    uncertain.id,
+    { kind: 'local' },
+    'Checked the native administrator view, job history and external delivery records.',
+  );
+  assert.equal(reviewed.state, 'uncertain');
+  assert.equal(reviewed.review?.observed.state, 'not-visible-or-absent');
+  assert.equal(reviewed.review?.observed.enabled, null);
+  assert.equal(f.native.writes(), 1);
+});
+
 test('native controls share source admission, fence bindings and refuse unsupported source owners', async (t) => {
   const f = await fixture(t);
   f.busy(true);

@@ -57,7 +57,7 @@ export class Store {
     try {
       const version = this.db.prepare('PRAGMA user_version').get() as { user_version: number };
       assert(
-        version.user_version <= 10,
+        version.user_version <= 11,
         409,
         'This workspace was created by a newer Forge version. Open it with that version.',
       );
@@ -82,8 +82,8 @@ export class Store {
       CREATE INDEX IF NOT EXISTS native_controls_by_job ON records(json_extract(data,'$.sourceId'), json_extract(data,'$.jobId'), json_extract(data,'$.state')) WHERE collection='native_controls';
       `);
       let backup: string | null = null;
-      if (version.user_version > 0 && version.user_version < 10 && filename !== ':memory:') {
-        backup = `${filename}.before-v10.${randomUUID()}.sqlite`;
+      if (version.user_version > 0 && version.user_version < 11 && filename !== ':memory:') {
+        backup = `${filename}.before-v11.${randomUUID()}.sqlite`;
         writeFileSync(backup, '', { flag: 'wx', mode: 0o600 });
         try {
           this.db.prepare('VACUUM INTO ?').run(backup);
@@ -92,7 +92,7 @@ export class Store {
           throw error;
         }
       }
-      this.db.exec('PRAGMA user_version = 10');
+      this.db.exec('PRAGMA user_version = 11');
       this.migrationBackup = backup;
     } catch (error) {
       this.db.close();

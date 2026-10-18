@@ -58,11 +58,13 @@ export function NativeScheduleControl({
           </p>
           <p>
             {plan.action === 'resume'
-              ? 'Resume enables future native scheduling. Hermes may run models, scripts and deliveries using its own permissions and billing. Forge managed-work budgets and quiet mode do not govern this scheduler.'
+              ? 'Resume enables future native scheduling. Its runtime may run models, scripts and deliveries using native permissions and billing. Forge managed-work budgets and quiet mode do not govern this scheduler.'
               : 'Pause prevents future native scheduling. Work and deliveries already running retain their native owner.'}
           </p>
           <p className="muted">
-            The entire job store and native configuration must still match this two-minute review.
+            {plan.contract === 'hermes-builtin-native-flock/1'
+              ? 'The entire native job store and configuration must still match this two-minute review.'
+              : 'OpenClaw must confirm this exact native job revision and paired operator scope before changing scheduling.'}{' '}
             An uncertain result requires human review before another control.
           </p>
           <label>
@@ -144,7 +146,11 @@ export function NativeControlReceipts({
               {receipt.observed && (
                 <p>
                   Observed: {receipt.observed.state} ·{' '}
-                  {receipt.observed.enabled ? 'Enabled' : 'Disabled'}
+                  {receipt.observed.enabled === null
+                    ? 'Scheduling state unavailable'
+                    : receipt.observed.enabled
+                      ? 'Enabled'
+                      : 'Disabled'}
                 </p>
               )}
               {receipt.review && (

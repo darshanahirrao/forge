@@ -286,6 +286,12 @@ test('checkpoint selection rejects traversal, symbolic links and oversized conte
       artifactSnapshot(f.directory, ['auth.json']),
       /only contain excluded data/,
     );
+    const privateGrant = '.forge-openclaw-source-11111111-1111-4111-8111-111111111111.json';
+    await writeFile(join(f.directory, privateGrant), '{"private":"synthetic-device-grant"}');
+    await assert.rejects(
+      artifactSnapshot(f.directory, [privateGrant]),
+      /only contain excluded data/,
+    );
   } finally {
     await f.close();
   }

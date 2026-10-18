@@ -21,6 +21,7 @@ const delivered = [];
 let notificationFailure = false;
 let schedulerState = 'success-stale';
 let nativeControlMode = 'normal';
+let openClawFixtureEnabled = false;
 const notificationServer = createServer(async (request, response) => {
   let body = '';
   for await (const chunk of request) body += chunk;
@@ -106,6 +107,40 @@ const { app } = await createApp({
   },
   memoryPressureReader: unknownPressure,
   nativeControlBridge: async (_source, request) => {
+    if (_source.kind === 'openclaw-schedules') {
+      const digest = createHash('sha256').update(String(openClawFixtureEnabled)).digest('hex');
+      const job = {
+        id: 'fixture-openclaw-job',
+        title: 'Native OpenClaw check',
+        prompt: 'Native OpenClaw instructions.',
+        script: null,
+        noAgent: false,
+        rule: '{"kind":"cron","expr":"0 9 * * *","tz":"UTC"}',
+        definition: '{"native":"OpenClaw","reviewed":"complete definition"}',
+        enabled: openClawFixtureEnabled,
+        state: openClawFixtureEnabled ? 'enabled' : 'paused',
+        nextRunAt: null,
+      };
+      if (request.mode === 'preview')
+        return {
+          state: 'preview',
+          contract: 'openclaw-native-revision/1',
+          jobsDigest: digest,
+          configDigest: null,
+          job,
+        };
+      if (request.jobsDigest !== digest) return { state: 'rejected', code: 'changed' };
+      openClawFixtureEnabled = request.action === 'resume';
+      return {
+        state: 'applied',
+        observed: {
+          enabled: openClawFixtureEnabled,
+          state: openClawFixtureEnabled ? 'enabled' : 'paused',
+          nextRunAt: null,
+          jobsDigest: createHash('sha256').update(String(openClawFixtureEnabled)).digest('hex'),
+        },
+      };
+    }
     const filename = join(nativeHome, 'cron', 'jobs.json');
     const raw = readFileSync(filename, 'utf8');
     const jobs = JSON.parse(raw);
@@ -170,6 +205,29 @@ const { app } = await createApp({
     }
   },
   nativeSourcesOptions: {
+    openClawSchedulesReader: async (source) => ({
+      inventory: {
+        sessions: [],
+        schedules: [
+          {
+            id: 'fixture-openclaw-job',
+            sourceId: source.id,
+            title: 'Native OpenClaw check',
+            owner: 'openclaw',
+            kind: 'OpenClaw native automation',
+            state: openClawFixtureEnabled ? 'enabled' : 'paused',
+            rule: '0 9 * * * UTC',
+            nextRunAt: null,
+            lastRunAt: null,
+            lastOutcome: null,
+            observedAt: new Date().toISOString(),
+          },
+        ],
+        moreAvailable: false,
+        checkedAt: new Date().toISOString(),
+      },
+      capabilities: ['Owned browser fixture; native authentication is evaluated separately'],
+    }),
     schedulerProbe: async () => ({
       contract: 'hermes-native-ticker/1',
       provider:

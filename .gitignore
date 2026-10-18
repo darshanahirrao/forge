@@ -14,6 +14,7 @@ __pycache__/
 *.db-*
 .forge/
 .forge-openclaw.json*
+.forge-openclaw-source-*.json*
 .forge-service.json
 .forge-activation-*.json*
 memory-packs/

@@ -15,6 +15,12 @@ export interface NativeSourcesOptions extends InventoryOptions {
 }
 export class NativeSources {
   private reading = new Set<string>();
+  private closing = false;
+  private drained = new Set<() => void>();
+  private finished(sourceId: string) {
+    this.reading.delete(sourceId);
+    if (!this.reading.size) for (const resolve of this.drained) resolve();
+  }
   get isReading() {
     return this.reading.size > 0;
   }
@@ -28,7 +34,13 @@ export class NativeSources {
   inventories() {
     return this.store.all<NativeInventory & { sourceId: string }>('native_inventories');
   }
-  add(input: Pick<NativeSource, 'kind' | 'label' | 'home' | 'endpoint' | 'tokenEnv'>) {
+  add(
+    input: Pick<
+      NativeSource,
+      'kind' | 'label' | 'home' | 'endpoint' | 'tokenEnv' | 'scheduleControls'
+    >,
+  ) {
+    assert(!this.closing, 409, 'The workspace is closing. Reconnect after restart.');
     const duplicate = this.list().find(
       (s) =>
         s.kind === input.kind &&
@@ -36,7 +48,14 @@ export class NativeSources {
         s.endpoint === input.endpoint &&
         s.tokenEnv === input.tokenEnv,
     );
-    if (duplicate) return duplicate;
+    if (duplicate) {
+      assert(
+        Boolean(duplicate.scheduleControls) === Boolean(input.scheduleControls),
+        409,
+        'This source exists. Change its scheduler access from the existing source.',
+      );
+      return duplicate;
+    }
     const source: NativeSource = {
       ...input,
       id: id(),
@@ -89,6 +108,7 @@ export class NativeSources {
     return found;
   }
   async refresh(sourceId: string) {
+    assert(!this.closing, 409, 'The workspace is closing. Refresh after restart.');
     const source = this.store.get<NativeSource>('native_sources', sourceId);
     assert(source, 404, 'This native source was not found.');
     assert(
@@ -140,10 +160,11 @@ export class NativeSources {
       });
       throw safeError;
     } finally {
-      this.reading.delete(sourceId);
+      this.finished(sourceId);
     }
   }
   async scheduler(sourceId: string) {
+    assert(!this.closing, 409, 'The workspace is closing. Read the scheduler after restart.');
     const source = this.store.get<NativeSource>('native_sources', sourceId);
     assert(
       source?.kind === 'hermes-schedules',
@@ -167,10 +188,11 @@ export class NativeSources {
       this.store.put('native_sources', sourceId, result);
       return result;
     } finally {
-      this.reading.delete(sourceId);
+      this.finished(sourceId);
     }
   }
   async atSource<T>(sourceId: string, action: (source: NativeSource) => Promise<T>): Promise<T> {
+    assert(!this.closing, 409, 'The workspace is closing. Review native state after restart.');
     const source = this.store.get<NativeSource>('native_sources', sourceId);
     assert(source, 404, 'This native source was not found.');
     assert(
@@ -182,10 +204,11 @@ export class NativeSources {
     try {
       return await action(source);
     } finally {
-      this.reading.delete(sourceId);
+      this.finished(sourceId);
     }
   }
   remove(sourceId: string) {
+    assert(!this.closing, 409, 'The workspace is closing. Review connections after restart.');
     assert(
       !this.store.db
         .prepare(
@@ -205,5 +228,11 @@ export class NativeSources {
       this.store.remove('native_sources', sourceId);
       this.store.remove('native_inventories', sourceId);
     });
+  }
+  async close() {
+    this.closing = true;
+    if (!this.reading.size) return;
+    await new Promise<void>((resolve) => this.drained.add(resolve));
+    this.drained.clear();
   }
 }

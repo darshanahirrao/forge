@@ -1,6 +1,6 @@
 {
   "name": "@forge-workspace/forge",
-  "version": "0.32.0",
+  "version": "0.33.0",
   "description": "A local workspace for continuous work across agent harnesses.",
   "private": true,
   "type": "module",
@@ -43,7 +43,8 @@
     "test:native:companion": "tsx tests/native/companion-conformance.ts",
     "test:native:memory-packs": "tsx tests/native/companion-conformance.ts --portable-memory",
     "test:native:companion-lifecycle": "tsx tests/native/companion-lifecycle-conformance.ts",
-    "test:native:openclaw-recovery": "tsx tests/native/openclaw-recovery-conformance.ts"
+    "test:native:openclaw-recovery": "tsx tests/native/openclaw-recovery-conformance.ts",
+    "test:native:openclaw-scheduler": "tsx tests/native/openclaw-scheduler-conformance.ts"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.9.0",
