@@ -12,6 +12,8 @@ import { assert, ForgeError } from './errors.js';
 import { readPrivateJson, writePrivateJson } from './private-json.js';
 import { now } from './store.js';
 import { version } from '../shared/version.js';
+import type { ScheduleTransferBridge } from './adapters/schedule-transfer.js';
+import { openClawScheduleDraft } from './schedule-portability.js';
 
 const allowedScopes = ['operator.read', 'operator.admin'];
 const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -35,7 +37,7 @@ const privateSchema = z.object({
 type PrivateGrant = z.infer<typeof privateSchema>;
 type Client = Pick<GatewayClient, 'start' | 'stopAndWait' | 'request'>;
 export type OpenClawScheduleClientFactory = (options: GatewayClientOptions) => Client;
-type Method = 'cron.list' | 'cron.get' | 'cron.update';
+type Method = 'cron.list' | 'cron.get' | 'cron.update' | 'cron.add';
 type Request = (method: Method, params: unknown) => Promise<unknown>;
 const jobSchema = z
   .object({
@@ -569,6 +571,94 @@ export class OpenClawSchedules {
       if (input.mode === 'apply' && !submitted) return { state: 'rejected', code: 'unavailable' };
       throw error;
     }
+  };
+  readonly transfer: ScheduleTransferBridge = {
+    draft: async (target, portable, marker) =>
+      this.run(target, async (request, digest) => {
+        assert(
+          target.scheduleControls,
+          409,
+          'Enable reviewed administrator schedule access on the destination first.',
+        );
+        await request('cron.list', { includeDisabled: true, compact: true, limit: 1, offset: 0 });
+        return {
+          definition: JSON.stringify(openClawScheduleDraft(portable, marker)),
+          jobsDigest: digest,
+          configDigest: digest,
+        };
+      }),
+    publish: async (target, draft, deadline) =>
+      this.run(target, async (request, digest) => {
+        assert(
+          target.scheduleControls && draft.configDigest === digest && Date.now() <= deadline,
+          409,
+          'The destination scheduler authority or review changed. Read native state before continuing.',
+        );
+        const definition = JSON.parse(draft.definition);
+        assert(
+          definition.enabled === false &&
+            typeof definition.declarationKey === 'string' &&
+            definition.declarationKey.startsWith('forge.transfer.'),
+          409,
+          'A transferred native schedule must be staged disabled.',
+        );
+        const value = await request('cron.add', definition);
+        const job = jobReview((value as { job?: unknown })?.job ?? value).job;
+        assert(
+          job.enabled === false && job.declarationKey === definition.declarationKey,
+          409,
+          'The native create acknowledgement does not match this disabled transfer.',
+        );
+        return job.id;
+      }),
+    locate: async (target, marker) =>
+      this.run(target, async (request) => {
+        const matches: string[] = [];
+        for (let offset = 0; offset < 2000; offset += 100) {
+          const page = z
+            .object({
+              jobs: z.array(z.unknown()).max(100),
+              hasMore: z.boolean().optional(),
+              nextOffset: z.number().nullable().optional(),
+            })
+            .parse(
+              await request('cron.list', {
+                includeDisabled: true,
+                compact: false,
+                limit: 100,
+                offset,
+              }),
+            );
+          for (const value of page.jobs) {
+            const row = value as { id?: unknown; declarationKey?: unknown };
+            if (row.declarationKey === marker)
+              matches.push(
+                z
+                  .string()
+                  .regex(/^[A-Za-z0-9_-]{1,80}$/)
+                  .parse(row.id),
+              );
+          }
+          if (!page.hasMore && (page.nextOffset === undefined || page.nextOffset === null)) {
+            assert(
+              matches.length <= 1,
+              409,
+              'The native transfer marker is ambiguous. Review the destination through its native owner.',
+            );
+            return matches[0] ?? null;
+          }
+          assert(
+            page.nextOffset === undefined || page.nextOffset === offset + 100,
+            409,
+            'The native schedule listing changed during reconciliation.',
+          );
+        }
+        assert(
+          false,
+          409,
+          'The destination has more schedules than a bounded reconciliation can inspect. Review its native owner.',
+        );
+      }),
   };
   async forget(source: NativeSource) {
     assert(

@@ -71,6 +71,11 @@ import {
 import { OpenClawSchedules, type OpenClawScheduleClientFactory } from './openclaw-schedules.js';
 import { NativeMigrations } from './native-migrations.js';
 import type { NativeMigrationBridge } from './adapters/native-migration.js';
+import { ScheduleTransfers, transferDecisionSchema } from './schedule-transfers.js';
+import {
+  hermesScheduleTransfer,
+  type ScheduleTransferBridge,
+} from './adapters/schedule-transfer.js';
 import { NativeConnectors } from './connectors.js';
 import { Availability, type AvailabilityOptions } from './availability.js';
 import { MemoryPacks, memoryPackImportSchema } from './memory-packs.js';
@@ -120,6 +125,7 @@ export interface AppOptions {
   nativeControlBridge?: NativeControlBridge;
   openClawScheduleClientFactory?: OpenClawScheduleClientFactory;
   nativeMigrationBridge?: NativeMigrationBridge;
+  scheduleTransferBridge?: ScheduleTransferBridge;
   notificationFetch?: typeof fetch;
   notificationTimeoutMs?: number;
   filename: string;
@@ -272,6 +278,34 @@ export async function createApp(options: AppOptions) {
     async () => {
       const pressure = await machine.freshPressure();
       checkMemoryAdmission(local.settings(), pressure);
+    },
+    (sourceId, jobId, action) => scheduleTransfers.assertControl(sourceId, jobId, action),
+  );
+  const scheduleTransfers = new ScheduleTransfers(
+    local,
+    nativeSources,
+    controller,
+    options.nativeControlBridge ??
+      ((source, input) =>
+        source.kind === 'openclaw-schedules'
+          ? openClawSchedules.control(source, input)
+          : nativeControlBridge(source, input)),
+    (source) =>
+      options.scheduleTransferBridge ??
+      (source.kind === 'openclaw-schedules' ? openClawSchedules.transfer : hermesScheduleTransfer),
+    async () => {
+      assert(
+        !availability.isBusy &&
+          !memoryPacks.isBusy &&
+          !nativeMigrations.isBusy &&
+          !companionHandoffs.isBusy &&
+          !companionRuntimes.isBusy &&
+          !connectors.isChecking &&
+          probing.size === 0,
+        409,
+        'Wait for native setup and checks before moving a schedule.',
+      );
+      checkMemoryAdmission(local.settings(), await machine.freshPressure());
     },
   );
   const connectors: NativeConnectors = new NativeConnectors(
@@ -761,6 +795,7 @@ export async function createApp(options: AppOptions) {
       spending: mode(request) === 'demo' ? undefined : controller.spending.snapshot(),
       notifications: mode(request) === 'demo' ? undefined : notifications.snapshot(),
       nativeControls: mode(request) === 'demo' ? undefined : nativeControls.snapshot(),
+      scheduleTransfers: mode(request) === 'demo' ? [] : scheduleTransfers.list(),
       recovery: mode(request) === 'demo' ? undefined : supervisions.snapshot(),
       nativeGovernance: mode(request) === 'demo' ? undefined : resourceGovernance.snapshot(),
       outcomes: mode(request) === 'demo' ? [] : controller.spending.outcomes(),
@@ -1768,6 +1803,73 @@ export async function createApp(options: AppOptions) {
     assert(mode(request) === 'local', 409, 'Demo schedules have no native controls.');
     return nativeControls.prepare(request.body);
   });
+  const assertScheduleTransferAuthority = (request: { headers: IncomingHttpHeaders }) =>
+    assert(
+      mode(request) === 'local' &&
+        bridgeActor(request.headers, options.phoneBridge).kind === 'local',
+      403,
+      'Move native schedule ownership from the local Forge host. Phone reviewers can continue to pause or resume supported schedules.',
+    );
+  app.post('/api/native/transfers/prepare', async (request) => {
+    assertScheduleTransferAuthority(request);
+    return scheduleTransfers.prepare(request.body);
+  });
+  app.post('/api/native/transfers/stage', async (request) => {
+    assertScheduleTransferAuthority(request);
+    const input = z
+      .object({
+        id: z.string().uuid(),
+        digest: z.string().regex(/^[a-f0-9]{64}$/),
+        reviewed: z.literal(true),
+      })
+      .strict()
+      .parse(request.body);
+    return scheduleTransfers.stage(
+      input.id,
+      input.digest,
+      bridgeActor(request.headers, options.phoneBridge),
+    );
+  });
+  app.post('/api/native/transfers/:id/review', async (request) => {
+    assertScheduleTransferAuthority(request);
+    return scheduleTransfers.review(
+      z
+        .string()
+        .uuid()
+        .parse((request.params as { id: string }).id),
+    );
+  });
+  for (const action of ['activate', 'cancel'] as const)
+    app.post(`/api/native/transfers/:id/${action}`, async (request) => {
+      assertScheduleTransferAuthority(request);
+      return scheduleTransfers.decide(
+        z
+          .string()
+          .uuid()
+          .parse((request.params as { id: string }).id),
+        transferDecisionSchema.parse(request.body),
+        bridgeActor(request.headers, options.phoneBridge),
+        action,
+      );
+    });
+  app.post('/api/native/transfers/:id/reconcile', async (request) => {
+    assertScheduleTransferAuthority(request);
+    const input = transferDecisionSchema
+      .extend({
+        note: z.string().trim().min(8).max(2000),
+        targetAbsenceReviewed: z.boolean().optional(),
+      })
+      .strict()
+      .parse(request.body);
+    return scheduleTransfers.reconcile(
+      z
+        .string()
+        .uuid()
+        .parse((request.params as { id: string }).id),
+      input,
+      bridgeActor(request.headers, options.phoneBridge),
+    );
+  });
   const assertConnectorAuthority = (request: { headers: IncomingHttpHeaders }) =>
     assert(
       mode(request) === 'local' &&
@@ -2074,9 +2176,11 @@ export async function createApp(options: AppOptions) {
     routing,
     notifications,
     nativeControls,
+    nativeSources,
     connectors,
     availability,
     memoryPacks,
     nativeMigrations,
+    scheduleTransfers,
   };
 }

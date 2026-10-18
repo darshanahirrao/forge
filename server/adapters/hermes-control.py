@@ -95,8 +95,11 @@ def operation(request):
                         "enabled": bool(current.get("enabled", True)), "nextRunAt": next_run if isinstance(next_run, str) else None,
                         "jobsDigest": digest(read(jobs.JOBS_FILE))}
             if request["mode"] == "preview":
+                import hermes_time
+                timezone = hermes_time.get_timezone()
                 return {"state": "preview", "contract": "hermes-builtin-native-flock/1", **hashes,
                         "job": {"id": job["id"], "title": str(job.get("name") or job["id"])[:160],
+                                **({"timezone": str(timezone)} if timezone is not None else {}),
                                 "prompt": prompt, "script": script, "rule": rule, "definition": definition,
                                 "noAgent": bool(job.get("no_agent", False)), **{key: value for key, value in observed(job).items() if key != "jobsDigest"}}}
             if request.get("jobsDigest") != hashes["jobsDigest"] or request.get("configDigest") != hashes["configDigest"] or time.time() * 1000 > request.get("deadline", 0):

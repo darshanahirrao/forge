@@ -192,23 +192,41 @@ export class NativeSources {
     }
   }
   async atSource<T>(sourceId: string, action: (source: NativeSource) => Promise<T>): Promise<T> {
+    return this.atSources([sourceId], ([source]) => action(source));
+  }
+  async atSources<T>(
+    sourceIds: string[],
+    action: (sources: NativeSource[]) => Promise<T>,
+  ): Promise<T> {
     assert(!this.closing, 409, 'The workspace is closing. Review native state after restart.');
-    const source = this.store.get<NativeSource>('native_sources', sourceId);
-    assert(source, 404, 'This native source was not found.');
+    const sources = sourceIds.map((sourceId) => {
+      const source = this.store.get<NativeSource>('native_sources', sourceId);
+      assert(source, 404, 'This native source was not found.');
+      return source;
+    });
     assert(
       !this.reading.size && !this.options.isManagedBusy?.(),
       409,
       'Wait for current native work and source operations to finish.',
     );
-    this.reading.add(sourceId);
+    for (const sourceId of sourceIds) this.reading.add(sourceId);
     try {
-      return await action(source);
+      return await action(sources);
     } finally {
-      this.finished(sourceId);
+      for (const sourceId of sourceIds) this.finished(sourceId);
     }
   }
   remove(sourceId: string) {
     assert(!this.closing, 409, 'The workspace is closing. Review connections after restart.');
+    assert(
+      !this.store.db
+        .prepare(
+          "SELECT 1 FROM records WHERE collection='schedule_transfers' AND (json_extract(data,'$.sourceId')=? OR json_extract(data,'$.targetSourceId')=?) AND json_extract(data,'$.state')!='cancelled' LIMIT 1",
+        )
+        .get(sourceId, sourceId),
+      409,
+      'Keep both scheduler connections until their transfer is cancelled with the destination confirmed paused.',
+    );
     assert(
       !this.store.db
         .prepare(

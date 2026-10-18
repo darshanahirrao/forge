@@ -19,6 +19,7 @@ export interface ScheduleReview {
   jobsDigest: string;
   configDigest: string | null;
   contract: NativeScheduleContract;
+  timezone?: string;
 }
 export interface NativeControlReceipt {
   id: string;

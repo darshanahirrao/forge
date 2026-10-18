@@ -1,5 +1,7 @@
 # Reviewed native schedule controls
 
+Version 0.35 adds a separate [reviewed transfer flow](SCHEDULE_TRANSFERS.md). Resume reviews and already prepared controls respect its persistent source/destination holds, including native profile/listener aliases. Pause remains available, and uncertain native controls must be reconciled before transfer.
+
 Forge adds human review and durable outcome receipts around native scheduler operations. Hermes reuses native `pause_job` and `resume_job` through `hermes-builtin-native-flock/1` on Hermes 0.17.0/source `3aebdb1d2349f1b228aa0478fce2e2fe91827278`. Version 0.33 adds [OpenClaw Gateway controls](OPENCLAW_SCHEDULES.md) with native revision comparison through `openclaw-native-revision/1`. Neither route ticks a scheduler, installs a planner or transfers scheduler ownership. The Hermes-specific lock and definition details below remain distinct from the OpenClaw transaction contract.
 
 In Activity, read a Hermes schedule source, choose Schedules and select **Review pause** or **Review resume**. The review reads the current native job rather than trusting saved inventory. It includes the full bounded job record, native instructions, script reference, rule and next-run observation. Oversized execution content is rejected rather than silently truncated. Confirm that you reviewed the native permissions, delivery and billing, then submit within two minutes. Refresh saved inventory separately when needed; a receipt's observed state is evidence at that action's time.

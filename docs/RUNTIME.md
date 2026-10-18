@@ -1,4 +1,6 @@
-# Forge v0.34.0
+# Forge v0.35.0
+
+Version 0.35 adds [reviewed native schedule transfer](SCHEDULE_TRANSFERS.md): native disabled destination staging, separately reviewed enable, durable source resume holds across aliases, current-definition/authority evidence and no-replay human reconciliation. Native creation and timing stay upstream. State 13 retains a private before-v13 state-12 backup and is refused by the actual older compiled reader. Rich native dependency/channel/provider mappings and live delivery remain open.
 
 Version 0.34 adds [native profile migration](NATIVE_MIGRATIONS.md) through installed Hermes/OpenClaw importers, private native reports, imported/archive/skip/overflow evidence and source/stage/binding revalidation. Reviewed account activation connects directly to the existing Work Capsule handoff. Explicit OpenClaw project scope permits a guarded session outside its private memory workspace without silently granting other projects. State 12 retains these receipts and gates older readers. Native entry grouping can differ; scheduler ownership transfer and arbitrary provider-memory equivalence remain open.
 

@@ -1,5 +1,10 @@
 import { copyFile } from 'node:fs/promises';
 
+await copyFile(
+  new URL('../server/adapters/hermes-schedule-transfer.py', import.meta.url),
+  new URL('../dist/server/adapters/hermes-schedule-transfer.py', import.meta.url),
+);
+
 for (const filename of ['native-worker.mjs', 'worker-proof.mjs'])
   await copyFile(
     new URL(`../server/${filename}`, import.meta.url),

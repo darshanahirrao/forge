@@ -16,6 +16,8 @@ import { connectorTestExecutable } from './fixtures/connector-executable.ts';
 import { serviceContext } from '../dist/server/background-service.js';
 import { companionProviderFixture } from './fixtures/companion-provider.mjs';
 import { nativeFileSnapshot } from '../dist/server/native-file-snapshot.js';
+import { scheduleTransferFixture } from './fixtures/schedule-transfer.ts';
+const transferNative = scheduleTransferFixture();
 const t3 = await t3Fixture();
 // Owned loopback sink only. Browser tests never publish to an external topic.
 const delivered = [];
@@ -95,7 +97,8 @@ const fixtureRpc = (options = {}) =>
     args: [fileURLToPath(new URL('./fixtures/codex-app-server.mjs', import.meta.url))],
     env: { PATH: process.env.PATH },
   });
-const { app } = await createApp({
+const { app, nativeSources } = await createApp({
+  scheduleTransferBridge: transferNative.transfer,
   nativeMigrationBridge: async (request) => {
     if (request.source !== migrationHome)
       throw Error('Only the owned migration fixture may be imported.');
@@ -156,6 +159,7 @@ const { app } = await createApp({
   },
   memoryPressureReader: unknownPressure,
   nativeControlBridge: async (_source, request) => {
+    if (transferNative.rows.has(_source.id)) return transferNative.control(_source, request);
     if (_source.kind === 'openclaw-schedules') {
       const digest = createHash('sha256').update(String(openClawFixtureEnabled)).digest('hex');
       const job = {
@@ -335,6 +339,35 @@ app.get('/api/fixture/connectors', async () => ({
 app.post('/api/fixture/native-controls', async (request) => {
   nativeControlMode = request.body.mode;
   return { ok: true };
+});
+app.post('/api/fixture/schedule-transfers', async (request) => {
+  const label = request.body.label;
+  const homes = ['source', 'destination'].map((kind) => join(directory, `${label}-${kind}`));
+  for (const home of homes) mkdirSync(join(home, 'cron'), { recursive: true });
+  const [source, target] = homes.map((home, index) =>
+    nativeSources.add({
+      kind: 'hermes-schedules',
+      label: `${label} ${index ? 'destination' : 'source'}`,
+      home,
+      endpoint: '',
+    }),
+  );
+  const job = transferNative.definition(
+    {
+      title: `${label} recurring task`,
+      prompt: 'Reviewed local recurring instructions.',
+      schedule: { kind: 'every', minutes: 30 },
+    },
+    'owned-source',
+    true,
+  );
+  transferNative.jobs(source).set(job.id, job);
+  transferNative.jobs(target);
+  writeFileSync(join(homes[0], 'cron', 'jobs.json'), JSON.stringify({ jobs: [job] }));
+  writeFileSync(join(homes[1], 'cron', 'jobs.json'), JSON.stringify({ jobs: [] }));
+  await nativeSources.refresh(source.id);
+  transferNative.stats.lostCreate = request.body.lost === true;
+  return { sourceId: source.id, targetSourceId: target.id };
 });
 app.get('/api/fixture/notifications', async () => ({ origin: notificationOrigin, delivered }));
 app.post('/api/fixture/notifications', async (request) => {

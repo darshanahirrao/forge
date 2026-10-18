@@ -454,6 +454,7 @@ export interface BackgroundRuntime {
   definitionDirectory?: string;
 }
 export interface Snapshot {
+  scheduleTransfers?: import('./schedule-transfers.js').ScheduleTransfer[];
   nativeMigrations?: {
     supported: boolean;
     rows: import('./native-migrations.js').NativeMigration[];

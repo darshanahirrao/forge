@@ -50,6 +50,7 @@ const resultSchema = z.union([
           rule: z.string().max(2000),
           definition: z.string().max(65536),
           noAgent: z.boolean(),
+          timezone: z.string().max(120).optional(),
           state: z.string().max(80),
           enabled: z.boolean(),
           nextRunAt: z.string().max(120).nullable(),
@@ -141,6 +142,7 @@ export class NativeControls {
     private sources: NativeSources,
     private bridge: NativeControlBridge = nativeControlBridge,
     private admitResume?: () => Promise<void>,
+    private assertControl?: (sourceId: string, jobId: string, action: ScheduleAction) => void,
   ) {
     const rows = store.db
       .prepare(
@@ -177,6 +179,7 @@ export class NativeControls {
   }
   async prepare(value: unknown): Promise<ScheduleReview> {
     const input = schedulePrepareSchema.parse(value);
+    this.assertControl?.(input.sourceId, input.jobId, input.action);
     return this.sources.atSource(input.sourceId, async (source) => {
       assert(
         ['hermes-schedules', 'openclaw-schedules'].includes(source.kind),
@@ -228,6 +231,7 @@ export class NativeControls {
       'This native control review expired. Read the current job again.',
     );
     return this.sources.atSource(plan.sourceId, async (source) => {
+      this.assertControl?.(source.id, plan.jobId, plan.action);
       assert(
         this.plans.get(planId) === plan &&
           binding(source) === plan.binding &&

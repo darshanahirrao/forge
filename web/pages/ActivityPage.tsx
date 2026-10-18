@@ -18,6 +18,7 @@ import { NativeSessionDialog } from '../components/NativeSessionDialog';
 import { schedulerEvidence } from '../../shared/scheduler';
 import type { ScheduleReview } from '../../shared/native-controls';
 import { NativeScheduleControl, NativeControlReceipts } from '../components/NativeScheduleControl';
+import { MoveScheduleDialog, ScheduleTransfersPanel } from '../components/ScheduleTransfersPanel';
 
 const sourceNames: Record<NativeSourceKind, string> = {
   codex: 'Codex chats',
@@ -52,6 +53,7 @@ export function ActivityPage({
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [control, setControl] = useState<ScheduleReview | null>(null);
+  const [moving, setMoving] = useState<{ sourceId: string; jobId: string } | null>(null);
   const managedActive = data.work.some((work) => work.activeRunId);
   const local = data.mode === 'local';
   const sources = new Map(data.nativeSources.map((source) => [source.id, source]));
@@ -458,6 +460,17 @@ export function ActivityPage({
                           Review {action}
                         </button>
                       ))}
+                      <button
+                        className="button secondary small"
+                        disabled={
+                          !local || data.access?.kind !== 'local' || managedActive || !!busy
+                        }
+                        onClick={() =>
+                          setMoving({ sourceId: schedule.sourceId, jobId: schedule.id })
+                        }
+                      >
+                        Move schedule
+                      </button>
                     </div>
                   )}
                 </div>
@@ -490,6 +503,22 @@ export function ActivityPage({
           receipts={data.nativeControls?.receipts ?? []}
           mutate={mutate}
           disabled={!local || managedActive || !!busy}
+        />
+      )}
+      {tab === 'schedules' && (
+        <ScheduleTransfersPanel
+          rows={data.scheduleTransfers ?? []}
+          sources={data.nativeSources}
+          mutate={mutate}
+          disabled={!local || data.access?.kind !== 'local' || managedActive || !!busy}
+        />
+      )}
+      {moving && (
+        <MoveScheduleDialog
+          {...moving}
+          sources={data.nativeSources}
+          mutate={mutate}
+          onClose={() => setMoving(null)}
         />
       )}
       {control && (
