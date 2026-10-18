@@ -1,5 +1,5 @@
 import { unknownPressure } from '../dist/server/memory-pressure.js';
-import { readFileSync, mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, mkdirSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { randomBytes, createHash } from 'node:crypto';
 import { createServer as createHttpsServer } from 'node:https';
 import { request as proxyRequest, createServer } from 'node:http';
@@ -15,6 +15,7 @@ import { t3Fixture } from './fixtures/t3-mcp.ts';
 import { connectorTestExecutable } from './fixtures/connector-executable.ts';
 import { serviceContext } from '../dist/server/background-service.js';
 import { companionProviderFixture } from './fixtures/companion-provider.mjs';
+import { nativeFileSnapshot } from '../dist/server/native-file-snapshot.js';
 const t3 = await t3Fixture();
 // Owned loopback sink only. Browser tests never publish to an external topic.
 const delivered = [];
@@ -34,7 +35,7 @@ const notificationServer = createServer(async (request, response) => {
 });
 await new Promise((resolve) => notificationServer.listen(0, '127.0.0.1', resolve));
 const notificationOrigin = `http://127.0.0.1:${notificationServer.address().port}`;
-const directory = mkdtempSync(join(tmpdir(), 'forge-browser-'));
+const directory = realpathSync(mkdtempSync(join(tmpdir(), 'forge-browser-')));
 // Browser-only service simulation. No helper, OS definition or native service is started.
 const nativeHome = join(directory, 'native-fixture');
 mkdirSync(join(nativeHome, 'automations', 'fixture-schedule'), { recursive: true });
@@ -42,9 +43,16 @@ mkdirSync(join(nativeHome, 'cron'));
 const memoryPath = join(directory, 'MEMORY.md');
 const memoryProject = join(directory, 'project');
 mkdirSync(memoryProject);
+writeFileSync(join(memoryProject, 'native-migration-proof.txt'), 'Owned migration artifact.\n');
 const companionHome = join(directory, 'owned-companion');
 mkdirSync(companionHome);
 writeFileSync(join(companionHome, 'config.yaml'), 'native-fixture: true\n', { mode: 0o600 });
+const migrationHome = join(directory, 'owned-migration-source');
+mkdirSync(join(migrationHome, 'memories'), { recursive: true });
+writeFileSync(join(migrationHome, 'config.yaml'), 'native-fixture: true\n', { mode: 0o600 });
+writeFileSync(join(migrationHome, 'memories', 'MEMORY.md'), 'Owned native migration memory.\n', {
+  mode: 0o600,
+});
 const portableMemoryPath = join(directory, 'portable-native-memory.md');
 writeFileSync(
   portableMemoryPath,
@@ -88,6 +96,47 @@ const fixtureRpc = (options = {}) =>
     env: { PATH: process.env.PATH },
   });
 const { app } = await createApp({
+  nativeMigrationBridge: async (request) => {
+    if (request.source !== migrationHome)
+      throw Error('Only the owned migration fixture may be imported.');
+    const memory = join(migrationHome, 'memories', 'MEMORY.md');
+    const target = join(request.target, 'MEMORY.md');
+    writeFileSync(target, readFileSync(memory), { mode: 0o600 });
+    writeFileSync(join(request.operationRoot, 'native-report.json'), '{"owned":true}', {
+      mode: 0o600,
+    });
+    return {
+      nativeVersion: 'Owned browser native importer fixture',
+      sourceRoots: [memory],
+      sourceDigest: (await nativeFileSnapshot([memory])).digest,
+      items: [
+        {
+          kind: 'memory',
+          status: 'migrated',
+          source: memory,
+          target,
+          note: 'Native memory imported.',
+          overflowedEntries: 1,
+        },
+        {
+          kind: 'cron',
+          status: 'archived',
+          source: null,
+          target: null,
+          note: 'Scheduled definitions are archived and inactive.',
+          overflowedEntries: 0,
+        },
+        {
+          kind: 'credentials',
+          status: 'skipped',
+          source: null,
+          target: null,
+          note: 'Credentials excluded.',
+          overflowedEntries: 0,
+        },
+      ],
+    };
+  },
   companionProviders: { hermes: companionProviderFixture, openclaw: companionProviderFixture },
   availability: {
     dataDirectory: directory,
@@ -253,6 +302,11 @@ app.get('/api/fixture/memory', async () => ({
 app.get('/api/fixture/memory-packs', async () => ({
   path: portableMemoryPath,
   project: memoryProject,
+}));
+app.get('/api/fixture/native-migrations', async () => ({
+  nativeHome: migrationHome,
+  project: memoryProject,
+  credentialPath,
 }));
 app.get('/api/fixture/credentials', async () => ({
   path: credentialPath,

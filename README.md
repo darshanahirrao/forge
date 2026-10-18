@@ -6,7 +6,7 @@ Forge is an open-source local workspace for people who work across AI runtimes a
 
 We call the product concept **Persistent Agency**: your agent profile, memory, workspace, work history, shared connections, schedules, and policies remain in Forge while you change a compatible execution harness at a verified checkpoint.
 
-**Status: early local application, v0.33.0.** Persistent work/profiles, scoped native memory and private portable copies, reviewed setup blueprints, account routing, private credential references, spending admission, native activity, a shared-sample resource map and private diagnostics, optional ntfy alerts, reviewed macOS background activation, reviewed Hermes/OpenClaw pause/resume and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Reviewed native Hermes/OpenClaw gateway start, stop and exact-close recovery are implemented. OpenClaw execution profiles retain the same device identity after a host crash when their captured original closure verifies. Automatic continuation after uncertain effects, broader companion providers, scheduler ownership transfer, full memory-provider migration, live device/provider acceptance and whole-family/cross-platform resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md) and [full completion audit](docs/COMPLETION_AUDIT.md).
+**Status: early local application, v0.34.0.** Persistent work/profiles, scoped native memory and private portable copies, reviewed setup blueprints, account routing, private credential references, spending admission, native activity, a shared-sample resource map and private diagnostics, optional ntfy alerts, reviewed macOS background activation, reviewed Hermes/OpenClaw pause/resume and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Reviewed native Hermes/OpenClaw gateway start, stop and exact-close recovery are implemented. OpenClaw execution profiles retain the same device identity after a host crash when their captured original closure verifies. Automatic continuation after uncertain effects, broader companion providers, scheduler ownership transfer, full memory-provider migration, live device/provider acceptance and whole-family/cross-platform resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md) and [full completion audit](docs/COMPLETION_AUDIT.md).
 
 [OpenClaw schedule controls](docs/OPENCLAW_SCHEDULES.md) add read-only native inventory and optional locally reviewed administrator access for exact pause/resume. Native job revisions fence changes, while uncertain outcomes retain their human review hold. Scheduler ownership transfer remains open.
 
@@ -21,6 +21,8 @@ We call the product concept **Persistent Agency**: your agent profile, memory, w
 [Retained context reads](docs/COMPANION_HISTORY.md) page through older work, events and run receipts, with digest-bound reads of complete saved event detail. Cursors retain their scope across reviewed client replacement and restart.
 
 The workspace now starts with your managed work and existing native chats, compact resource/usage status and exact pending approvals. Ctrl/Cmd K searches work and commands; optional creation fields stay folded until needed. See [the experience decisions and upstream references](docs/UI_EXPERIENCE.md).
+
+[Native profile imports](docs/NATIVE_MIGRATIONS.md) reuse installed Hermes and OpenClaw migration utilities, retain private reports and explicit memory limits, then open the existing verified work handoff with the new account selected. Native project access and provider reference reuse remain explicit local choices. Scheduled definitions can be archived; scheduler ownership transfer remains open.
 
 ## Run Forge
 
@@ -111,6 +113,7 @@ The defining demonstration is a real task checkpointed in one harness, continued
 - [Native scheduler evidence, aging and remaining controls](docs/SCHEDULER_EVIDENCE.md)
 - [Reviewed native Hermes pause/resume and outcome receipts](docs/NATIVE_SCHEDULE_CONTROLS.md)
 - [Profiles, scoped native memory and corrections](docs/MEMORY.md)
+- [Native Hermes/OpenClaw profile migration and work continuation](docs/NATIVE_MIGRATIONS.md)
 - [Initial existing-solution audit](docs/REUSE_AUDIT.md)
 - [Customizable workspace blueprints](docs/BLUEPRINTS.md)
 - [Architecture and failure semantics](docs/ARCHITECTURE.md)

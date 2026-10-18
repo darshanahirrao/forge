@@ -16,6 +16,7 @@ export function registerWorkspaceChanges(app: FastifyInstance, store: Store) {
     'companion_runtimes',
     'companion_launches',
     'native_controls',
+    'native_migrations',
     'notifications',
     'profiles',
     'memory_sources',

@@ -9,18 +9,29 @@ import { harnessName } from '../lib/format';
 export function HandoffDialog({
   work,
   accounts,
+  initialTargetAccountId,
   mutate,
   onClose,
   onMoved,
 }: {
   work: Work;
   accounts: Account[];
+  initialTargetAccountId?: string;
   mutate: Mutate;
   onClose: () => void;
   onMoved: () => void;
 }) {
-  const eligible = accounts.filter((a) => a.id !== work.accountId && canExecuteAccount(a));
-  const [target, setTarget] = useState(eligible[0]?.id ?? '');
+  const eligible = accounts.filter(
+    (a) =>
+      a.id !== work.accountId &&
+      canExecuteAccount(a) &&
+      (!a.openClawProjectRoot || a.openClawProjectRoot === work.cwd),
+  );
+  const [target, setTarget] = useState(
+    initialTargetAccountId
+      ? (eligible.find((account) => account.id === initialTargetAccountId)?.id ?? '')
+      : (eligible[0]?.id ?? ''),
+  );
   const [paths, setPaths] = useState('');
   const [prepared, setPrepared] = useState<{ capsule: WorkCapsule; work: Work } | null>(null);
   const [reviewed, setReviewed] = useState(false);
@@ -106,6 +117,9 @@ export function HandoffDialog({
                 onChange={(e) => setTarget(e.target.value)}
                 disabled={Boolean(busy)}
               >
+                {!target && eligible.length > 0 && (
+                  <option value="">Choose a supported native account</option>
+                )}
                 {eligible.length ? (
                   eligible.map((a) => (
                     <option key={a.id} value={a.id}>

@@ -69,6 +69,8 @@ import {
   type NativeControlBridge,
 } from './native-controls.js';
 import { OpenClawSchedules, type OpenClawScheduleClientFactory } from './openclaw-schedules.js';
+import { NativeMigrations } from './native-migrations.js';
+import type { NativeMigrationBridge } from './adapters/native-migration.js';
 import { NativeConnectors } from './connectors.js';
 import { Availability, type AvailabilityOptions } from './availability.js';
 import { MemoryPacks, memoryPackImportSchema } from './memory-packs.js';
@@ -98,6 +100,7 @@ const accountSchema = z
     label: text(80).min(1),
     harness: z.union([builtinHarness, z.string().regex(/^ext\.[a-z][a-z0-9.-]{1,75}$/)]),
     nativeHome: text(2000).default(''),
+    openClawProjectRoot: text(2000).min(1).optional(),
     credentialEnv: z
       .string()
       .regex(/^[A-Za-z_][A-Za-z0-9_]{0,127}$/)
@@ -116,6 +119,7 @@ export interface AppOptions {
   availability?: AvailabilityOptions;
   nativeControlBridge?: NativeControlBridge;
   openClawScheduleClientFactory?: OpenClawScheduleClientFactory;
+  nativeMigrationBridge?: NativeMigrationBridge;
   notificationFetch?: typeof fetch;
   notificationTimeoutMs?: number;
   filename: string;
@@ -189,6 +193,7 @@ export async function createApp(options: AppOptions) {
         !connectors.isChecking &&
           !availability.isBusy &&
           !memoryPacks.isBusy &&
+          !nativeMigrations.isBusy &&
           !companionRuntimes.isBusy,
         409,
         'Wait for the native connector check before starting work.',
@@ -218,6 +223,7 @@ export async function createApp(options: AppOptions) {
         !connectors.isChecking &&
         !availability.isBusy &&
         !memoryPacks.isBusy &&
+        !nativeMigrations.isBusy &&
         !companionRuntimes.isBusy,
       409,
       'Wait for native reads and workspace setup before replacing a companion.',
@@ -252,7 +258,8 @@ export async function createApp(options: AppOptions) {
       probing.size > 0 ||
       connectors.isChecking ||
       availability.isBusy ||
-      memoryPacks.isBusy,
+      memoryPacks.isBusy ||
+      nativeMigrations.isBusy,
   });
   const nativeControls = new NativeControls(
     local,
@@ -275,7 +282,8 @@ export async function createApp(options: AppOptions) {
       nativeSources.isReading ||
       probing.size > 0 ||
       availability.isBusy ||
-      memoryPacks.isBusy,
+      memoryPacks.isBusy ||
+      nativeMigrations.isBusy,
   );
   const blueprints = new Blueprints(
     local,
@@ -286,7 +294,8 @@ export async function createApp(options: AppOptions) {
       nativeSources.isReading ||
       probing.size > 0 ||
       availability.isBusy ||
-      memoryPacks.isBusy,
+      memoryPacks.isBusy ||
+      nativeMigrations.isBusy,
   );
   const mutations = new Set<string>();
   const availability: Availability = new Availability(
@@ -301,6 +310,7 @@ export async function createApp(options: AppOptions) {
       probing.size > 0 ||
       connectors.isChecking ||
       memoryPacks.isBusy ||
+      nativeMigrations.isBusy ||
       companionRuntimes.isBusy ||
       companionRuntimes.hasOpenLaunch ||
       local
@@ -332,6 +342,7 @@ export async function createApp(options: AppOptions) {
       assert(
         !availability.isBusy &&
           !memoryPacks.isBusy &&
+          !nativeMigrations.isBusy &&
           !companionHandoffs.isBusy &&
           !nativeSources.isReading &&
           !connectors.isChecking &&
@@ -362,6 +373,28 @@ export async function createApp(options: AppOptions) {
     resourceGovernance,
   );
   companionHandoffs.nativeRuntimeBoundary = (grantId) => companionRuntimes.sourceBoundary(grantId);
+  const nativeMigrations = new NativeMigrations(
+    local,
+    controller,
+    options.filename === ':memory:' ? undefined : dirname(options.filename),
+    async () => {
+      const pressure = await machine.freshPressure();
+      assert(
+        !controller.hasLiveExecution &&
+          !nativeSources.isReading &&
+          probing.size === 0 &&
+          !connectors.isChecking &&
+          !availability.isBusy &&
+          !memoryPacks.isBusy &&
+          !companionHandoffs.isBusy &&
+          !companionRuntimes.isBusy,
+        409,
+        'Wait for native work, reads and workspace setup before preparing a native profile.',
+      );
+      checkMemoryAdmission(local.settings(), pressure);
+    },
+    options.nativeMigrationBridge,
+  );
   const port = options.port ?? 4710;
   const allowedHosts = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
   const allowedOrigins = new Set([...allowedHosts].map((host) => `http://${host}`));
@@ -419,7 +452,7 @@ export async function createApp(options: AppOptions) {
       );
       companions.authenticate(request.headers.authorization);
       assert(
-        !availability.isBusy && !memoryPacks.isBusy,
+        !availability.isBusy && !memoryPacks.isBusy && !nativeMigrations.isBusy,
         409,
         'Wait for the reviewed workspace availability operation to finish.',
       );
@@ -452,6 +485,7 @@ export async function createApp(options: AppOptions) {
       assert(
         (!availability.isBusy || request.url.split('?')[0] === '/api/availability/activate') &&
           (!memoryPacks.isBusy || request.url.split('?')[0] === '/api/memory/packs/apply') &&
+          !nativeMigrations.isBusy &&
           !companionHandoffs.isBusy &&
           (!companionRuntimes.isBusy ||
             request.url.split('?')[0] === '/api/companion-runtimes/start' ||
@@ -465,7 +499,7 @@ export async function createApp(options: AppOptions) {
     }
     if (request.url.split('?')[0] === '/api/native/t3/callback') {
       assert(
-        !availability.isBusy && !memoryPacks.isBusy,
+        !availability.isBusy && !memoryPacks.isBusy && !nativeMigrations.isBusy,
         409,
         'Wait for the workspace availability operation before completing native setup.',
       );
@@ -717,6 +751,10 @@ export async function createApp(options: AppOptions) {
       service: options.background ?? { mode: 'foreground' },
       availability: mode(request) === 'demo' ? undefined : await availability.snapshot(),
       memoryPacks: mode(request) === 'demo' ? [] : memoryPacks.list(),
+      nativeMigrations:
+        mode(request) === 'demo'
+          ? undefined
+          : { supported: nativeMigrations.supported, rows: nativeMigrations.list() },
       access: bridgeActor(request.headers, options.phoneBridge),
       mode: mode(request),
       connectors: mode(request) === 'demo' ? [] : connectors.list(),
@@ -1149,8 +1187,70 @@ export async function createApp(options: AppOptions) {
       exportedAt: now(),
     };
   });
+  const nativeMigrationHuman = (request: { headers: IncomingHttpHeaders }) =>
+    assert(
+      mode(request) === 'local' &&
+        bridgeActor(request.headers, options.phoneBridge).kind === 'local',
+      403,
+      'Prepare and activate native profile imports from the local Forge host.',
+    );
+  app.post('/api/native/migrations/prepare', async (request) => {
+    nativeMigrationHuman(request);
+    return nativeMigrations.prepare(
+      request.body,
+      bridgeActor(request.headers, options.phoneBridge),
+    );
+  });
+  app.get('/api/native/migrations/:id', async (request) => {
+    nativeMigrationHuman(request);
+    return nativeMigrations.review(
+      z
+        .string()
+        .uuid()
+        .parse((request.params as { id: string }).id),
+    );
+  });
+  app.post('/api/native/migrations/:id/activate', async (request) => {
+    nativeMigrationHuman(request);
+    return nativeMigrations.activate(
+      z
+        .string()
+        .uuid()
+        .parse((request.params as { id: string }).id),
+      request.body,
+      bridgeActor(request.headers, options.phoneBridge),
+    );
+  });
+  app.post('/api/native/migrations/:id/dismiss', async (request) => {
+    nativeMigrationHuman(request);
+    const input = z
+      .object({ revision: z.number().int().nonnegative() })
+      .strict()
+      .parse(request.body);
+    return nativeMigrations.dismiss(
+      z
+        .string()
+        .uuid()
+        .parse((request.params as { id: string }).id),
+      input.revision,
+    );
+  });
   app.post('/api/accounts', async (request, reply) => {
+    assert(
+      !nativeMigrations.isBusy,
+      409,
+      'Wait for the native profile preparation before adding another account.',
+    );
     const { connectorId, ...body } = accountSchema.parse(request.body);
+    assert(
+      !body.openClawProjectRoot ||
+        (mode(request) === 'local' &&
+          bridgeActor(request.headers, options.phoneBridge).kind === 'local' &&
+          body.harness === 'openclaw' &&
+          !connectorId),
+      403,
+      'Review dedicated OpenClaw project access on the local Forge host.',
+    );
     assert(
       !body.harness.startsWith('ext.') || connectorId,
       400,
@@ -1173,12 +1273,16 @@ export async function createApp(options: AppOptions) {
     );
     const db = store(request);
     const nativeHome = mode(request) === 'demo' ? '' : await directory(body.nativeHome);
+    const openClawProjectRoot = body.openClawProjectRoot
+      ? await directory(body.openClawProjectRoot)
+      : undefined;
     const account: Account = {
       ...body,
       ...(connectorId
         ? { connector: connectors.binding(connectorId, body.harness), connectorReady: true }
         : {}),
       nativeHome,
+      ...(openClawProjectRoot ? { openClawProjectRoot } : {}),
       id: id(),
       state: 'configured',
       identity: null,
@@ -1229,7 +1333,8 @@ export async function createApp(options: AppOptions) {
       probing.size === 0 &&
         controller.activeCount === 0 &&
         !nativeSources.isReading &&
-        !connectors.isChecking,
+        !connectors.isChecking &&
+        !nativeMigrations.isBusy,
       409,
       'Wait for the current native operation before checking a private reference.',
     );
@@ -1274,7 +1379,8 @@ export async function createApp(options: AppOptions) {
       probing.size === 0 &&
         controller.activeCount === 0 &&
         !nativeSources.isReading &&
-        !connectors.isChecking,
+        !connectors.isChecking &&
+        !nativeMigrations.isBusy,
       409,
       'Wait for the current native worker, account check or inventory read before checking another account.',
     );
@@ -1938,7 +2044,11 @@ export async function createApp(options: AppOptions) {
         : reply.sendFile('index.html'),
     );
   }
+  app.addHook('preClose', async () => {
+    await nativeMigrations.close();
+  });
   app.addHook('onClose', async () => {
+    await nativeMigrations.close();
     await resourceGovernance.close();
     await openClawSchedules.close();
     await nativeSources.close();
@@ -1967,5 +2077,6 @@ export async function createApp(options: AppOptions) {
     connectors,
     availability,
     memoryPacks,
+    nativeMigrations,
   };
 }

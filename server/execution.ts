@@ -162,6 +162,11 @@ export class ExecutionController {
     );
     const account = this.store.account(work.accountId);
     assert(
+      !account.openClawProjectRoot || account.openClawProjectRoot === work.cwd,
+      409,
+      'This OpenClaw account is scoped to a different reviewed project. Choose a matching account.',
+    );
+    assert(
       !this.store
         .all<Run>('runs')
         .some((run) =>

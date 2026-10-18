@@ -806,6 +806,8 @@ test('OpenClaw profile slots and launch review explain native authority on deskt
   );
   await page.getByLabel('Native OpenClaw execution profile').fill(process.cwd());
   await page.getByLabel('Native credential environment variable').fill('STUDIO_OPENCLAW_KEY');
+  await page.getByText('Reviewed native project', { exact: true }).click();
+  await page.getByLabel('Native project directory').fill(process.cwd());
   await page.getByRole('button', { name: 'Save account slot' }).click();
   await page.getByRole('button', { name: 'Work', exact: true }).click();
   await page.getByRole('button', { name: 'New work', exact: true }).click();
@@ -824,6 +826,9 @@ test('OpenClaw profile slots and launch review explain native authority on deskt
   const launch = dialog.getByRole('button', { name: 'Start native attempt' });
   await expect(launch).toBeDisabled();
   await expect(dialog.getByText(/Provider identity and quotas remain unknown/)).toBeVisible();
+  await expect(
+    dialog.getByText(/This dedicated OpenClaw Gateway uses native administrator API scope/),
+  ).toBeVisible();
   await expect(
     dialog.getByText(/OpenClaw owns its native tools, memory and model routing/),
   ).toBeVisible();
@@ -854,6 +859,11 @@ test('OpenClaw profile slots and launch review explain native authority on deskt
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'Keep as ready' }).click();
   const snapshot = await (await page.request.get('/api/snapshot')).json();
+  expect(
+    snapshot.accounts.find(
+      (account: { label: string }) => account.label === 'OpenClaw browser fixture',
+    ).openClawProjectRoot,
+  ).toBe(process.cwd());
   expect(
     snapshot.work.find((work: { title: string }) => work.title === 'OpenClaw native review').status,
   ).toBe('ready');

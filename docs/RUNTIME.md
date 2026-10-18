@@ -1,4 +1,6 @@
-# Forge v0.33.0
+# Forge v0.34.0
+
+Version 0.34 adds [native profile migration](NATIVE_MIGRATIONS.md) through installed Hermes/OpenClaw importers, private native reports, imported/archive/skip/overflow evidence and source/stage/binding revalidation. Reviewed account activation connects directly to the existing Work Capsule handoff. Explicit OpenClaw project scope permits a guarded session outside its private memory workspace without silently granting other projects. State 12 retains these receipts and gates older readers. Native entry grouping can differ; scheduler ownership transfer and arbitrary provider-memory equivalence remain open.
 
 Version 0.33 adds [native OpenClaw schedule inventory and reviewed controls](OPENCLAW_SCHEDULES.md). Finite public-SDK operator sessions default to read-only; native administrator access requires a local human review. Native opaque job revisions fence pause/resume at the actual Gateway transaction, with durable idempotent/uncertain receipts and private device continuity. State 11 forward-gates the new source/control authority, retains a private before-v11 state-10 copy and is refused by the previous compiled reader. Full schedule transfer, native provider-memory migration and live provider/device acceptance remain open.
 
@@ -138,7 +140,7 @@ The macOS pressure check also passed against the real native flag 2 (warning), h
 
 ## State version and rollback
 
-Current state is 10. Existing earlier file workspaces receive a private before-v10 copy; the v0.30.1 state-9 reader refuses state 10. The preceding state-9 upgrade created before-v9 copies. Native profiles and worker proofs must be retained separately. The preceding state-8 upgrade created before-v8 copies. Native lifecycle and connection handoffs cannot safely be rolled back by serving an old authorization snapshot without reconciling access and later native effects.
+Current state is 12. Existing earlier file workspaces receive a private before-v12 copy; the actual compiled v0.33 state-11 reader refuses state 12 without rewriting it. Canonical rows remain equal and the rollback copy retains state 11 with mode 0600. State 11 previously retained before-v11 copies. The preceding state-10 upgrade retained before-v10 copies. The preceding state-9 upgrade created before-v9 copies. Native profiles and worker proofs must be retained separately. The preceding state-8 upgrade created before-v8 copies. Native lifecycle and connection handoffs cannot safely be rolled back by serving an old authorization snapshot without reconciling access and later native effects.
 
 The preceding recovery milestone used state 7. Native recovery upgrades from earlier file states create a mode-0600 `workspace.sqlite.before-v7.UUID.sqlite` copy before advancing. The previous compiled state-6 reader refuses state 7. Preserve private native profiles/proofs separately; restoring old application/state files does not establish native settlement. [Recovery compatibility](NATIVE_RECOVERY.md) describes the ownership boundary. The following version-3 note records the earlier migration milestone.
 

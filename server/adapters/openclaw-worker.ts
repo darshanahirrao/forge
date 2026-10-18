@@ -232,6 +232,11 @@ export async function openClawWorker(
   credentials?: CredentialMaterial,
   spawnNative?: import('../worker-supervision.js').NativeSpawn,
 ): Promise<OpenClawConnection> {
+  assert(
+    !account.openClawProjectRoot || account.openClawProjectRoot === cwd,
+    409,
+    'This OpenClaw account is scoped to its reviewed project directory. Choose that project or review a separate native account slot.',
+  );
   const env = openClawEnvironment(account, credentials);
   const installation = await openClawInstallation(env);
   const release = await acquireProfileLease(account.nativeHome);
@@ -365,7 +370,12 @@ export async function openClawWorker(
         clientDisplayName: 'Forge',
         clientVersion: version,
         role: 'operator',
-        scopes: ['operator.read', 'operator.write', 'operator.approvals'],
+        scopes: [
+          'operator.read',
+          'operator.write',
+          'operator.approvals',
+          ...(account.openClawProjectRoot ? ['operator.admin'] : []),
+        ],
         caps: ['tool-events', 'exec-approvals'],
         deviceIdentity: identity.device as DeviceIdentity,
         hostDeps: {

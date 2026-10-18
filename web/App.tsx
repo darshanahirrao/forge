@@ -87,6 +87,7 @@ export function App() {
   const [approval, setApproval] = useState<Approval | null>(null);
   const [launch, setLaunch] = useState<Work | null>(null);
   const [handoff, setHandoff] = useState(false);
+  const [handoffTarget, setHandoffTarget] = useState<string>();
   const [edit, setEdit] = useState<Work | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [help, setHelp] = useState(false);
@@ -117,6 +118,7 @@ export function App() {
     setApproval(null);
     setLaunch(null);
     setHandoff(false);
+    setHandoffTarget(undefined);
     setEdit(null);
     void load();
     const timer = setInterval(() => {
@@ -456,6 +458,11 @@ export function App() {
                   data={snapshot}
                   mutate={mutate}
                   onWork={setSelected}
+                  onNativeHandoff={(workId, accountId) => {
+                    setSelected(workId);
+                    setHandoffTarget(accountId);
+                    setHandoff(true);
+                  }}
                   onNew={() => setNewAccount(true)}
                   onProbe={(account) =>
                     void act(
@@ -605,7 +612,10 @@ export function App() {
             setSelected(null);
           }}
           onLaunch={() => setLaunch(selectedWork)}
-          onHandoff={() => setHandoff(true)}
+          onHandoff={() => {
+            setHandoffTarget(undefined);
+            setHandoff(true);
+          }}
           onApproval={setApproval}
           onExport={() =>
             void act(
@@ -633,6 +643,7 @@ export function App() {
         <HandoffDialog
           work={selectedWork}
           accounts={snapshot.accounts}
+          initialTargetAccountId={handoffTarget}
           mutate={mutate}
           onClose={() => setHandoff(false)}
           onMoved={() => {

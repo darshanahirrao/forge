@@ -31,6 +31,8 @@ export interface Account {
   label: string;
   harness: Harness;
   nativeHome: string;
+  /** Local-human reviewed project for this dedicated OpenClaw Gateway's guarded sessions. */
+  openClawProjectRoot?: string;
   /** Environment variable name only. Forge never stores its secret value. */
   credentialEnv?: string;
   credentialReference?: import('./credentials.js').CredentialReference;
@@ -452,6 +454,10 @@ export interface BackgroundRuntime {
   definitionDirectory?: string;
 }
 export interface Snapshot {
+  nativeMigrations?: {
+    supported: boolean;
+    rows: import('./native-migrations.js').NativeMigration[];
+  };
   nativeGovernance?: import('./resource-governance.js').NativeResourceSnapshot;
   companionHandoffs?: import('./companion-handoff.js').CompanionHandoff[];
   recovery?: import('./recovery.js').NativeRecoverySnapshot;

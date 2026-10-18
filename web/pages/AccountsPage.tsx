@@ -4,6 +4,7 @@ import { HarnessMark, Status, Empty } from '../components/primitives';
 import { harnessName, age } from '../lib/format';
 import { SpendingPanel } from '../components/SpendingPanel';
 import { CredentialReference } from '../components/CredentialReference';
+import { NativeMigrations } from '../components/NativeMigrations';
 import type { Mutate } from '../api';
 import { managedHarnesses } from '../../shared/harnesses';
 
@@ -14,6 +15,7 @@ export function AccountsPage({
   busy,
   mutate,
   onWork,
+  onNativeHandoff,
 }: {
   data: Snapshot;
   onNew: () => void;
@@ -21,6 +23,7 @@ export function AccountsPage({
   busy: string;
   mutate: Mutate;
   onWork: (id: string) => void;
+  onNativeHandoff: (workId: string, accountId: string) => void;
 }) {
   const duplicates = new Set(
     data.accounts
@@ -62,6 +65,12 @@ export function AccountsPage({
                 />
               </div>
               <dl className="account-facts">
+                {a.openClawProjectRoot && (
+                  <div>
+                    <dt>Reviewed native project</dt>
+                    <dd>{a.openClawProjectRoot}</dd>
+                  </div>
+                )}
                 {a.harness === 'claude' && a.billingMode === 'api' && (
                   <div>
                     <dt>Credential reference</dt>
@@ -196,6 +205,7 @@ export function AccountsPage({
           </Empty>
         </section>
       )}
+      <NativeMigrations data={data} mutate={mutate} onHandoff={onNativeHandoff} />
     </div>
   );
 }

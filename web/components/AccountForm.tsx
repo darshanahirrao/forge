@@ -40,6 +40,9 @@ export function AccountForm({
         harness,
         ...(connector ? { connectorId: connector.id } : {}),
         nativeHome: form.get('nativeHome'),
+        ...(harness === 'openclaw' && String(form.get('openClawProjectRoot') || '').trim()
+          ? { openClawProjectRoot: String(form.get('openClawProjectRoot')).trim() }
+          : {}),
         billingMode,
         ...(['claude', 'codex'].includes(harness) && billingMode === 'api'
           ? {
@@ -284,6 +287,25 @@ export function AccountForm({
                         : 'Use a dedicated native execution profile with local Gateway, reload off, cron disabled and heartbeat every 0m. Native channels and schedules stay with their existing companion owner. Configure its model through OpenClaw first.'}
             </small>
           </label>
+          {harness === 'openclaw' && mode === 'local' && (
+            <details className="native-details">
+              <summary>Reviewed native project</summary>
+              <label>
+                Native project directory <span className="optional">Optional</span>
+                <input
+                  name="openClawProjectRoot"
+                  maxLength={2000}
+                  placeholder="/absolute/project/path"
+                />
+                <small>
+                  For a project outside the native memory workspace, authorize this exact directory.
+                  The dedicated Gateway uses native administrator API scope to create guarded
+                  sessions here. Other project directories are refused. Configure this choice on the
+                  local Forge host.
+                </small>
+              </label>
+            </details>
+          )}
           <div className="notice">
             <ShieldCheck size={18} />
             <p>

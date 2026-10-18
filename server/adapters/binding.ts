@@ -9,6 +9,9 @@ export const accountBinding = (account: Account) =>
         harness: account.harness,
         ...(account.connector ? { connector: account.connector } : {}),
         home: account.nativeHome,
+        ...(account.openClawProjectRoot
+          ? { openClawProjectRoot: account.openClawProjectRoot }
+          : {}),
         credential: account.credentialEnv,
         ...(account.credentialReference
           ? { credentialReference: account.credentialReference }

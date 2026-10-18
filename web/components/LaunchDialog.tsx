@@ -156,6 +156,13 @@ export function LaunchDialog({
           <p>
             <strong>{work.title}</strong>
           </p>
+          {account?.openClawProjectRoot && (
+            <p className="source-note">
+              This dedicated OpenClaw Gateway uses native administrator API scope to create a
+              guarded session in its reviewed project: <code>{account.openClawProjectRoot}</code>.
+              Other project directories are refused.
+            </p>
+          )}
           <p>
             {executionName(work.harness)} receives this task's goal, acceptance criteria, context
             and checkpoints, with access to the selected project. Native tools and permission rules

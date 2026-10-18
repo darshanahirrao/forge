@@ -1,5 +1,7 @@
 # Native tool conformance
 
+After building, `npm run test:native:migration` uses the compiled framework, installed Hermes 0.17.0/OpenClaw 2026.10.4 importers and disposable profiles to exercise native learning, migration, native OpenClaw tool discovery/recall, Hermes atomic correction and removal, then another migration. It retains the same canonical work/profile/artifact and checks native skills and excluded synthetic credentials. Model replies are loopback fixtures; import itself sends no model request. Supply the existing OpenClaw binary/Node overrides and native Hermes interpreter as needed. Source files, scopes, limits and remaining gaps are documented in [native migration](../../docs/NATIVE_MIGRATIONS.md).
+
 The companion and portable-memory checks now stage a replacement grant, obtain readiness through the actual native MCP client and activate the same profile/project without resetting allowance or request identity. Run with existing OpenClaw overrides for the Hermes-to-OpenClaw path, or without them for the native Hermes replacement path. [Handoff contract](../../docs/COMPANION_HANDOFF.md).
 
 Build first, then run `npm run test:native:recovery` for compiled Forge crash/restart around an approved actual Codex external effect and a second pending native approval. Exact signed-close reconciliation must produce no extra provider request or unapproved artifact. The six-run handoff also requires signed native-close receipts for every harness. See [native recovery evidence and limits](../../docs/NATIVE_RECOVERY.md).

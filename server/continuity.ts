@@ -39,7 +39,14 @@ function protectedPath(path: string) {
     .split('/')
     .some(
       (part) =>
-        ['.git', 'node_modules', '.venv', 'auth.json', 'credentials.json'].includes(part) ||
+        [
+          '.git',
+          'node_modules',
+          '.venv',
+          'native-migrations',
+          'auth.json',
+          'credentials.json',
+        ].includes(part) ||
         /^\.env(?:\.|$)/i.test(part) ||
         /^\.forge-openclaw\.json(?:\.|$)/i.test(part) ||
         /^\.forge-openclaw-source-/i.test(part) ||
@@ -333,6 +340,11 @@ export class Continuity {
         work.nativeSessionKey === sourceAccount.backend.id,
       );
       assert(account.id !== work.accountId, 400, 'Choose a different native account or harness.');
+      assert(
+        !account.openClawProjectRoot || account.openClawProjectRoot === work.cwd,
+        409,
+        'This OpenClaw account is scoped to a different reviewed project. Choose a matching account.',
+      );
       assert(
         canExecuteAccount(account),
         409,

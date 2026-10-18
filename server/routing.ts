@@ -197,6 +197,8 @@ export class AccountRouting {
         );
       if (!canExecuteAccount(account) || account.state === 'unavailable' || account.error)
         reasons.push('This native execution binding is unavailable.');
+      if (account.openClawProjectRoot && account.openClawProjectRoot !== work.cwd)
+        reasons.push('This OpenClaw account is scoped to a different reviewed project.');
       if (!policy.allowMetered && metered(account))
         reasons.push('Metered or unverifiable billing is excluded by this route.');
       const identityPeers = accounts.filter(
