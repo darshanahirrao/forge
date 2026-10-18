@@ -1,5 +1,11 @@
 # Build log
 
+## 2026-10-18 · forge-v0.33.0-verified
+
+Corrected the native crash-recovery acceptance check to wait for both signed native closure and release of the original lifetime SQLite transaction. The native owner publishes its close receipt before committing/unlocking its profile fence. The old test incorrectly assumed those observations were simultaneous and intermittently failed with a locked database on Linux. Runtime admission already checks the lifetime fence and correctly refuses reuse during that window; production code, schema and native control semantics are unchanged.
+
+Added a deterministic real SQLite lock-window regression: an original signed never-started receipt can retire the SDK marker while the lifetime fence still blocks profile checks, native lease acquisition and a new supervised launch before preparation. Only the original release makes the same device/profile reusable. Validation: 293 functional cases, type/format/diff checks and the focused actual-child crash/recovery suite pass. Existing v0.33 production/native/browser/package evidence remains applicable because runtime sources are unchanged; CI reruns the complete release gates. The original v0.33 main workflow passed (39097372902), while its independent tag run exposed this test race (39097622190). Preserve that tag/history. Checkpoint: the commit containing this entry and new rollback tag forge-v0.33.0-verified; verify its remote SHA and workflows separately.
+
 ## 2026-10-18 · forge-v0.33.0
 
 Added on-demand native OpenClaw schedule inventory and human-reviewed pause/resume using the already installed public Gateway SDK. Compact metadata excludes execution instructions; a full bounded job record is fetched for each exact review. The source defaults to operator.read, while native cron.update requires operator.admin and an explicit local-human access choice. Private phones can review individual controls but cannot provision administrator authority. Native opaque revisions are retained exactly for expectedConfigRevision inside the native transaction. No scheduler, tick, model loop, tool implementation, permanent operator process or dependency is added.

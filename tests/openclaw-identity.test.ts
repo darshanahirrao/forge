@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ownedNativeSpawner } from '../server/owned-native.js';
+import { acquireProfileLease } from '../server/adapters/profile-lease.js';
 import {
   readWorkerExit,
   writeWorkerExit,
@@ -128,6 +129,48 @@ test('a new unbound attempt and an unclean legacy marker cannot borrow any older
   await assert.rejects(readOpenClawIdentity(f.home), /unconfirmed native exit/);
   assert.deepEqual(JSON.parse(await readFile(f.filename, 'utf8')), legacy);
 });
+test(
+  'signed native close does not grant profile reuse while its original lifetime transaction is still held',
+  { skip: process.platform === 'win32' },
+  async (t) => {
+    const f = await fixture(t);
+    armOpenClawIdentity(f.home, f.identity, f.descriptor);
+    const release = armWorkerProfile(f.home, f.descriptor);
+    let prepared = 0;
+    try {
+      writeWorkerExit(
+        f.descriptor,
+        { ...f.proof, nativePid: null, started: false, reason: 'bootstrap-aborted' },
+        f.keys.privateKey,
+      );
+      assert.equal((await readOpenClawIdentity(f.home))?.cleanExit, true);
+      assert.throws(() => checkWorkerProfile(f.home), /locked|busy/i);
+      await assert.rejects(acquireProfileLease(f.home), /locked|busy/i);
+      const spawn = ownedNativeSpawner({
+        directory: f.directory,
+        nativeHome: f.home,
+        scope: { harness: 'openclaw', runId: randomUUID() },
+        mayPrepare: () => true,
+        mayCommit: () => true,
+        prepared: () => {
+          prepared++;
+        },
+        phaseChanged: () => {},
+      });
+      assert.throws(
+        () => spawn(process.execPath, ['-e', 'process.exit(0)'], {}, { input: 'ignore' }),
+        /locked|busy/i,
+      );
+      assert.equal(prepared, 0);
+    } finally {
+      release();
+    }
+    checkWorkerProfile(f.home);
+    const lease = await acquireProfileLease(f.home);
+    lease();
+    assert.deepEqual((await readOpenClawIdentity(f.home))?.device, f.identity.device);
+  },
+);
 test('clean legacy identities preserve their keys and a private rollback copy; corrupt or linked files stay held', async (t) => {
   const f = await fixture(t);
   const raw = JSON.stringify({ version: 1, cleanExit: true, device: f.identity.device });
@@ -233,7 +276,11 @@ test(
     const until = Date.now() + 5000;
     while (Date.now() < until) {
       try {
-        recovered = await readOpenClawIdentity(home);
+        const identity = await readOpenClawIdentity(home);
+        // Native close is published before the original owner commits and
+        // releases its lifetime profile transaction. Reuse needs both facts.
+        checkWorkerProfile(home);
+        recovered = identity;
         break;
       } catch {
         await new Promise((resolve) => setTimeout(resolve, 20));
