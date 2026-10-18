@@ -2,6 +2,8 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { MemoryPressure, Settings } from '../shared/types.js';
 import { assert } from './errors.js';
+import { readLinuxMemoryPressure } from './linux-memory-pressure.js';
+import { memoryPressureDescription } from '../shared/memory-pressure.js';
 const exec = promisify(execFile);
 
 export const unknownPressure = (): MemoryPressure => ({
@@ -23,6 +25,7 @@ export function parseMemoryPressure(output: string): MemoryPressure {
       };
 }
 export async function readMemoryPressure(): Promise<MemoryPressure> {
+  if (process.platform === 'linux') return readLinuxMemoryPressure();
   if (process.platform !== 'darwin') return unknownPressure();
   try {
     const result = await exec('/usr/sbin/sysctl', ['-n', 'kern.memorystatus_vm_pressure_level'], {
@@ -40,6 +43,6 @@ export function checkMemoryAdmission(settings: Settings, pressure: MemoryPressur
     settings.memoryPressurePolicy === 'observe' ||
       !['warning', 'critical'].includes(pressure.state),
     409,
-    `macOS reports ${pressure.state} memory pressure. No native attempt was created. Wait for pressure to ease, or review memory protection in Resources before launching again.`,
+    `${memoryPressureDescription(pressure)} No native attempt was created. Wait for pressure to ease, or review memory protection in Resources before launching again.`,
   );
 }

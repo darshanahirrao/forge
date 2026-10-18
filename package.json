@@ -1,6 +1,6 @@
 {
   "name": "@forge-workspace/forge",
-  "version": "0.37.0",
+  "version": "0.38.0",
   "description": "A local workspace for continuous work across agent harnesses.",
   "private": true,
   "type": "module",
@@ -54,7 +54,8 @@
     "test:native:migration": "tsx tests/native/migration-conformance.ts",
     "test:native:schedule-transfer": "tsx tests/native/schedule-transfer-conformance.ts",
     "test:native:extension": "tsx tests/native/companion-lifecycle-conformance.ts --extension-runtime",
-    "test:native:continuation": "tsx tests/native/codex-continuation-conformance.ts"
+    "test:native:continuation": "tsx tests/native/codex-continuation-conformance.ts",
+    "test:native:resources:busy": "tsx tests/native/codex-continuation-conformance.ts --busy-resource-trace"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.9.0",

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createApp } from '../server/app.js';
 import { parseMemoryPressure, unknownPressure } from '../server/memory-pressure.js';
 import type { MemoryPressure, Run, Work } from '../shared/types.js';
+import { readLinuxMemoryPressure } from '../server/linux-memory-pressure.js';
 
 async function fixture(
   t: test.TestContext,
@@ -97,6 +98,24 @@ test('warning and critical reports reject native launch before factory creation 
     assert.equal(f.local.all<Run>('runs').length, 0);
     assert.deepEqual(f.local.work(f.work.id), f.work);
   }
+});
+test('native Linux PSI interpretation uses the same no-run admission boundary and observe-only policy', async (t) => {
+  const pressure = await readLinuxMemoryPressure(async (path) => {
+    if (path === '/proc/pressure/memory')
+      return 'some avg10=22.00 avg60=1.00 avg300=0.00 total=900\nfull avg10=11.00 avg60=1.00 avg300=0.00 total=800\n';
+    throw new Error('Cgroup discovery unavailable');
+  });
+  const f = await fixture(t, () => pressure);
+  assert.equal((await f.launch()).statusCode, 409);
+  assert.equal(f.counts().factories, 0);
+  assert.equal(f.local.all<Run>('runs').length, 0);
+  assert.deepEqual(f.local.work(f.work.id), f.work);
+  assert.equal(
+    (await f.call('PATCH', '/api/settings', { memoryPressurePolicy: 'observe' })).statusCode,
+    200,
+  );
+  assert.equal((await f.launch()).statusCode, 202);
+  assert.equal(f.counts().factories, 1);
 });
 test('admission refreshes pressure after a healthy UI sample and updates that sample without admitting a worker', async (t) => {
   let value = '1';

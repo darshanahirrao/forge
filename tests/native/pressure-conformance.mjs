@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createApp } from '../../dist/server/app.js';
 import { readMemoryPressure } from '../../dist/server/memory-pressure.js';
 
-assert.equal(process.platform, 'darwin', 'This opt-in check requires macOS.');
+assert(['darwin', 'linux'].includes(process.platform), 'This check requires macOS or Linux PSI.');
 let sample,
   factories = 0;
 const state = await createApp({
@@ -53,12 +53,15 @@ try {
   const launch = await post(`/work/${work.body.id}/launch`, {
     expectedRevision: work.body.revision,
   });
-  assert(
-    sample &&
-      sample.source === 'macos-sysctl' &&
-      ['normal', 'warning', 'critical'].includes(sample.state),
-    'This native pressure query has no evaluated coverage on this installation.',
-  );
+  assert(sample, 'Admission did not query native pressure.');
+  if (process.platform === 'darwin') {
+    assert.equal(sample.source, 'macos-sysctl');
+    assert(['normal', 'warning', 'critical'].includes(sample.state));
+  } else {
+    assert.equal(sample.source, 'linux-psi');
+    assert(sample.linux?.host, 'The native Linux PSI host interface is unavailable.');
+    assert.equal(sample.nativeValue, null, 'Linux health states are a Forge interpretation.');
+  }
   const held = ['warning', 'critical'].includes(sample.state);
   assert.equal(launch.status, held ? 409 : 202, JSON.stringify(launch.body));
   assert.equal(factories, held ? 0 : 1);
@@ -68,6 +71,8 @@ try {
       status: 'passed',
       nativePressure: sample.state,
       nativeValue: sample.nativeValue,
+      source: sample.source,
+      ...(sample.linux ? { linux: sample.linux } : {}),
       nativeQueryVerified: true,
       pressureHoldObserved: held,
       driver: 'inert fixture',

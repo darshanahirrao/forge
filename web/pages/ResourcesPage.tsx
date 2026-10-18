@@ -18,6 +18,7 @@ import type {
   NativeResourceSnapshot,
 } from '../../shared/resource-governance';
 import { NativeResourceControls } from '../components/NativeResourceControls';
+import { memoryPressureDescription, linuxPressureThresholds } from '../../shared/memory-pressure';
 
 export function ResourcesPage({
   machine,
@@ -79,12 +80,15 @@ export function ResourcesPage({
               : 'Memory pressure protection'}
           </h2>
           <p>
+            {memoryPressureDescription(machine.memoryPressure)}{' '}
             {machine.memoryPressure?.state === 'warning' ||
             machine.memoryPressure?.state === 'critical'
-              ? `macOS reports ${machine.memoryPressure.state} memory pressure. ${memoryPolicy === 'observe' ? 'Observe-only mode allows new managed work.' : 'New managed launches wait while this signal is high.'}`
+              ? memoryPolicy === 'observe'
+                ? 'Observe-only mode allows new managed work.'
+                : 'New managed launches wait while this signal is high.'
               : machine.memoryPressure?.state === 'normal'
-                ? 'macOS reports normal memory pressure. The report is checked again before creating a native worker.'
-                : 'Automatic memory pressure detection is unavailable here. Quiet mode can still pause new managed work.'}
+                ? 'The report is checked again before creating a native worker.'
+                : 'Quiet mode can still pause new managed work.'}
           </p>
           <p className="source-note">
             {memoryPolicy === 'observe'
@@ -92,6 +96,50 @@ export function ResourcesPage({
               : 'Protection is on for reported warning or critical pressure.'}{' '}
             Running work keeps its native controls. This is admission guidance, not a memory limit.
           </p>
+          {machine.memoryPressure?.linux && (
+            <details className="resource-coverage">
+              <summary>Linux pressure measurements</summary>
+              <p className="source-note">
+                Ten-second averages of time spent waiting for memory, reported by the kernel.
+                Partial stalls affect some tasks; full stalls affect all non-idle tasks in that
+                scope.
+              </p>
+              <dl className="account-facts">
+                <div>
+                  <dt>Host stalls</dt>
+                  <dd>
+                    {machine.memoryPressure.linux.host
+                      ? `${machine.memoryPressure.linux.host.someAvg10.toFixed(2)}% partial · ${machine.memoryPressure.linux.host.fullAvg10.toFixed(2)}% full`
+                      : 'Unavailable'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Visible runtime cgroups</dt>
+                  <dd>
+                    {machine.memoryPressure.linux.cgroup
+                      ? `${machine.memoryPressure.linux.cgroup.someAvg10.toFixed(2)}% partial · ${machine.memoryPressure.linux.cgroup.fullAvg10.toFixed(2)}% full`
+                      : 'Unavailable'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Cgroup coverage</dt>
+                  <dd>
+                    {machine.memoryPressure.linux.cgroupCoverage === 'complete'
+                      ? `${machine.memoryPressure.linux.observedCgroups} visible scopes checked`
+                      : 'Incomplete; low measurements do not establish normal pressure'}
+                  </dd>
+                </div>
+              </dl>
+              <p className="source-note">
+                Forge holds new launches at {linuxPressureThresholds.warningSomeAvg10}% partial or{' '}
+                {linuxPressureThresholds.warningFullAvg10}% full stalls;{' '}
+                {linuxPressureThresholds.criticalFullAvg10}% full is critical. These are Forge
+                admission thresholds. Cgroup values are the largest observed across visible
+                ancestors. Hidden ancestor limits and future out-of-memory events remain outside
+                this observation.
+              </p>
+            </details>
+          )}
         </div>
         <button
           className="button secondary"

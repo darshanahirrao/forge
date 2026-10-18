@@ -20,6 +20,8 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run test:package
+      - name: Native memory pressure admission
+        run: npm run test:native:pressure
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - name: Native idle resource trace

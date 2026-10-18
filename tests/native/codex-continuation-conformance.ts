@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Account, Approval, Run, Usage, Work } from '../../shared/types.js';
 import type { NativeContinuationReview } from '../../shared/native-continuations.js';
+import { BusyResourceTrace } from './busy-resource-trace.js';
+const busyTrace = process.argv.includes('--busy-resource-trace') ? new BusyResourceTrace() : null;
 const { createApp } = (await import(
   new URL('../../dist/server/app.js', import.meta.url).href
 )) as typeof import('../../server/app.js');
@@ -38,7 +40,10 @@ let requests = 0,
   sourcePhase = true,
   wrote = false;
 const marker = 'native-history-marker-1',
-  artifact = join(project, 'continued.txt');
+  artifact = join(project, 'continued.txt'),
+  busyStarted = join(project, 'busy.started');
+const quote = (value: string) => "'" + value.replace(/'/g, "'\\''") + "'";
+const controlledTool = `const {writeFileSync}=require('node:fs'); const retained=Buffer.alloc(32*1024*1024,1);writeFileSync('busy.started','controlled load started'); const end=Date.now()+16000; (async()=>{while(Date.now()<end){const until=performance.now()+4;while(performance.now()<until){Math.sqrt(retained[0]+performance.now());}await new Promise(r=>setTimeout(r,96));}writeFileSync('continued.txt',${JSON.stringify(marker + '\n')});})();`;
 let historyObserved = false;
 const provider = createServer(async (request, response) => {
   let raw = '';
@@ -64,9 +69,12 @@ const provider = createServer(async (request, response) => {
         call_id: 'native-continuation-call',
         name: 'exec_command',
         arguments: JSON.stringify({
-          cmd: "printf 'native-history-marker-1\\n' > continued.txt",
+          cmd: busyTrace
+            ? `${quote(process.execPath)} -e ${quote(controlledTool)}`
+            : "printf 'native-history-marker-1\\n' > continued.txt",
           workdir: project,
           max_output_tokens: 1000,
+          ...(busyTrace ? { yield_time_ms: 30000 } : {}),
         }),
       }
     : {
@@ -208,6 +216,7 @@ try {
   ).json<NativeContinuationReview>();
   assert.equal(review.source.digest, original.digest);
   assert.equal(requests, before);
+  await busyTrace?.start(host);
   let work = (
     await post('/api/native/continuations', {
       id: review.id,
@@ -240,6 +249,17 @@ try {
         });
         approvals++;
       }
+      if (
+        busyTrace &&
+        approvals === 1 &&
+        (await readFile(busyStarted)
+          .then(() => true)
+          .catch(() => false)) &&
+        !(await readFile(artifact)
+          .then(() => true)
+          .catch(() => false))
+      )
+        await busyTrace.activeSample(host);
       if (host.local.work(work.id).status === 'completed' && host.controller.activeCount === 0)
         break;
       await new Promise((resolve) => setTimeout(resolve, 30));
@@ -254,6 +274,9 @@ try {
   assert.equal(await readFile(artifact, 'utf8'), marker + '\n');
   assert(historyObserved);
   assert.equal(approvals, 1);
+  await busyTrace?.sample(host, 'settled-ui');
+  const busyResources = busyTrace?.report();
+  await busyTrace?.close();
   await host.app.close();
   state = await createApp(appOptions);
   host = state;
@@ -318,9 +341,11 @@ try {
       sourceTokensExcluded: 18,
       paidModelCalls: 0,
       personalProfileChanged: false,
+      ...(busyResources ? { busyResources } : {}),
     }),
   );
 } finally {
+  await busyTrace?.close();
   await native.stop();
   await state?.app.close();
   await new Promise<void>((resolve) => provider.close(() => resolve()));

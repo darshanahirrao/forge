@@ -429,9 +429,20 @@ export interface RuntimeProbe {
 }
 export interface MemoryPressure {
   state: 'normal' | 'warning' | 'critical' | 'unknown';
-  source: 'macos-sysctl' | 'unavailable';
+  source: 'macos-sysctl' | 'linux-psi' | 'unavailable';
   nativeValue: number | null;
   checkedAt: string;
+  linux?: {
+    interpretation: 'forge-linux-psi/1';
+    host: MemoryStalls | null;
+    cgroup: MemoryStalls | null;
+    cgroupCoverage: 'complete' | 'unavailable';
+    observedCgroups: number;
+  };
+}
+export interface MemoryStalls {
+  someAvg10: number;
+  fullAvg10: number;
 }
 export interface MachineSnapshot {
   memoryPressure?: MemoryPressure;

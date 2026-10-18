@@ -13,6 +13,7 @@ import type { SpendReview } from '../../shared/spending';
 import { currency } from '../lib/format';
 import type { RouteReview } from '../../shared/routing';
 import { NativeResourceSummary } from './NativeResourceControls';
+import { memoryPressureDescription } from '../../shared/memory-pressure';
 
 export function LaunchDialog({
   work,
@@ -284,8 +285,8 @@ export function LaunchDialog({
               <div>
                 <strong>New native work is waiting for memory headroom.</strong>
                 <p>
-                  macOS reports {memoryPressure?.state} pressure. Wait for it to ease, or review
-                  your resource policy before launching.
+                  {memoryPressureDescription(memoryPressure)} Wait for it to ease, or review your
+                  resource policy before launching.
                 </p>
                 <button type="button" className="text-button" onClick={onResources}>
                   Review Resources
@@ -295,8 +296,8 @@ export function LaunchDialog({
           )}
           {memoryProtection && (!memoryPressure || memoryPressure.state === 'unknown') && (
             <p className="source-note">
-              Automatic memory pressure detection is unavailable here. Quiet mode can still pause
-              new managed work.
+              {memoryPressureDescription(memoryPressure)} Quiet mode can still pause new managed
+              work.
             </p>
           )}
           <section className="memory-launch-review">
