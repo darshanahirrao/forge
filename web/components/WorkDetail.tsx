@@ -129,11 +129,33 @@ export function WorkDetail({
                   : 'Tracked work record'}
           </span>
         </div>
-        {mode === 'local' && !work.activeRunId && (work.nativeSessionId || work.capsuleId) && (
-          <button className="button secondary small" onClick={onHandoff}>
-            Change harness or account
-          </button>
+        {work.nativeOrigin && (
+          <details className="native-details">
+            <summary>
+              {work.nativeOrigin.state === 'pending'
+                ? 'Native chat ready for a reviewed fork'
+                : work.nativeOrigin.state === 'bound'
+                  ? 'Native source history retained'
+                  : 'Native source retained as provenance'}
+            </summary>
+            <p>
+              {work.nativeOrigin.turns} source turns · {work.nativeOrigin.items} items ·{' '}
+              {work.nativeOrigin.modelProvider}
+            </p>
+            <p className="runtime-path">Source {work.nativeOrigin.threadId}</p>
+            <p className="source-note">
+              The source chat retains its native owner. History copying and new token accounting are
+              verified at the managed continuation boundary.
+            </p>
+          </details>
         )}
+        {mode === 'local' &&
+          !work.activeRunId &&
+          (work.nativeSessionId || work.capsuleId || work.nativeOrigin) && (
+            <button className="button secondary small" onClick={onHandoff}>
+              Change harness or account
+            </button>
+          )}
         <div className="binding-box">
           <HarnessMark harness={work.harness} />
           <div>

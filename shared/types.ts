@@ -57,6 +57,7 @@ export interface QuotaWindow {
   observedAt: string;
 }
 export interface Work {
+  nativeOrigin?: import('./native-continuations.js').NativeChatOrigin;
   createdBy?: CompanionActor;
   id: string;
   title: string;

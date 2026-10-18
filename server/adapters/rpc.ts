@@ -133,11 +133,13 @@ export class NativeRpc extends EventEmitter {
       },
     });
   }
-  async initialize() {
-    await this.request('initialize', {
+  async initialize(experimentalApi = false) {
+    const result = await this.request('initialize', {
       clientInfo: { name: 'forge_workspace', title: 'Forge', version },
+      ...(experimentalApi ? { capabilities: { experimentalApi: true } } : {}),
     });
     this.notify('initialized');
+    return result;
   }
   private finish(message: string) {
     if (this.closed) return;

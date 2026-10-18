@@ -48,6 +48,16 @@ import { LaunchDialog } from './components/LaunchDialog';
 import { HandoffDialog } from './components/HandoffDialog';
 import { SearchDialog } from './components/SearchDialog';
 import { NativeSessionDialog } from './components/NativeSessionDialog';
+import {
+  NativeContinuationDialog,
+  type NativeContinuationDraft,
+} from './components/NativeContinuationDialog';
+
+type NativeContinuationTarget = {
+  session: NativeSession;
+  work?: Work;
+  draft?: NativeContinuationDraft;
+};
 
 function currentView(): View {
   const value = window.location.hash.slice(1);
@@ -78,7 +88,14 @@ export function App() {
   const [theme, setTheme] = useState(() => localStorage.getItem('forge.theme') ?? 'light');
   const [mobileNav, setMobileNav] = useState(false);
   const [newWork, setNewWork] = useState(false);
-  const [newAccount, setNewAccount] = useState<boolean | string>(false);
+  const [newAccount, setNewAccount] = useState<
+    | boolean
+    | string
+    | { harness: string; nativeHome: string; continuation: NativeContinuationTarget }
+  >(false);
+  const [nativeContinuation, setNativeContinuation] = useState<NativeContinuationTarget | null>(
+    null,
+  );
   const [selected, setSelected] = useState<string | null>(null);
   const [nativeSelected, setNativeSelected] = useState<NativeSession | null>(null);
   const [detail, setDetail] = useState<{ work: Work; events: WorkEvent[]; runs?: Run[] } | null>(
@@ -115,6 +132,7 @@ export function App() {
     setSnapshot(null);
     setSelected(null);
     setNativeSelected(null);
+    setNativeContinuation(null);
     setApproval(null);
     setLaunch(null);
     setHandoff(false);
@@ -443,6 +461,7 @@ export function App() {
                   mutate={mutate}
                   tab={activityTab}
                   setTab={setActivityTab}
+                  onContinueNative={(session) => setNativeContinuation({ session })}
                 />
               )}
               {view === 'memory' && (
@@ -586,10 +605,21 @@ export function App() {
           mode={mode}
           connectors={snapshot.connectors}
           runtimeProviders={snapshot.runtimeProviders}
-          initialHarness={typeof newAccount === 'string' ? newAccount : undefined}
+          initialHarness={
+            typeof newAccount === 'string'
+              ? newAccount
+              : typeof newAccount === 'object'
+                ? newAccount.harness
+                : undefined
+          }
+          initialNativeHome={typeof newAccount === 'object' ? newAccount.nativeHome : undefined}
           mutate={mutate}
-          onClose={() => setNewAccount(false)}
+          onClose={() => {
+            if (typeof newAccount === 'object') setNativeContinuation(newAccount.continuation);
+            setNewAccount(false);
+          }}
           onSaved={() => {
+            if (typeof newAccount === 'object') setNativeContinuation(newAccount.continuation);
             setNewAccount(false);
             setToast('Account slot saved. Native sign-in stays with the harness.');
           }}
@@ -600,6 +630,38 @@ export function App() {
           session={nativeSelected}
           sources={snapshot.nativeSources}
           onClose={() => setNativeSelected(null)}
+          onContinue={
+            snapshot.mode === 'local' && snapshot.access?.kind !== 'tailscale'
+              ? () => {
+                  setNativeSelected(null);
+                  setNativeContinuation({ session: nativeSelected });
+                }
+              : undefined
+          }
+        />
+      )}
+      {snapshot && nativeContinuation && (
+        <NativeContinuationDialog
+          data={snapshot}
+          session={nativeContinuation.session}
+          work={nativeContinuation.work}
+          draft={nativeContinuation.draft}
+          mutate={mutate}
+          onClose={() => setNativeContinuation(null)}
+          onCreated={(work) => {
+            setNativeContinuation(null);
+            setSelected(work.id);
+            navigate('work');
+            setToast('Native chat linked. Review its managed launch to continue.');
+          }}
+          onLinkAccount={(nativeHome, draft) => {
+            setNewAccount({
+              harness: 'codex',
+              nativeHome,
+              continuation: { ...nativeContinuation, draft },
+            });
+            setNativeContinuation(null);
+          }}
         />
       )}
       {snapshot && selectedWork && (
@@ -670,6 +732,26 @@ export function App() {
           unresolvedWorkers={snapshot.recovery?.needsReview}
           work={launch}
           onRouted={setLaunch}
+          onNativeReview={() => {
+            if (!launch.nativeOrigin) return;
+            const origin = launch.nativeOrigin;
+            setLaunch(null);
+            setSelected(null);
+            setNativeContinuation({
+              work: launch,
+              session: {
+                id: origin.threadId,
+                sourceId: origin.sourceId,
+                title: launch.title,
+                harness: 'codex',
+                project: launch.project,
+                cwd: launch.cwd,
+                status: 'Stored native history',
+                source: 'codex/app-server',
+                control: 'observed',
+              },
+            });
+          }}
           onSpending={() => {
             setLaunch(null);
             setSelected(null);

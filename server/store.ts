@@ -42,7 +42,7 @@ type Collection =
   | 'config';
 export const now = () => new Date().toISOString();
 export const id = () => randomUUID();
-export const workspaceVersion = 14;
+export const workspaceVersion = 15;
 
 // SQLite is the source of truth. Every mutation and its receipt share a transaction.
 export class Store {
@@ -91,7 +91,7 @@ export class Store {
         version.user_version < workspaceVersion &&
         filename !== ':memory:'
       ) {
-        backup = `${filename}.before-v14.${randomUUID()}.sqlite`;
+        backup = `${filename}.before-v15.${randomUUID()}.sqlite`;
         writeFileSync(backup, '', { flag: 'wx', mode: 0o600 });
         try {
           this.db.prepare('VACUUM INTO ?').run(backup);
@@ -100,7 +100,7 @@ export class Store {
           throw error;
         }
       }
-      this.db.exec('PRAGMA user_version = 14');
+      this.db.exec('PRAGMA user_version = 15');
       this.migrationBackup = backup;
     } catch (error) {
       this.db.close();

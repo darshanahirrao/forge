@@ -107,7 +107,7 @@ const fixtureRpc = (options = {}) =>
     ...options,
     binary: process.execPath,
     args: [fileURLToPath(new URL('./fixtures/codex-app-server.mjs', import.meta.url))],
-    env: { PATH: process.env.PATH },
+    env: { PATH: process.env.PATH, FORGE_FIXTURE_PROJECT: memoryProject },
   });
 const { app, nativeSources } = await createApp({
   extensions,
@@ -312,6 +312,7 @@ const { app, nativeSources } = await createApp({
   rpcFactory: fixtureRpc,
 });
 app.get('/api/fixture/memory', async () => ({
+  nativeHome,
   path: memoryPath,
   project: memoryProject,
   companionHome,

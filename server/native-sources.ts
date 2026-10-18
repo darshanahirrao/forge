@@ -221,6 +221,15 @@ export class NativeSources {
     assert(
       !this.store.db
         .prepare(
+          "SELECT 1 FROM records WHERE collection='work' AND json_extract(data,'$.nativeOrigin.sourceId')=? AND json_extract(data,'$.nativeOrigin.state')='pending' LIMIT 1",
+        )
+        .get(sourceId),
+      409,
+      'Keep this source until its reviewed native continuation is bound or explicitly handed off.',
+    );
+    assert(
+      !this.store.db
+        .prepare(
           "SELECT 1 FROM records WHERE collection='schedule_transfers' AND (json_extract(data,'$.sourceId')=? OR json_extract(data,'$.targetSourceId')=?) AND json_extract(data,'$.state')!='cancelled' LIMIT 1",
         )
         .get(sourceId, sourceId),

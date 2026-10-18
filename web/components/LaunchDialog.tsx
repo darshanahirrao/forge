@@ -26,6 +26,7 @@ export function LaunchDialog({
   onRouted,
   onSpending,
   unresolvedWorkers = 0,
+  onNativeReview,
 }: {
   work: Work;
   account?: Account;
@@ -38,6 +39,7 @@ export function LaunchDialog({
   onRouted: (work: Work) => void;
   onSpending: () => void;
   unresolvedWorkers?: number;
+  onNativeReview?: () => void;
 }) {
   const [metered, setMetered] = useState(false);
   const [reconciled, setReconciled] = useState(false);
@@ -82,13 +84,24 @@ export function LaunchDialog({
       reviewRequest.current++;
     };
   }, [work.id, work.revision]);
-  const needsReview = ['failed', 'interrupted'].includes(work.status);
+  const needsReview =
+    ['failed', 'interrupted'].includes(work.status) || work.nativeOrigin?.state === 'pending';
   const claude = work.harness === 'claude';
   const opencode = work.harness === 'opencode';
   const hermes = work.harness === 'hermes';
   const openclaw = work.harness === 'openclaw';
   const requiresMetered =
-    Boolean(account?.backend || account?.connector) || claude || opencode || hermes || openclaw;
+    Boolean(
+      account?.backend ||
+      account?.connector ||
+      (work.nativeOrigin &&
+        work.nativeOrigin.state !== 'context-only' &&
+        work.nativeOrigin.modelProvider !== 'openai'),
+    ) ||
+    claude ||
+    opencode ||
+    hermes ||
+    openclaw;
   const compatible = canExecuteAccount(account);
   const pressureHigh =
     memoryProtection && ['warning', 'critical'].includes(memoryPressure?.state ?? 'unknown');
@@ -156,6 +169,21 @@ export function LaunchDialog({
           <p>
             <strong>{work.title}</strong>
           </p>
+          {work.nativeOrigin?.state === 'pending' && (
+            <div className="launch-context">
+              <strong>Continue the reviewed native chat</strong>
+              <p>
+                {work.nativeOrigin.turns} native turns and {work.nativeOrigin.items} items will be
+                rechecked and copied before task input. Settle the original chat’s workers,
+                approvals and external effects in its native client first.
+              </p>
+              {onNativeReview && (
+                <button type="button" className="text-button" onClick={onNativeReview}>
+                  Refresh native history review
+                </button>
+              )}
+            </div>
+          )}
           {account?.openClawProjectRoot && (
             <p className="source-note">
               This dedicated OpenClaw Gateway uses native administrator API scope to create a
@@ -372,8 +400,9 @@ export function LaunchDialog({
                 required
               />
               <span>
-                I reviewed the previous native attempt, detached tools, and external effects before
-                retrying.
+                {work.nativeOrigin?.state === 'pending'
+                  ? 'I settled the source chat’s native workers, approvals, detached tools and external effects before continuing.'
+                  : 'I reviewed the previous native attempt, detached tools, and external effects before retrying.'}
               </span>
             </label>
           )}

@@ -392,6 +392,9 @@ export class Continuity {
           nativeSessionKey: retainT3Thread ? work.nativeSessionKey : null,
           status: 'ready',
           generation: work.generation + 1,
+          ...(work.nativeOrigin
+            ? { nativeOrigin: { ...work.nativeOrigin, state: 'context-only' as const } }
+            : {}),
         });
         this.store.event(
           workId,

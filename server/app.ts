@@ -86,6 +86,8 @@ import { MemoryPacks, memoryPackImportSchema } from './memory-packs.js';
 import { ResourceGovernance } from './resource-governance.js';
 import type { IncomingHttpHeaders } from 'node:http';
 import { credentialReferenceSchema, credentialTarget, resolveCredential } from './credentials.js';
+import { NativeContinuations } from './native-continuations.js';
+import { codexChatReader, type NativeChatReader } from './adapters/codex-history.js';
 
 const builtinHarness = z.enum(['codex', 'claude', 'opencode', 'hermes', 'openclaw']);
 const harness = z.string().regex(/^[a-zA-Z][a-zA-Z0-9._-]{0,79}$/);
@@ -131,6 +133,7 @@ export interface AppOptions {
   nativeControlBridge?: NativeControlBridge;
   openClawScheduleClientFactory?: OpenClawScheduleClientFactory;
   nativeMigrationBridge?: NativeMigrationBridge;
+  nativeChatReader?: NativeChatReader;
   scheduleTransferBridge?: ScheduleTransferBridge;
   notificationFetch?: typeof fetch;
   notificationTimeoutMs?: number;
@@ -288,6 +291,14 @@ export async function createApp(options: AppOptions) {
       memoryPacks.isBusy ||
       nativeMigrations.isBusy,
   });
+  const nativeContinuations = new NativeContinuations(
+    local,
+    nativeSources,
+    controller,
+    profiles,
+    options.nativeChatReader ?? codexChatReader(options.rpcFactory, options.codexBinary),
+    async () => checkMemoryAdmission(local.settings(), await machine.freshPressure()),
+  );
   const nativeControls = new NativeControls(
     local,
     nativeSources,
@@ -1089,7 +1100,7 @@ export async function createApp(options: AppOptions) {
       (body.harness !== undefined && body.harness !== work.harness) ||
       (body.cwd !== undefined && body.cwd !== work.cwd);
     assert(
-      !bindingChanged || (!work.nativeSessionId && !work.capsuleId),
+      !bindingChanged || (!work.nativeSessionId && !work.capsuleId && !work.nativeOrigin),
       409,
       'Use the verified handoff flow to change this native binding while retaining the same work record.',
     );
@@ -1773,6 +1784,24 @@ export async function createApp(options: AppOptions) {
       return reply.redirect(t3Return('failed'));
     }
   });
+  app.post('/api/native/continuations/prepare', async (request) => {
+    assert(mode(request) === 'local', 409, 'Demo never reads native chat history.');
+    return nativeContinuations.prepare(
+      request.body,
+      bridgeActor(request.headers, options.phoneBridge),
+    );
+  });
+  app.post('/api/native/continuations', async (request, reply) => {
+    assert(mode(request) === 'local', 409, 'Demo never links native chat history.');
+    return reply
+      .code(201)
+      .send(
+        nativeContinuations.activate(
+          request.body,
+          bridgeActor(request.headers, options.phoneBridge),
+        ),
+      );
+  });
   app.post('/api/native/sources', async (request) => {
     assert(mode(request) === 'local', 409, 'Demo sources never connect to native services.');
     const body = z
@@ -2247,6 +2276,7 @@ export async function createApp(options: AppOptions) {
     notifications,
     nativeControls,
     nativeSources,
+    nativeContinuations,
     connectors,
     availability,
     memoryPacks,

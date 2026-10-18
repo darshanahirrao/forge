@@ -145,7 +145,7 @@ test('future workspace versions are refused before explicit extension initializa
     module = join(root, 'owned.mjs'),
     marker = join(root, 'extension-executed');
   const database = new DatabaseSync(join(root, 'workspace.sqlite'));
-  database.exec('PRAGMA user_version = 15');
+  database.exec('PRAGMA user_version = 16');
   database.close();
   await writeFile(
     module,
@@ -172,7 +172,7 @@ test('future workspace versions are refused before explicit extension initializa
     );
     await assert.rejects(stat(marker));
     const check = new DatabaseSync(join(root, 'workspace.sqlite'), { readOnly: true });
-    assert.equal(check.prepare('PRAGMA user_version').get().user_version, 15);
+    assert.equal(check.prepare('PRAGMA user_version').get().user_version, 16);
     check.close();
   } finally {
     await rm(root, { recursive: true, force: true });

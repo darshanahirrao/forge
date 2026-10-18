@@ -5,6 +5,8 @@ import { nativeEnvironment, readCodexAccount } from './accounts.js';
 import { findBinary } from './discovery.js';
 import type { DriverContext, DriverSink, NativeDriver } from './driver.js';
 import { NativeRpc, type RpcMessage, type RpcOptions } from './rpc.js';
+import { readCodexHistory } from './codex-history.js';
+import { accountBinding } from './binding.js';
 
 export type RpcFactory = (options: RpcOptions) => NativeRpc;
 export class CodexDriver implements NativeDriver {
@@ -16,6 +18,7 @@ export class CodexDriver implements NativeDriver {
   private sink: DriverSink | null = null;
   private context: DriverContext | null = null;
   private closing = false;
+  private importedUsageBaseline: number[] | null = null;
   get closed() {
     return this.closing || Boolean(this.rpc?.closed);
   }
@@ -26,6 +29,21 @@ export class CodexDriver implements NativeDriver {
   async start(context: DriverContext, sink: DriverSink) {
     this.context = context;
     this.sink = sink;
+    const origin = context.work.nativeOrigin;
+    const fork = origin?.state === 'pending' && !context.work.nativeSessionId;
+    const retaining = Boolean(
+      origin &&
+      origin.state !== 'context-only' &&
+      (fork || origin.boundSessionId === context.work.nativeSessionId),
+    );
+    if (retaining && origin)
+      assert(
+        context.account.id === origin.accountId &&
+          accountBinding(context.account) === origin.accountBinding &&
+          context.work.cwd === origin.cwd,
+        409,
+        'This native history belongs to another account or project binding. Prepare a fresh continuation review.',
+      );
     const binary = await this.binary();
     assert(binary, 409, 'Codex is not installed on PATH. Complete its native setup first.');
     if (this.closing) return;
@@ -47,7 +65,7 @@ export class CodexDriver implements NativeDriver {
         );
     });
     if (rpc.child.pid) await sink.worker?.(rpc.child.pid);
-    await rpc.initialize();
+    await rpc.initialize(Boolean(fork));
     const checked = await readCodexAccount(rpc, context.account);
     this.context = { ...context, account: checked };
     sink.account(checked);
@@ -68,21 +86,102 @@ export class CodexDriver implements NativeDriver {
       409,
       'The native route may use metered API or external-provider billing. Explicitly allow it for this launch.',
     );
+    if (retaining && origin) {
+      assert(
+        accountBinding(checked) === origin.accountBinding,
+        409,
+        'Native identity changed after the history review. Review the source and account again.',
+      );
+      assert(
+        origin.modelProvider === 'openai' || context.allowMetered,
+        409,
+        'This stored chat uses an external native provider. Explicitly allow its metered usage before continuing.',
+      );
+    }
+    if (fork) {
+      const current = await readCodexHistory(rpc, origin.threadId);
+      assert(
+        current.digest === origin.digest &&
+          current.lastTurnId === origin.lastTurnId &&
+          current.cwd === origin.cwd &&
+          current.modelProvider === origin.modelProvider &&
+          current.turns === origin.turns &&
+          current.items === origin.items,
+        409,
+        'Native chat history changed after review. No fork or model input was requested. Prepare a fresh continuation review.',
+      );
+    }
     if (this.closing) return;
+    if (retaining && origin && !fork)
+      assert(
+        (await rpc.request('thread/goal/get', { threadId: context.work.nativeSessionId })).goal ===
+          null,
+        409,
+        'The managed fork has an autonomous native goal. Pause and clear it in the native client before another managed input.',
+      );
     const params = {
       cwd: context.work.cwd,
       approvalPolicy: 'untrusted',
       approvalsReviewer: 'user',
       sandbox: 'workspace-write',
     };
-    const result = context.work.nativeSessionId
-      ? await rpc.request('thread/resume', { ...params, threadId: context.work.nativeSessionId })
-      : await rpc.request('thread/start', params);
+    const result = fork
+      ? await rpc.request('thread/fork', {
+          ...params,
+          threadId: origin.threadId,
+          lastTurnId: origin.lastTurnId,
+          excludeTurns: true,
+          deferGoalContinuation: true,
+          runtimeWorkspaceRoots: [context.work.cwd],
+        })
+      : context.work.nativeSessionId
+        ? await rpc.request('thread/resume', { ...params, threadId: context.work.nativeSessionId })
+        : await rpc.request('thread/start', params);
     assert(
       typeof result?.thread?.id === 'string',
       502,
       'Native Codex did not confirm a thread. No turn was requested.',
     );
+    if (retaining && origin && !fork)
+      assert(
+        result.cwd === origin.cwd && result.modelProvider === origin.modelProvider,
+        409,
+        'The retained native fork changed its project or provider. Review a verified handoff before another input.',
+      );
+    if (fork) {
+      assert(
+        result.thread.id !== origin.threadId &&
+          result.thread.forkedFromId === origin.threadId &&
+          result.cwd === origin.cwd &&
+          result.modelProvider === origin.modelProvider &&
+          result.approvalsReviewer === 'user' &&
+          Array.isArray(result.runtimeWorkspaceRoots) &&
+          result.runtimeWorkspaceRoots.length === 1 &&
+          result.runtimeWorkspaceRoots[0] === origin.cwd,
+        409,
+        'Native Codex did not confirm the reviewed fork, provider and project scope. No task input was sent.',
+      );
+      const copied = await readCodexHistory(rpc, result.thread.id);
+      assert(
+        copied.digest === origin.digest &&
+          copied.lastTurnId === origin.lastTurnId &&
+          copied.turns === origin.turns &&
+          copied.items === origin.items,
+        409,
+        'The native fork did not retain the complete reviewed history. No task input was sent. Inspect the native fork before retrying.',
+      );
+      await rpc.request('thread/goal/clear', { threadId: result.thread.id });
+      assert(
+        (await rpc.request('thread/goal/get', { threadId: result.thread.id })).goal === null,
+        409,
+        'The native fork did not confirm its inherited goal was cleared. No task input was sent.',
+      );
+      sink.activity(
+        'continuation',
+        'Native chat history retained',
+        `${origin.turns} native turns and ${origin.items} items match the reviewed history. The fork has fresh human permissions and no inherited autonomous goal.`,
+      );
+    }
     assert(
       result.approvalPolicy === 'untrusted' && result.sandbox?.type === 'workspaceWrite',
       409,
@@ -180,8 +279,12 @@ export class CodexDriver implements NativeDriver {
       }
       this.items.delete(item.id);
     }
-    if (message.method === 'thread/tokenUsage/updated' && p.threadId === this.sessionId)
-      this.usage(p.tokenUsage?.total);
+    if (
+      message.method === 'thread/tokenUsage/updated' &&
+      p.threadId === this.sessionId &&
+      (!this.context.work.nativeOrigin || p.turnId === this.turnId)
+    )
+      this.usage(p.tokenUsage?.total, p.tokenUsage?.last);
     if (message.method === 'account/updated' && this.turnId)
       sink.ended(
         'interrupted',
@@ -210,7 +313,7 @@ export class CodexDriver implements NativeDriver {
         'Open the native session for details. Forge has not started a replacement attempt.',
       );
   }
-  private usage(total: any) {
+  private usage(total: any, last?: any) {
     if (
       ![
         total?.inputTokens,
@@ -221,18 +324,42 @@ export class CodexDriver implements NativeDriver {
     )
       return;
     const { work, account } = this.context!;
+    let values = [
+      total.inputTokens,
+      total.outputTokens,
+      total.cachedInputTokens,
+      total.totalTokens,
+    ];
+    if (work.nativeOrigin) {
+      const current = [
+        last?.inputTokens,
+        last?.outputTokens,
+        last?.cachedInputTokens,
+        last?.totalTokens,
+      ];
+      if (!current.every((value) => Number.isSafeInteger(value) && value >= 0)) return;
+      if (!this.importedUsageBaseline) {
+        const baseline = values.map((value, index) => value - current[index]);
+        if (baseline.some((value) => value < 0)) return;
+        this.importedUsageBaseline = baseline;
+      }
+      values = values.map((value, index) => value - this.importedUsageBaseline![index]);
+      if (values.some((value) => value < 0)) return;
+    }
     const entry: Usage = {
-      key: `codex:${account.identityKey ?? account.id}:${this.sessionId}`,
-      counterScope: 'session',
+      key: `codex:${account.identityKey ?? account.id}:${work.nativeOrigin ? this.context!.run.id : this.sessionId}`,
+      counterScope: work.nativeOrigin ? 'run' : 'session',
       workId: work.id,
       accountId: account.id,
       harness: 'codex',
       source: 'codex/app-server',
-      scope: 'Cumulative native thread',
-      inputTokens: total.inputTokens,
-      outputTokens: total.outputTokens,
-      cachedTokens: total.cachedInputTokens,
-      totalTokens: total.totalTokens,
+      scope: work.nativeOrigin
+        ? 'Native run after history continuation; prior usage excluded'
+        : 'Cumulative native thread',
+      inputTokens: values[0],
+      outputTokens: values[1],
+      cachedTokens: values[2],
+      totalTokens: values[3],
       estimatedUsd: null,
       observedAt: now(),
     };

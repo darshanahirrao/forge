@@ -5,6 +5,23 @@ const send = (value) => process.stdout.write(`${JSON.stringify(value)}\n`);
 let initialized = false;
 let threadId = randomUUID();
 const turnId = 'fixture-turn';
+let copied = false;
+const history = () => [
+  {
+    id: 'fixture-source-turn',
+    status: 'completed',
+    itemsView: 'full',
+    items: [
+      {
+        id: 'fixture-source-message',
+        type: 'agentMessage',
+        text: process.env.FORGE_FIXTURE_HISTORY_CHANGED
+          ? 'changed native history'
+          : 'Retained native source history',
+      },
+    ],
+  },
+];
 readline.createInterface({ input: process.stdin }).on('line', (line) => {
   const message = JSON.parse(line);
   if (message.method === 'initialize') {
@@ -14,6 +31,71 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
   }
   if (!initialized) return;
   if (message.method === 'initialized') return;
+  if (message.method === 'thread/read') {
+    send({
+      id: message.id,
+      result: {
+        thread: {
+          id: message.params.threadId,
+          ephemeral: false,
+          cwd: process.env.FORGE_FIXTURE_PROJECT ?? process.cwd(),
+          cliVersion: '0.159.3',
+          modelProvider: 'openai',
+          status: { type: 'notLoaded' },
+        },
+      },
+    });
+    return;
+  }
+  if (message.method === 'thread/turns/list') {
+    send({
+      id: message.id,
+      result: {
+        data: copied && process.env.FORGE_FIXTURE_BAD_FORK ? [] : history(),
+        nextCursor: null,
+      },
+    });
+    return;
+  }
+  if (message.method === 'thread/fork') {
+    const p = message.params;
+    if (
+      p.lastTurnId !== 'fixture-source-turn' ||
+      p.deferGoalContinuation !== true ||
+      p.excludeTurns !== true ||
+      p.approvalsReviewer !== 'user'
+    ) {
+      send({ id: message.id, error: { code: -32602, message: 'Missing native fork boundary.' } });
+      return;
+    }
+    copied = true;
+    send({
+      id: message.id,
+      result: {
+        thread: { id: threadId, forkedFromId: p.threadId },
+        cwd: p.cwd,
+        modelProvider: 'openai',
+        runtimeWorkspaceRoots: p.runtimeWorkspaceRoots,
+        approvalsReviewer: 'user',
+        approvalPolicy: 'untrusted',
+        sandbox: { type: 'workspaceWrite' },
+      },
+    });
+    return;
+  }
+  if (message.method === 'thread/goal/clear') {
+    send({ id: message.id, result: {} });
+    return;
+  }
+  if (message.method === 'thread/goal/get') {
+    send({
+      id: message.id,
+      result: {
+        goal: process.env.FORGE_FIXTURE_BAD_GOAL ? { objective: 'Uncleared native goal' } : null,
+      },
+    });
+    return;
+  }
   if (message.method === 'thread/list') {
     if (message.params?.useStateDbOnly !== true || message.params?.limit !== 100)
       send({
@@ -63,6 +145,8 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
       id: message.id,
       result: {
         thread: { id: threadId },
+        cwd: message.params.cwd,
+        modelProvider: 'openai',
         approvalPolicy: process.env.FORGE_FIXTURE_BAD_POLICY ? 'never' : 'untrusted',
         sandbox: { type: 'workspaceWrite' },
       },
@@ -123,7 +207,7 @@ readline.createInterface({ input: process.stdin }).on('line', (line) => {
         turnId,
         tokenUsage: {
           total: { inputTokens: 80, outputTokens: 20, cachedInputTokens: 30, totalTokens: 100 },
-          last: {},
+          last: { inputTokens: 20, outputTokens: 5, cachedInputTokens: 0, totalTokens: 25 },
         },
       },
     };

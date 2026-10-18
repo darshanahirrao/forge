@@ -39,11 +39,13 @@ export function ActivityPage({
   mutate,
   tab,
   setTab,
+  onContinueNative,
 }: {
   data: Snapshot;
   mutate: Mutate;
   tab: 'chats' | 'schedules';
   setTab: (tab: 'chats' | 'schedules') => void;
+  onContinueNative: (session: NativeSession) => void;
 }) {
   const [query, setQuery] = useState('');
   const [sourceId, setSourceId] = useState('all');
@@ -550,6 +552,14 @@ export function ActivityPage({
           session={selected}
           sources={data.nativeSources}
           onClose={() => setSelected(null)}
+          onContinue={
+            local && data.access?.kind !== 'tailscale'
+              ? () => {
+                  setSelected(null);
+                  onContinueNative(selected);
+                }
+              : undefined
+          }
         />
       )}
     </div>

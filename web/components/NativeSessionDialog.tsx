@@ -7,10 +7,12 @@ export function NativeSessionDialog({
   session,
   sources,
   onClose,
+  onContinue,
 }: {
   session: NativeSession;
   sources: NativeSource[];
   onClose: () => void;
+  onContinue?: () => void;
 }) {
   const source = sources.find((item) => item.id === session.sourceId);
   const facts = [
@@ -48,9 +50,16 @@ export function NativeSessionDialog({
           ))}
         </dl>
         <p className="source-note">
-          This is a metadata reference. Continue and inspect approvals in the native client. A saved
-          session does not establish current process ownership.
+          {onContinue && source?.kind === 'codex'
+            ? 'Source workers and approvals stay in their native client. A reviewed Forge continuation uses a separate native fork.'
+            : 'This is a metadata reference. Continue and inspect approvals in the native client.'}{' '}
+          A saved session does not establish current process ownership.
         </p>
+        {onContinue && source?.kind === 'codex' && (
+          <button className="button primary" onClick={onContinue}>
+            Continue in Forge
+          </button>
+        )}
         {source?.kind === 't3-code' && source.endpoint && (
           <a className="text-button" href={source.endpoint} target="_blank" rel="noreferrer">
             Open T3 Code

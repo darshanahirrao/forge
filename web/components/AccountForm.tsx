@@ -15,6 +15,7 @@ export function AccountForm({
   connectors = [],
   runtimeProviders = [],
   initialHarness = 'codex',
+  initialNativeHome = '',
 }: {
   mode: WorkspaceMode;
   mutate: Mutate;
@@ -23,6 +24,7 @@ export function AccountForm({
   connectors?: NativeConnector[];
   runtimeProviders?: readonly NativeRuntimeProvider[];
   initialHarness?: Harness;
+  initialNativeHome?: string;
 }) {
   const [harness, setHarness] = useState<Harness>(initialHarness);
   const [billingMode, setBillingMode] = useState('native');
@@ -272,6 +274,7 @@ export function AccountForm({
             )}
             <input
               name="nativeHome"
+              defaultValue={initialNativeHome}
               placeholder={
                 nativeSlot
                   ? '/absolute/path/to/your/native-profile'
