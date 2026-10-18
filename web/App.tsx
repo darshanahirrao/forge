@@ -207,6 +207,7 @@ export function App() {
     setNewWork(false);
     setNewAccount(false);
     setSearchOpen(false);
+    setSelected(null);
     setMobileNav(false);
   }
   function navigate(next: View, nativeRuntimeId?: string) {
@@ -443,6 +444,10 @@ export function App() {
                   onSchedules={() => {
                     setActivityTab('schedules');
                     navigate('activity');
+                  }}
+                  onDemo={() => {
+                    if (mode !== 'demo') switchMode('demo');
+                    setSelected('demo-continuity');
                   }}
                   onQuiet={() =>
                     void act('quiet', () =>

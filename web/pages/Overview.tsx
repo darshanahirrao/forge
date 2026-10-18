@@ -30,6 +30,7 @@ export function Overview({
   onSchedules,
   onConnections,
   onQuiet,
+  onDemo,
   busy,
 }: {
   data: Snapshot;
@@ -43,6 +44,7 @@ export function Overview({
   onSchedules: () => void;
   onConnections: () => void;
   onQuiet: () => void;
+  onDemo: () => void;
   busy: string;
 }) {
   const [filter, setFilter] = useState<'all' | 'managed' | 'native'>('all');
@@ -144,6 +146,21 @@ export function Overview({
           {data.settings.quietMode ? 'New work paused' : 'Pause new work'}
         </button>
       </section>
+      {(data.mode === 'demo' || data.work.length === 0) && (
+        <section className="continuity-intro" aria-label="Explore work continuity">
+          <div>
+            <h2>Keep the work. Change the harness.</h2>
+            <p>
+              {data.mode === 'demo'
+                ? 'Follow a fictional Codex-to-Hermes task, then review its shareable receipt.'
+                : 'Keep goals, selected memory, approvals and usage together as native tools change.'}
+            </p>
+          </div>
+          <button className="button secondary" onClick={onDemo}>
+            See a handoff example <ArrowRight size={14} />
+          </button>
+        </section>
+      )}
       {(pending.length > 0 ||
         notificationIssues > 0 ||
         nativeControlIssues > 0 ||

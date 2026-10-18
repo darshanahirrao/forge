@@ -308,7 +308,7 @@ test('demo mutations are isolated, and demo never starts native execution', asyn
   try {
     assert.equal((await state.call('GET', '/api/snapshot')).json().work.length, 0);
     const data = (await state.call('GET', '/api/snapshot', undefined, 'demo')).json();
-    assert.equal(data.work.length, 4);
+    assert.equal(data.work.length, 5);
     const approval = data.approvals[0];
     assert.equal(
       (

@@ -1,0 +1,35 @@
+name: Bug report
+description: Report a reproducible Forge alpha problem using fictional data.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use fictional examples. Do not attach credentials, conversations, memory, account data, raw workspace databases or unreviewed diagnostics.
+        Report security vulnerabilities privately through the Security tab.
+  - type: input
+    id: version
+    attributes:
+      label: Forge version
+      placeholder: 0.40.0
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: OS, Node version and install method
+      placeholder: macOS or Linux, Node 24+, release archive or source
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction, expected result and actual result
+      description: Use the smallest fictional example; include native harness/version if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Optional installation report
+      description: Review forge doctor --json before pasting. It checks installation presence, not account or provider health.
+      render: json

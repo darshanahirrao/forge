@@ -4,10 +4,20 @@ import { resolve } from 'node:path';
 const args = process.argv.slice(2);
 if (args.includes('--help') || args.includes('-h')) {
   console.log(
-    `Forge ${manifest.version}\n\nUsage: forge [start] [--port PORT] [--data-dir DIRECTORY]\n       [--phone-origin HTTPS_ORIGIN --phone-user LOGIN] [--phone-port PORT]\n       [--extension /absolute/path/to/extension.mjs]\n       forge service install [--data-dir DIRECTORY] [--port PORT] [phone options] [--extension FILE]\n       forge service status|start|stop|restart|uninstall [--data-dir DIRECTORY]\n\nA local workspace for native agents. Open the printed URL to begin.\nThe opt-in macOS user service starts at login and runs outside Codex. Installation does not start it immediately. Native shutdown can remain pending; configuration is retained. Provider keys and shell profiles are not copied.\nPhone access reuses Tailscale Serve and explicit approved identities. Repeat --phone-user for another approved owner.\nRepeat --extension to load another explicitly trusted local Node module. Native accounts connect explicitly. Read existing chats and schedules from Activity.`,
+    `Forge ${manifest.version}\n\nUsage: forge [start] [--port PORT] [--data-dir DIRECTORY]\n       [--phone-origin HTTPS_ORIGIN --phone-user LOGIN] [--phone-port PORT]\n       [--extension /absolute/path/to/extension.mjs]\n       forge doctor [--json]\n       forge service install [--data-dir DIRECTORY] [--port PORT] [phone options] [--extension FILE]\n       forge service status|start|stop|restart|uninstall [--data-dir DIRECTORY]\n\nA local workspace for native agents. Open the printed URL to begin.\nDoctor checks installation presence without opening a workspace, reading credentials or running native tools.\nThe opt-in macOS user service starts at login and runs outside Codex. Installation does not start it immediately. Native shutdown can remain pending; configuration is retained. Provider keys and shell profiles are not copied.\nPhone access reuses Tailscale Serve and explicit approved identities. Repeat --phone-user for another approved owner.\nRepeat --extension to load another explicitly trusted local Node module. Native accounts connect explicitly. Read existing chats and schedules from Activity.`,
   );
 } else if (args.includes('--version')) {
   console.log(manifest.version);
+} else if (args[0] === 'doctor') {
+  if (args.slice(1).some((arg) => arg !== '--json') || args.length > 2) {
+    console.error('Usage: forge doctor [--json]');
+    process.exitCode = 1;
+  } else {
+    const { runDoctor, printDoctor } = await import('./doctor.mjs');
+    const report = await runDoctor();
+    printDoctor(report, args.includes('--json'));
+    if (report.status === 'incomplete') process.exitCode = 1;
+  }
 } else if (args[0] === 'service') {
   try {
     const { runServiceCommand } = await import('../dist/server/background-service.js');

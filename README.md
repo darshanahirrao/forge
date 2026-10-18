@@ -1,74 +1,45 @@
 # Forge
 
-**Your work survives your tools.**
+**Keep the work. Change the harness.**
 
-Forge is an open-source local workspace for people who work across AI runtimes and harnesses. It keeps work records, context, native account references, approval receipts, machine resources, and usage evidence together. Native tools supply execution. Hermes is an important integration and remains replaceable.
+A local workspace for developers who use more than one agent harness. Keep your work, goals, selected memory, approvals and usage history together while Codex, Claude, OpenCode, Hermes or OpenClaw supplies native execution.
 
-We call the product concept **Persistent Agency**: your agent profile, memory, workspace, work history, shared connections, schedules, and policies remain in Forge while you change a compatible execution harness at a verified checkpoint.
+**Public alpha: v0.40.0. Node.js 24+. macOS and Linux.** Native execution is experimental on the evaluated versions. The [support matrix and known limits](docs/PUBLIC_ALPHA.md) distinguish what works from what remains.
 
-**Status: early local application, v0.39.0.** Typed native harness/runtime extensions, persistent work/profiles, scoped native memory and private portable copies, reviewed setup blueprints, account routing, private credential references, spending admission, native activity, a shared-sample resource map, native macOS/Linux pressure admission and private diagnostics, optional ntfy alerts, reviewed macOS background activation, reviewed Hermes/OpenClaw pause/resume and experimental Codex/Claude API/OpenCode/Hermes ACP/OpenClaw Gateway execution are implemented, including verified handoff around the same work and profile. The broader architecture remains a roadmap. Reviewed native Hermes/OpenClaw gateway start, stop and exact-close recovery are implemented. OpenClaw execution profiles retain the same device identity after a host crash when their captured original closure verifies. Automatic continuation after uncertain effects, broader companion providers, rich schedule/provider mappings, full memory-provider migration, live device/provider acceptance and whole-family/cross-platform resource enforcement remain open. See [the implementation and evidence](docs/RUNTIME.md) and [full completion audit](docs/COMPLETION_AUDIT.md).
+## Try Forge
 
-Version 0.37 adds [existing native chat continuation](docs/NATIVE_CONTINUATIONS.md): link a completed Codex chat, review its native history and continue a verified fork through Forge’s approval/resource controls. Source history remains native, and inherited token totals are excluded from new usage.
-
-Version 0.36 adds [native runtime extensions](docs/EXTENSIONS.md): explicitly configured local modules become first-class native providers through a typed public SDK. They reuse existing account, context, lifecycle, resource and recovery controls. The included Hermes adapter example passes actual native Hermes-to-OpenClaw replacement without model input.
-
-Version 0.35 adds [reviewed native schedule transfer](docs/SCHEDULE_TRANSFERS.md) between compatible Hermes/OpenClaw profiles: disabled staging, separate activation, durable source resume holds and human outcome reconciliation without native replay. Native timing, tools, models and delivery retain their owners.
-
-[OpenClaw schedule controls](docs/OPENCLAW_SCHEDULES.md) add read-only native inventory and optional locally reviewed administrator access for exact pause/resume. Native job revisions fence changes, while uncertain outcomes retain their human review hold. Compatible basic schedule ownership can move through the separately reviewed transfer flow; richer mappings remain open.
-
-[Native crash recovery](docs/NATIVE_RECOVERY.md) adds signed original-child closure, explicit interrupted-worker review and durable profile fences. It never replays native input or treats PID disappearance as exit.
-
-[Companion replacement](docs/COMPANION_HANDOFF.md) stages a new native MCP client, preserves context, allowance and operation receipts, and activates only after native readiness and human review. Live UI invalidations bring approval and lifecycle changes to the dashboard without waiting for the next periodic poll.
-
-[Native process policy](docs/NATIVE_RESOURCE_POLICY.md) adds reviewed utility priority and optional process memory limits on the evaluated macOS backend, with launch-bound receipts and signed recovery. The controls reuse the native OS; descendants and remote backends retain their own limits.
-
-[Native companion lifecycle](docs/COMPANION_RUNTIME.md) starts and stops supported Hermes/OpenClaw gateways with their configured interfaces and native policy preserved. Owned gateways have separate resource groups, signed closure, restart holds and optional generic failure alerts.
-
-[Retained context reads](docs/COMPANION_HISTORY.md) page through older work, events and run receipts, with digest-bound reads of complete saved event detail. Cursors retain their scope across reviewed client replacement and restart.
-
-The workspace now starts with your managed work and existing native chats, compact resource/usage status and exact pending approvals. Ctrl/Cmd K searches work and commands; optional creation fields stay folded until needed. See [the experience decisions and upstream references](docs/UI_EXPERIENCE.md).
-
-[Native profile imports](docs/NATIVE_MIGRATIONS.md) reuse installed Hermes and OpenClaw migration utilities, retain private reports and explicit memory limits, then open the existing verified work handoff with the new account selected. Native project access and provider reference reuse remain explicit local choices. Scheduled definitions can be archived or moved through the compatible native schedule-transfer flow.
-
-## Run Forge
-
-Use Node.js 24 or newer:
+Run the tagged source:
 
 ```sh
+git clone https://github.com/darshanahirrao/forge.git
+cd forge
+git checkout forge-v0.40.0
 npm ci
 npm run build
+node bin/forge.mjs doctor
 npm start
 ```
 
-Open [the local workspace](http://127.0.0.1:4710). The real workspace starts empty. Use the workspace selector to explore clearly labeled fictional examples in a separate in-memory demo. Demo actions never start native execution. Machine telemetry is live in both views.
+Open [Forge](http://127.0.0.1:4710). Choose **See a handoff example** to inspect a fictional Codex-to-Hermes task and its public receipt. The isolated demo needs no model account and never starts a native tool. Machine telemetry remains live.
 
-Create a work record, add a native account slot, and check a supported account from the Accounts view. For experimental managed Codex work, select the account and an existing project directory, then review the launch dialog. Native sign-in stays in the harness; Forge does not collect credentials or purchase credits. Each launch checks effective native account configuration and permissions. Claude managed turns use the official Agent SDK with API authentication and an explicit metered-usage choice; native claude.ai subscription sessions remain in their native client. [Claude setup and integration limits](docs/NATIVE_DRIVERS.md) explain this distinction.
+To use your own project, create a work record, link a native account and review a launch. Native installation, sign-in and tools stay with the harness. Nothing installs a background service or changes native schedules automatically.
 
-OpenCode v2 reuses its official client and an owned native server. Configure a dedicated native profile root, select a model through native configuration, and review external/metered consent. [OpenCode setup, permissions and recovery](docs/OPENCODE.md) describe the supported route.
+Prefer a compiled package? Download the archive and checksum from [Releases](https://github.com/darshanahirrao/forge/releases), then follow the [three-command install and first session](docs/PUBLIC_ALPHA.md). No npm registry release or global build tools are required.
 
-Hermes reuses its installed ACP runtime, native tools, memory and skills with an explicit native home. [Hermes setup, exact reviews and native outcome evidence](docs/HERMES.md) describe the tested 0.17.0 route.
+## Why Forge
 
-OpenClaw reuses its native foreground Gateway and official client with a dedicated execution profile. [OpenClaw setup, native session identity and shutdown](docs/OPENCLAW.md) describe the evaluated 2026.10.4 route. Existing companion channels and schedules retain their native owner.
+- **One work record across tools.** Continue a goal with retained checkpoints, selected memory and explicit context coverage. Native hidden state remains provider-specific.
+- **One place for decisions.** Review supported native approvals and see what needs attention, including optional private phone access.
+- **Know what is running.** Attribute supported native workers, inspect laptop pressure and pause new managed work.
+- **Know what was spent.** Keep account-scoped token evidence, USD estimates and spending holds together. Estimates remain separate from invoices.
+- **Make it yours.** Replace compatible harnesses or companions through the typed SDK, ACP/MCP contracts and reviewed blueprints.
+- **Share the progress.** Review and export an allowlisted work receipt without work titles, prompts, memory, files, account names or identifiers. No upload or public sharing happens automatically.
 
-Existing Hermes, OpenClaw and other MCP clients can use [scoped companion access](docs/COMPANION_ACCESS.md) to keep the same Forge profile, selected memory and work. Optional native dispatch has explicit account, billing and finite-run grants; approvals stay on the human path. Forge adds no agent loop or scheduler.
+Forge is a control plane over existing native capabilities. Browser use, computer use, tools, model loops, native memory engines and scheduling stay with their existing implementations. Hermes is a first-class integration and remains replaceable.
 
-[Native harness connectors](docs/NATIVE_CONNECTORS.md) register an installed ACP v1 agent without adding a provider-specific core driver. Reviewed executable/model/mode bindings use the same work, profiles, selected context and native approval path. Unknown usage and unsupported native behavior stay explicit.
+Read the [alpha guide](docs/PUBLIC_ALPHA.md), [security boundaries](SECURITY.md), [native integration setup](docs/NATIVE_DRIVERS.md) and [full completion audit](docs/COMPLETION_AUDIT.md). The complete vision is still in progress.
 
-[Native runtime extensions](docs/EXTENSIONS.md) load explicitly trusted local adapters with `node bin/forge.mjs start --extension ./examples/hermes-runtime-extension.mjs`. Repeat the option for another provider. Loading and linking start no gateway.
-
-[Workspace blueprints](docs/BLUEPRINTS.md) reuse setup roles and optional work templates. Bind your own native accounts and selected memory, review the import, and roll back unused setup. Existing native credentials, schedules and work retain their owners.
-
-For phone review, the opt-in private gateway reuses Tailscale Serve and an explicit owner allowlist. [Phone setup and evidence](docs/PHONE_ACCESS.md) describe the authenticated route and the remaining live-device verification. The default service remains local.
-
-[Notifications](docs/NOTIFICATIONS.md) reuse your existing ntfy destination for generic approval and attempt alerts. Private credentials stay outside SQLite/exports; uncertain deliveries are visible and never automatically retried. The native request still requires authenticated review in Forge.
-
-To see existing work, open **Activity**, discover profile references, then read the sources you want. Codex and Claude session catalogs, Codex and Hermes schedule definitions, and existing Hermes/OpenClaw session APIs retain their native owners. An optional [native Hermes ticker check](docs/SCHEDULER_EVIDENCE.md) distinguishes recent, stale and unknown evidence without starting jobs. [Native activity coverage and setup](docs/NATIVE_ACTIVITY.md) explain the limits and private metadata handling.
-
-T3 Code can supply an optional [native execution backend](docs/NATIVE_BACKENDS.md), with native provider instances/models, exact approvals, delegated run receipts and explicit context coverage. Its separate [read-only activity source](docs/T3_CODE.md) keeps its original scope. The two-instance artifact and credential proof passes; full native-history preservation and whole-stack adoption remain open.
-
-Open **Memory** to create a persistent profile and pin scoped native Markdown files or sections. The launch dialog shows the current selection. Corrections invalidate stale reviews and start a fresh native conversation while retaining the work and earlier history. [Profile and memory setup](docs/MEMORY.md) explains scope, provenance and native ownership.
-
-Private state is stored outside this repository. On macOS, the default is `~/Library/Application Support/Forge/workspace.sqlite`. Use `FORGE_DATA_DIR` or `node bin/forge.mjs --data-dir DIRECTORY` to select another location. `FORGE_PORT` or `--port` changes the loopback port. Stop a foreground service with Ctrl+C. [Opt-in macOS background operation](docs/BACKGROUND_SERVICE.md) reuses launchd for login startup and crash restart. Nothing installs a startup agent automatically; background schedules and native companion owners remain unchanged.
+See [one native task across five harnesses](docs/NATIVE_HANDOFF_EXAMPLE.md), including the exact conformance scope and a public receipt.
 
 ## What works today
 

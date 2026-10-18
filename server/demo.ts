@@ -1,4 +1,4 @@
-import type { Account, Approval, Usage, Work } from '../shared/types.js';
+import type { Account, Approval, Usage, Work, Run } from '../shared/types.js';
 import { Store, id, now } from './store.js';
 import { requestDigest } from './adapters/sources.js';
 
@@ -200,4 +200,89 @@ export function seedDemo(store: Store) {
     },
   ];
   usage.forEach((u) => store.saveUsage(u));
+  seedContinuityExample(store, stamp, accounts[0]);
+}
+
+function seedContinuityExample(store: Store, stamp: string, source: Account) {
+  const destination: Account = {
+    ...source,
+    id: 'demo-hermes',
+    label: 'Hermes example',
+    harness: 'hermes',
+    identity: 'example@example.invalid',
+    identityKey: 'example-hermes',
+    quotas: [],
+  };
+  store.put('accounts', destination.id, destination);
+  const work: Work = {
+    id: 'demo-continuity',
+    title: 'One task. Codex to Hermes.',
+    project: 'Fictional handoff example',
+    cwd: '',
+    goal: 'Write a small project summary in Codex, then continue its review in Hermes.',
+    context:
+      'The same work retains its goal, selected memory and checkpoint. Native tools keep execution ownership. This example is fictional and never touches a project directory.',
+    acceptance:
+      'Inspect both attempt records and the retained checkpoint, then export the public receipt. Selected-context continuity does not imply lossless native hidden state.',
+    harness: 'hermes',
+    accountId: destination.id,
+    status: 'completed',
+    priority: 'normal',
+    generation: 2,
+    revision: 0,
+    nativeSessionId: null,
+    activeRunId: null,
+    createdAt: stamp,
+    updatedAt: stamp,
+  };
+  store.put('work', work.id, work);
+  store.event(
+    work.id,
+    'checkpoint',
+    'Fictional checkpoint retained',
+    'The example summary is ready for review. Keep the goal and selected project context.',
+  );
+  store.event(
+    work.id,
+    'handoff',
+    'Fictional Codex to Hermes handoff',
+    'One canonical work record; new native conversation; selected context retained. No native process or file operation occurred.',
+  );
+  for (const [index, harness] of ['codex', 'hermes'].entries()) {
+    const run: Run = {
+      id: 'demo-continuity-' + harness,
+      workId: work.id,
+      accountId: index ? destination.id : source.id,
+      harness,
+      generation: index + 1,
+      nativeSessionId: 'fictional-session-' + harness,
+      nativeTurnId: 'fictional-turn-' + harness,
+      status: 'completed',
+      startedAt: stamp,
+      endedAt: stamp,
+      exitConfirmed: true,
+      supervisionId: 'fictional-supervision-' + harness,
+    };
+    store.put('runs', run.id, run);
+    store.saveUsage({
+      key: 'demo-continuity-usage-' + harness,
+      workId: work.id,
+      accountId: run.accountId,
+      harness,
+      source: 'example',
+      scope: 'Fictional example',
+      inputTokens: 1200,
+      outputTokens: 300,
+      cachedTokens: 0,
+      totalTokens: 1500,
+      estimatedUsd: 0.01,
+      observedAt: stamp,
+    });
+    store.event(
+      work.id,
+      'assistant',
+      'Fictional ' + (index ? 'Hermes review' : 'Codex summary'),
+      'Illustrative completed attempt. The public receipt summarizes only safe fields; it excludes goal, memory, file paths and account identifiers.',
+    );
+  }
 }

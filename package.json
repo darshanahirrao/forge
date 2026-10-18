@@ -1,10 +1,41 @@
 {
   "name": "@forge-workspace/forge",
-  "version": "0.39.0",
+  "version": "0.40.0",
   "description": "A local workspace for continuous work across agent harnesses.",
   "private": true,
   "type": "module",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/darshanahirrao/forge.git"
+  },
+  "homepage": "https://github.com/darshanahirrao/forge#readme",
+  "bugs": {
+    "url": "https://github.com/darshanahirrao/forge/issues"
+  },
+  "files": [
+    "npm-shrinkwrap.json",
+    "bin/forge.mjs",
+    "bin/doctor.mjs",
+    "bin/service-runner.mjs",
+    "bin/service-activate.mjs",
+    "dist/package.json",
+    "dist/server/**/*.js",
+    "dist/server/**/*.mjs",
+    "dist/server/**/*.d.ts",
+    "dist/server/**/*.d.mts",
+    "dist/server/adapters/*.py",
+    "dist/shared/**/*.js",
+    "dist/shared/**/*.d.ts",
+    "dist/client/",
+    "examples/",
+    "docs/",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "THIRD_PARTY_NOTICES.md",
+    "BUILD_LOG.md",
+    "HANDOFF.md"
+  ],
   "engines": {
     "node": ">=24.0.0"
   },
@@ -21,12 +52,15 @@
     "dev": "concurrently -k -n server,web \"tsx watch server/index.ts\" \"vite --host 127.0.0.1\"",
     "build": "tsc -p tsconfig.server.json && tsc -p tsconfig.sdk.json && node bin/copy-native-assets.mjs && vite build",
     "start": "node dist/server/index.js",
+    "doctor": "node bin/forge.mjs doctor",
+    "release:pack": "node bin/package-release.mjs",
     "check": "tsc --noEmit && tsc -p tsconfig.server.json --noEmit && tsc -p tsconfig.tests.json",
     "format": "prettier --write --ignore-unknown web server shared tests bin *.json *.ts",
     "format:check": "prettier --check --ignore-unknown web server shared tests bin *.json *.ts",
     "test": "tsx --test --test-concurrency=1 tests/*.test.ts",
     "test:e2e": "playwright test",
     "test:package": "node --test tests/package.test.mjs",
+    "test:distribution": "node --test tests/distribution.test.mjs",
     "test:native:codex": "tsx tests/native/codex-conformance.ts",
     "test:native:claude": "tsx tests/native/claude-conformance.ts",
     "test:native:handoff": "tsx tests/native/handoff-conformance.ts",

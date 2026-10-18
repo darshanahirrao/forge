@@ -14,6 +14,7 @@ import { harnessName, age } from '../lib/format';
 import { OutcomeReview } from './OutcomeReview';
 import { RoutingPanel } from './RoutingPanel';
 import { NativeResourceSummary } from './NativeResourceControls';
+import { ShareReceiptDialog } from './ShareReceiptDialog';
 import {
   ChevronRight,
   ShieldCheck,
@@ -60,6 +61,7 @@ export function WorkDetail({
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [sharing, setSharing] = useState(false);
   const nativeResources = runs.find((run) => run.generation === work.generation)?.nativeResources;
   async function checkpoint(e: FormEvent) {
     e.preventDefault();
@@ -89,6 +91,8 @@ export function WorkDetail({
       setSaving(false);
     }
   }
+  if (sharing)
+    return <ShareReceiptDialog workId={work.id} mode={mode} onClose={() => setSharing(false)} />;
   return (
     <Dialog title={work.title} subtitle={work.project} onClose={onClose} sheet>
       <div className="dialog-body detail-body">
@@ -128,6 +132,9 @@ export function WorkDetail({
                   ? 'Portable checkpoint retained'
                   : 'Tracked work record'}
           </span>
+          <button className="text-button" onClick={() => setSharing(true)}>
+            Share receipt
+          </button>
         </div>
         {work.nativeOrigin && (
           <details className="native-details">
@@ -166,6 +173,49 @@ export function WorkDetail({
             Edit context <ChevronRight size={14} />
           </button>
         </div>
+        {runs.length > 0 && (
+          <section className="detail-section">
+            <h3>Recorded native attempts</h3>
+            <p className="source-note">
+              The latest {runs.length} attempt records for this work. Native sessions keep their own
+              state; selected context moves through reviewed handoffs.
+            </p>
+            <ol className="attempt-history" aria-label="Recorded native attempts">
+              {[...runs]
+                .sort((a, b) => a.generation - b.generation)
+                .map((run) => {
+                  const nativeAccount = data.accounts.find((item) => item.id === run.accountId);
+                  return (
+                    <li key={run.id}>
+                      <HarnessMark harness={run.harness ?? nativeAccount?.harness ?? 'unknown'} />
+                      <div>
+                        <strong>
+                          {executionName(
+                            run.harness ?? nativeAccount?.harness ?? 'unknown',
+                            nativeAccount,
+                          )}
+                        </strong>
+                        <span>
+                          Attempt {run.generation} ·{' '}
+                          {nativeAccount?.label ?? 'Retained native account'}
+                        </span>
+                        <span>
+                          {run.settlement
+                            ? run.settlement.confirmed
+                              ? 'Native outcome reconciled'
+                              : 'Native outcome needs review'
+                            : run.exitConfirmed
+                              ? 'Original closure recorded'
+                              : 'Original closure unconfirmed'}
+                        </span>
+                      </div>
+                      <Status value={run.status} />
+                    </li>
+                  );
+                })}
+            </ol>
+          </section>
+        )}
         {nativeResources && <NativeResourceSummary receipt={nativeResources} />}
         {pending && (
           <div className="notice notice-attention">

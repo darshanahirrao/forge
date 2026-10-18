@@ -46,6 +46,7 @@ import type { DriverFactory } from './adapters/driver.js';
 import { workspaceHeaders } from './http-security.js';
 import { bridgeActor, type PhoneBridge } from './phone.js';
 import { seedDemo } from './demo.js';
+import { publicReceipt } from '../shared/public-receipt.js';
 import { checkMemoryAdmission } from './memory-pressure.js';
 import { T3Connections, t3Endpoint } from './t3.js';
 import { T3Backends } from './backends/t3-backend.js';
@@ -912,6 +913,18 @@ export async function createApp(options: AppOptions) {
         )
         .slice(0, 20),
     };
+  });
+  app.get('/api/work/:id/public-receipt', async (request) => {
+    const workId = (request.params as { id: string }).id;
+    const db = store(request);
+    db.work(workId);
+    return publicReceipt(
+      mode(request),
+      db.all<Run>('runs').filter((run) => run.workId === workId),
+      db.all<Usage>('usage').filter((row) => row.workId === workId),
+      db.all<Approval>('approvals').filter((row) => row.workId === workId),
+      db.checkpoints(workId).length,
+    );
   });
   app.get('/api/work/:id/route', async (request) => {
     assert(mode(request) === 'local', 409, 'Demo cannot inspect native account routing.');

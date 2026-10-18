@@ -28,6 +28,7 @@ import type {
 import { fixtureProvider } from './provider.js';
 import { readWorkerExit } from '../../server/worker-proof.mjs';
 import type { WorkerProofDescriptor } from '../../shared/recovery.js';
+import { receiptMarkdown } from '../../shared/public-receipt.js';
 
 await mkdir(join(process.cwd(), 'artifacts'), { recursive: true });
 const directory = await mkdtemp(join(process.cwd(), 'artifacts', 'forge-native-handoff-'));
@@ -626,6 +627,31 @@ try {
   assert.equal(state.local.checkpoints(work.id)[0].detail, checkpointNote);
   assert.equal(sourceProvider.failure(), null);
   for (const provider of destinations) assert.equal(provider.failure(), null);
+  const shared = await state.app.inject({
+    method: 'GET',
+    url: '/api/work/' + work.id + '/public-receipt',
+    headers: { host: '127.0.0.1:4710' },
+  });
+  assert.equal(shared.statusCode, 200, shared.body);
+  const publicEvidence = shared.json();
+  assert.deepEqual(publicEvidence.harnessSequence, [
+    'Codex',
+    'Claude',
+    'OpenCode',
+    'Hermes',
+    'OpenClaw',
+  ]);
+  assert.equal(publicEvidence.recordedAttempts, 6);
+  assert.equal(publicEvidence.completedAttempts, 6);
+  assert.equal(publicEvidence.confirmedOriginalClosures, 6);
+  assert.equal(publicEvidence.evidence, 'local-records');
+  for (const privateText of [work.id, project, goal, checkpointNote, memoryFact, excludedMemory])
+    assert(!shared.body.includes(privateText), 'Private context reached the public receipt.');
+  await writeFile(
+    join(process.cwd(), 'artifacts/forge-v040-native-public-receipt.md'),
+    receiptMarkdown(publicEvidence),
+    { mode: 0o600 },
+  );
   console.log(
     JSON.stringify({
       status: 'passed',
@@ -643,6 +669,7 @@ try {
       persistentProfileAndSelectedMemoryObserved: true,
       unselectedMemoryExcluded: true,
       usageScopesRetained: 6,
+      publicReceiptPrivateContextExcluded: true,
       paidModelCalls: 0,
     }),
   );
